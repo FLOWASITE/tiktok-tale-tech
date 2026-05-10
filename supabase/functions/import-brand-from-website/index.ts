@@ -2,12 +2,14 @@
 // Scrapes a website (homepage + optional sub-pages) via Firecrawl,
 // then asks the AI to extract a structured brand suggestion blob.
 //
-// Auth: standard JWT (verify_jwt = true by default).
-// Body: { url: string, extra_paths?: string[], organization_id?: string, locale?: string }
+// Auth: standard JWT.
+// Body: { url, extra_paths?, organization_id?, locale?, stream? }
+// If stream=true → SSE event stream (progress + result/error).
 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createBrandImportSSE } from "../_shared/brand-import-stream.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +65,119 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
+interface RunInput {
+  targetUrl: string;
+  extraPaths: string[];
+  organizationId?: string;
+  locale: string;
+  userId: string;
+}
+
+async function runImport(
+  input: RunInput,
+  emit?: (event: string, data: Record<string, unknown>) => Promise<void>,
+): Promise<{ status: number; body: any }> {
+  const { targetUrl, extraPaths, organizationId, locale } = input;
+
+  await emit?.("progress", {
+    step: "scrape_home",
+    percent: 10,
+    message: `Đang đọc trang chủ ${new URL(targetUrl).hostname}`,
+  });
+
+  const home = await firecrawlScrape(targetUrl, ["markdown"]);
+  if (!home.success) {
+    return { status: 502, body: { error: `Không scrape được trang chủ: ${home.error}` } };
+  }
+  await emit?.("subpage_done", { url: targetUrl, success: true, kind: "home" });
+
+  if (extraPaths.length > 0) {
+    await emit?.("progress", {
+      step: "scrape_subpages",
+      percent: 25,
+      message: `Đang đọc ${extraPaths.length} trang phụ (about, giới thiệu)`,
+    });
+  }
+
+  const subMarkdowns: string[] = [];
+  await Promise.all(
+    extraPaths.map(async (p) => {
+      const sub = normalizeUrl(p.startsWith("http") ? p : new URL(p, targetUrl).toString());
+      if (!sub) {
+        await emit?.("subpage_done", { url: p, success: false, error: "bad url" });
+        return;
+      }
+      const r = await firecrawlScrape(sub, ["markdown"]);
+      if (r.success && r.markdown) {
+        subMarkdowns.push(r.markdown.slice(0, 4000));
+        await emit?.("subpage_done", { url: sub, success: true });
+      } else {
+        await emit?.("subpage_done", { url: sub, success: false, error: r.error });
+      }
+    }),
+  );
+
+  const meta = home.metadata || {};
+  const combinedContent = [
+    `# Page title: ${meta.title || ""}`,
+    meta.description ? `# Meta description: ${meta.description}` : "",
+    meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
+    "",
+    "## Homepage",
+    home.markdown || "",
+    ...subMarkdowns.map((m, i) => `\n## Sub page ${i + 1}\n${m}`),
+  ].filter(Boolean).join("\n");
+
+  await emit?.("progress", {
+    step: "ai_analyzing",
+    percent: 50,
+    message: "AI đang phân tích nội dung",
+  });
+
+  const extracted = await extractBrandSuggestions({
+    source: "website",
+    content: combinedContent,
+    locale,
+    organizationId,
+    hint: new URL(targetUrl).hostname,
+    onProgress: emit
+      ? (e) => {
+          emit("model_event", e as any).catch(() => {});
+        }
+      : undefined,
+  });
+
+  if (!extracted.success) {
+    const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
+    return {
+      status: isQuota ? 402 : 502,
+      body: {
+        error: isQuota
+          ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục."
+          : (extracted.error || "AI extraction failed"),
+        code: extracted.error,
+      },
+    };
+  }
+
+  await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      suggestion: extracted.suggestion,
+      raw_meta: {
+        source_url: targetUrl,
+        page_title: meta.title || null,
+        og_image: meta.ogImage || meta.image || null,
+        favicon: meta.favicon || null,
+        scraped_pages: 1 + subMarkdowns.length,
+      },
+    },
+  };
+}
+
 Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -80,11 +195,11 @@ Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) =
     const extraPaths: string[] = Array.isArray(body?.extra_paths) ? body.extra_paths.slice(0, 4) : [];
     const organizationId: string | undefined = body?.organization_id;
     const locale: string = body?.locale || "vi";
+    const wantStream = body?.stream === true;
 
     const targetUrl = rawUrl ? normalizeUrl(rawUrl) : null;
     if (!targetUrl) return json({ error: "URL không hợp lệ" }, 400);
 
-    // Admin kill-switch: check both orchestrator + extractor enabled
     const [orchCfg, extrCfg] = await Promise.all([
       getAIConfig("import-brand-from-website", organizationId).catch(() => null),
       getAIConfig("import-brand-extractor", organizationId).catch(() => null),
@@ -93,67 +208,36 @@ Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) =
       return json({ error: "Tính năng Import Brand đang tạm ngưng (Admin)", code: "FEATURE_DISABLED" }, 503);
     }
 
-    console.log(`[import-brand-from-website] user=${user.id} url=${targetUrl} extras=${extraPaths.length}`);
+    console.log(`[import-brand-from-website] user=${user.id} url=${targetUrl} extras=${extraPaths.length} stream=${wantStream}`);
 
-    // Scrape homepage with branding
-    const home = await firecrawlScrape(targetUrl, ["markdown"]);
-    if (!home.success) {
-      return json({ error: `Không scrape được trang chủ: ${home.error}` }, 502);
+    const runInput: RunInput = { targetUrl, extraPaths, organizationId, locale, userId: user.id };
+
+    if (!wantStream) {
+      const { status, body: out } = await runImport(runInput);
+      return json(out, status);
     }
 
-    // Scrape sub-pages in parallel (best-effort)
-    const subResults = await Promise.allSettled(
-      extraPaths.map((p) => {
-        const sub = normalizeUrl(p.startsWith("http") ? p : new URL(p, targetUrl).toString());
-        return sub ? firecrawlScrape(sub, ["markdown"]) : Promise.resolve({ success: false, error: "bad url" });
-      }),
-    );
-
-    const subMarkdowns: string[] = [];
-    subResults.forEach((r) => {
-      if (r.status === "fulfilled" && r.value.success && r.value.markdown) {
-        subMarkdowns.push(r.value.markdown.slice(0, 4000));
+    // Streaming branch
+    const sse = createBrandImportSSE();
+    const work = (async () => {
+      try {
+        await sse.emit("progress", { step: "init", percent: 5, message: "Khởi tạo..." });
+        const { status, body: out } = await runImport(runInput, sse.emit);
+        if (status >= 400) {
+          await sse.emit("error", { message: out.error, code: out.code, status });
+        } else {
+          await sse.emit("result", { ...out, percent: 100 });
+        }
+      } catch (e) {
+        console.error("[import-brand-from-website] stream error:", e);
+        await sse.emit("error", { message: e instanceof Error ? e.message : "Internal error" });
+      } finally {
+        await sse.close();
       }
-    });
-
-    const meta = home.metadata || {};
-    const combinedContent = [
-      `# Page title: ${meta.title || ""}`,
-      meta.description ? `# Meta description: ${meta.description}` : "",
-      meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
-      "",
-      "## Homepage",
-      home.markdown || "",
-      ...subMarkdowns.map((m, i) => `\n## Sub page ${i + 1}\n${m}`),
-    ].filter(Boolean).join("\n");
-
-    const extracted = await extractBrandSuggestions({
-      source: "website",
-      content: combinedContent,
-      locale,
-      organizationId,
-      hint: new URL(targetUrl).hostname,
-    });
-
-    if (!extracted.success) {
-      const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
-      return json(
-        { error: isQuota ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục." : (extracted.error || "AI extraction failed"), code: extracted.error },
-        isQuota ? 402 : 502,
-      );
-    }
-
-    return json({
-      success: true,
-      suggestion: extracted.suggestion,
-      raw_meta: {
-        source_url: targetUrl,
-        page_title: meta.title || null,
-        og_image: meta.ogImage || meta.image || null,
-        favicon: meta.favicon || null,
-        scraped_pages: 1 + subMarkdowns.length,
-      },
-    });
+    })();
+    // @ts-ignore EdgeRuntime exists in Supabase Edge runtime
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
+    return sse.response;
   } catch (e) {
     console.error("[import-brand-from-website] error:", e);
     return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
