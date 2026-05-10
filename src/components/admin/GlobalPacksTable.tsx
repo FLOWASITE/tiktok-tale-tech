@@ -187,10 +187,13 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                       </code>
                     </TableCell>
                     <TableCell>
-                      <div>
+                      <div className="flex items-center gap-2">
                         <p className="font-medium">{pack.name}</p>
-                        <p className="text-xs text-muted-foreground">v{pack.version}</p>
+                        {pack.isPopular && (
+                          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" aria-label="Phổ biến" />
+                        )}
                       </div>
+                      <p className="text-xs text-muted-foreground">v{pack.version}</p>
                     </TableCell>
                     <TableCell>
                       <Badge className={targetConfig.color}>
