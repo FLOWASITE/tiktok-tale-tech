@@ -192,6 +192,20 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       const color = result.raw_meta?.theme_color || s.primary_color_suggestion;
       if (color) updates.primary_color = color;
     }
+    if (selectedFields.has('footer_info')) {
+      const f = result.raw_meta?.footer_info;
+      if (f) {
+        updates.footer_info = {
+          company_name: f.company_name || '',
+          phone: f.phone || '',
+          email: f.email || '',
+          website: f.website || result.raw_meta?.source_url || '',
+          address: f.address || '',
+          tax_code: f.tax_code || '',
+          social_links: f.social_links || {},
+        };
+      }
+    }
     updates.imported_from = {
       source: result.source,
       url: result.raw_meta?.source_url || null,
