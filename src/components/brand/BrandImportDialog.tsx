@@ -252,7 +252,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         </DialogHeader>
 
         {!result ? (
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+            {loading && (
+              <BrandImportProgressPanel progress={progress} events={events} onCancel={cancel} />
+            )}
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="website" className="gap-2"><Globe className="w-4 h-4" /> Website</TabsTrigger>
