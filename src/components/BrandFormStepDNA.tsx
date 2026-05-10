@@ -220,7 +220,7 @@ export function BrandFormStepDNA({
     return option?.suggestEmoji === true;
   });
 
-  const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel)?.hint;
+  const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === safeFormalityLevel)?.hint;
 
   // Count items for badges
   const voiceCount = safeToneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
