@@ -49,6 +49,45 @@ export default function BrandCreate() {
   const importedSuggestion = locationState?.importedSuggestion || null;
 
   const { templates, saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
+  const { currentOrganization } = useOrganizationContext();
+
+  // Recently used industry packs (per organization)
+  const { data: recentlyUsedIds = [], refetch: refetchRecent } = useQuery({
+    queryKey: ['org-recent-industries', currentOrganization?.id],
+    queryFn: async () => {
+      if (!currentOrganization?.id) return [] as string[];
+      const { data } = await supabase
+        .from('organizations')
+        .select('last_used_industry_pack_ids')
+        .eq('id', currentOrganization.id)
+        .maybeSingle();
+      const ids = (data as any)?.last_used_industry_pack_ids;
+      return Array.isArray(ids) ? (ids as string[]) : [];
+    },
+    enabled: !!currentOrganization?.id,
+    staleTime: 60 * 1000,
+  });
+
+  // Build suggested context for AI from imported brand info
+  const suggestedContext = useMemo(() => {
+    if (!importedSuggestion) return undefined;
+    const s = (importedSuggestion as any).suggestion || {};
+    const meta = (importedSuggestion as any).raw_meta || {};
+    const parts = [
+      s.brand_name && `Tên: ${s.brand_name}`,
+      s.tagline && `Slogan: ${s.tagline}`,
+      s.mission && `Sứ mệnh: ${s.mission}`,
+      s.industry_suggestion && `Ngành gợi ý: ${s.industry_suggestion}`,
+      Array.isArray(s.usps) && s.usps.length && `USP: ${s.usps.join('; ')}`,
+      meta.description && `Mô tả: ${meta.description}`,
+      meta.title && `Title: ${meta.title}`,
+      meta.content_summary && `Nội dung: ${String(meta.content_summary).slice(0, 1500)}`,
+      meta.footer_info?.company_name && `Công ty: ${meta.footer_info.company_name}`,
+    ].filter(Boolean);
+    const text = parts.join('\n');
+    return text.length >= 20 ? text : undefined;
+  }, [importedSuggestion]);
+
 
   // If we only have the ID, find the full template from the hook
   const editingTemplate = useMemo(() => {
