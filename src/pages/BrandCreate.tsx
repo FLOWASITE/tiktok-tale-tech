@@ -291,18 +291,31 @@ export default function BrandCreate() {
       }
       const palette = (meta as any)?.color_palette;
       const userSelectedColor = (meta as any)?.selected_primary_color as string | null | undefined;
-      // Gom tất cả candidate màu để user chọn
+      // Gom tất cả candidate màu để user chọn — LOẠI màu neutral (đen/trắng/xám)
       const hexRe = /^#[0-9a-fA-F]{6}$/;
+      const isNeutral = (hex: string): boolean => {
+        const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+        if (!m) return true;
+        const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        if (max - min < 35) return true;
+        if (max < 60) return true;
+        if (min > 230) return true;
+        return false;
+      };
       const rawCandidates: Array<{ hex: string; source: string }> = [];
-      const pushCand = (hex: unknown, source: string) => {
+      const pushCand = (hex: unknown, source: string, allowNeutral = false) => {
         if (typeof hex === 'string' && hexRe.test(hex)) {
-          rawCandidates.push({ hex: hex.toLowerCase(), source });
+          const h = hex.toLowerCase();
+          if (!allowNeutral && isNeutral(h)) return;
+          rawCandidates.push({ hex: h, source });
         }
       };
-      pushCand(userSelectedColor, 'Bạn đã chọn');
+      // User pick được phép là neutral (nếu họ chủ động chọn)
+      pushCand(userSelectedColor, 'Bạn đã chọn', true);
+      pushCand(palette?.primary, 'Logo dominant');
       pushCand(s.primary_color, 'AI');
       pushCand(meta.theme_color, 'Theme color');
-      pushCand(palette?.primary, 'Logo dominant');
       pushCand(s.primary_color_suggestion, 'AI gợi ý');
       if (palette && Array.isArray(palette.candidates)) {
         (palette.candidates as unknown[]).forEach((c) => pushCand(c, 'Logo palette'));
@@ -323,12 +336,13 @@ export default function BrandCreate() {
         setPrimaryColor(uniq[0].hex);
         setColorChosenFromImport(true);
       } else if (uniq.length === 0) {
-        setColorChosenFromImport(true); // không có gì để chọn
+        // Không có màu hợp lệ — giữ default, không auto-pick màu đen
+        setColorChosenFromImport(true);
       }
-      // secondary colors lấy phần còn lại từ palette.candidates
+      // secondary colors lấy phần còn lại từ palette.candidates (loại neutral)
       if (palette && Array.isArray(palette.candidates)) {
         const extras = (palette.candidates as string[])
-          .filter((c) => hexRe.test(c))
+          .filter((c) => hexRe.test(c) && !isNeutral(c.toLowerCase()))
           .map((c) => c.toLowerCase())
           .filter((c, i, arr) => arr.indexOf(c) === i)
           .slice(0, 4);
