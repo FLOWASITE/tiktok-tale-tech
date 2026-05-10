@@ -416,6 +416,7 @@ async function runImport(
     message: "Đang trích xuất logo & màu chủ đạo",
   });
   const visuals = extractVisualSignals(home.html, targetUrl);
+  const footerRegex = extractFooterSignals(home.html, targetUrl);
 
   if (extraPaths.length > 0) {
     await emit?.("progress", {
