@@ -349,9 +349,18 @@ export default function BrandCreate() {
       setImportDialogOpen(false);
       setShowQuickStart(false);
       setCurrentStep(1);
-      // Mở dialog xác nhận ngành (AI suggestion list)
-      setShowIndustryConfirmAfterImport(true);
-      toast.success('Đã nạp dữ liệu từ import. Hãy chọn ngành phù hợp để tiếp tục.');
+      // Nếu user đã chọn ngành ngay trong popup import — áp dụng luôn, không bắt xác nhận lại
+      const pickedPack = (meta as any)?.selected_industry_pack as { id?: string; name?: string } | null;
+      if (pickedPack?.id && pickedPack?.name) {
+        setGlobalPackId(pickedPack.id);
+        setIndustries([pickedPack.name]);
+        setShowIndustryConfirmAfterImport(false);
+        toast.success('Đã nạp dữ liệu từ import.');
+      } else {
+        // Mở dialog xác nhận ngành (AI suggestion list)
+        setShowIndustryConfirmAfterImport(true);
+        toast.success('Đã nạp dữ liệu từ import. Hãy chọn ngành phù hợp để tiếp tục.');
+      }
     }
   }, [importedSuggestion, editingTemplate]);
 

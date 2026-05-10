@@ -16,6 +16,9 @@ import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBrandTemplates, type BrandTemplate } from '@/hooks/useBrandTemplates';
 import { BrandImportProgressPanel } from './BrandImportProgressPanel';
+import { useGlobalPacksForBrandSelection, type GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
+import { smartFilter } from '@/lib/industrySearch';
+import { Check } from 'lucide-react';
 
 interface BrandImportDialogProps {
   open: boolean;
@@ -58,7 +61,26 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedPrimaryColor, setSelectedPrimaryColor] = useState<string | null>(null);
+  const [selectedIndustryPack, setSelectedIndustryPack] = useState<GlobalPackForSelection | null>(null);
   const [applying, setApplying] = useState(false);
+
+  const { data: allPacks = [] } = useGlobalPacksForBrandSelection({ languageCode: 'vi', includeSubIndustries: true });
+
+  const industryCandidates = useMemo<GlobalPackForSelection[]>(() => {
+    if (!result || !allPacks.length) return [];
+    const hint = (result.suggestion?.industry_suggestion || '').trim();
+    let matches: GlobalPackForSelection[] = [];
+    if (hint) {
+      matches = smartFilter(allPacks, hint).slice(0, 5);
+    }
+    if (matches.length === 0) {
+      matches = allPacks
+        .filter((p) => p.isPopular)
+        .sort((a, b) => (a.popularSortOrder ?? 999) - (b.popularSortOrder ?? 999))
+        .slice(0, 5);
+    }
+    return matches;
+  }, [result, allPacks]);
 
   const logoCandidates = useMemo(() => {
     if (!result) return [] as Array<{ url: string; source: string }>;
@@ -90,6 +112,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setSelectedFields(new Set());
       setSelectedLogoUrl(null);
       setSelectedPrimaryColor(null);
+      setSelectedIndustryPack(null);
       setTab('website');
     }
   }, [open]);
@@ -167,8 +190,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if (selectedFields.has('brand_name') && s.brand_name) updates.brand_name = s.brand_name;
     if (selectedFields.has('tagline') && s.tagline) updates.tagline = s.tagline;
     if (selectedFields.has('mission') && s.mission) updates.mission = s.mission;
-    if (selectedFields.has('industry') && s.industry_suggestion) {
-      updates.industry = [s.industry_suggestion];
+    if (selectedFields.has('industry')) {
+      const industryName = selectedIndustryPack?.name || s.industry_suggestion;
+      if (industryName) updates.industry = [industryName];
+      if (selectedIndustryPack) updates.global_pack_id = selectedIndustryPack.id as any;
     }
     if (selectedFields.has('target_audience') && s.target_audience) {
       if (s.target_audience.age_range) updates.target_age_range = s.target_audience.age_range;
@@ -236,6 +261,9 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         ...(result.raw_meta || {}),
         logo_url: effectiveLogo,
         selected_primary_color: selectedPrimaryColor,
+        selected_industry_pack: selectedIndustryPack
+          ? { id: selectedIndustryPack.id, code: selectedIndustryPack.code, name: selectedIndustryPack.name }
+          : null,
       },
     };
     if (!targetBrand) {
@@ -316,7 +344,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     const groups: Record<string, typeof ALL_FIELDS> = {};
     ALL_FIELDS.forEach((f) => {
       const v = renderPreviewValue(f.key);
-      if (!v) return;
+      // Always show industry row so user can pick from candidate chips
+      if (!v && f.key !== 'industry') return;
       if (!groups[f.group]) groups[f.group] = [];
       groups[f.group].push(f);
     });
@@ -422,6 +451,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                       const existing = readExistingFieldLabel(targetBrand, f.key);
                       const isLogo = f.key === 'logo_url' && value;
                       const isColor = f.key === 'primary_color' && value;
+                      const isIndustry = f.key === 'industry';
                       const palette: any = result?.raw_meta?.color_palette;
                       const colorConfidence: 'high' | 'medium' | 'low' = palette?.confidence || (palette?.source === 'logo' || palette?.source === 'css-vars' || palette?.source === 'meta' ? 'high' : palette?.source === 'mixed' ? 'medium' : 'low');
                       const colorIsAiGuess = f.key === 'primary_color' && colorConfidence === 'low';
@@ -431,7 +461,22 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                           key={f.key}
                           className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/30 cursor-pointer transition-colors"
                         >
-                          <Checkbox checked={checked} onCheckedChange={() => toggleField(f.key)} className="mt-1" />
+                          <Checkbox
+                            checked={isIndustry ? !!selectedIndustryPack : checked}
+                            onCheckedChange={() => {
+                              if (isIndustry) {
+                                if (selectedIndustryPack) {
+                                  setSelectedIndustryPack(null);
+                                  setSelectedFields((prev) => {
+                                    const n = new Set(prev); n.delete('industry'); return n;
+                                  });
+                                }
+                              } else {
+                                toggleField(f.key);
+                              }
+                            }}
+                            className="mt-1"
+                          />
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium">{f.label}</span>
@@ -530,6 +575,47 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                 <p className="text-[11px] text-muted-foreground">
                                   Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
                                 </p>
+                              </div>
+                            ) : isIndustry ? (
+                              <div className="space-y-2">
+                                {value && (
+                                  <p className="text-xs text-muted-foreground">
+                                    AI gợi ý: <span className="font-medium text-foreground">{value}</span>
+                                  </p>
+                                )}
+                                <p className="text-[11px] text-muted-foreground">
+                                  {industryCandidates.length > 0
+                                    ? 'Chọn 1 ngành phù hợp để áp dụng:'
+                                    : 'Đang tải danh sách ngành…'}
+                                </p>
+                                <div
+                                  className="flex flex-wrap gap-2"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {industryCandidates.map((p) => {
+                                    const active = selectedIndustryPack?.id === p.id;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={p.id}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedIndustryPack(p);
+                                          setSelectedFields((prev) => new Set(prev).add('industry'));
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                                          active
+                                            ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/40'
+                                            : 'border-border bg-background hover:border-muted-foreground/40'
+                                        }`}
+                                      >
+                                        {active && <Check className="w-3 h-3" />}
+                                        <span className="truncate max-w-[160px]">{p.shortName || p.name}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
