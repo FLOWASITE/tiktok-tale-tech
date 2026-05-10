@@ -357,7 +357,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
             </Tabs>
           </div>
         ) : (
-          <ScrollArea className="flex-1 pr-3">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
