@@ -703,6 +703,11 @@ function readExistingFieldLabel(brand: BrandTemplate | null | undefined, key: Im
       return parts.join(' • ') || null;
     }
     case 'tone_of_voice': return brand.tone_of_voice?.join(', ') || null;
+    case 'brand_positioning': return brand.brand_positioning || null;
+    case 'formality_level': {
+      const map: Record<string, string> = { casual: 'Thân mật', neutral: 'Trung tính', formal: 'Trang trọng' };
+      return brand.formality_level ? (map[brand.formality_level] || brand.formality_level) : null;
+    }
     case 'content_pillars': return brand.content_pillars?.map((p) => p.name).join(' • ') || null;
     case 'usps': return brand.competitive_advantages?.join(' • ') || null;
     case 'sample_texts': {
