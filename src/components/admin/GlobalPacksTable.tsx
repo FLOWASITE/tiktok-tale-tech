@@ -36,7 +36,9 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
+  Star,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 interface GlobalPacksTableProps {
