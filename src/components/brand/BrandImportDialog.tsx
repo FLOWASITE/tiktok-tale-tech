@@ -190,8 +190,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if (selectedFields.has('brand_name') && s.brand_name) updates.brand_name = s.brand_name;
     if (selectedFields.has('tagline') && s.tagline) updates.tagline = s.tagline;
     if (selectedFields.has('mission') && s.mission) updates.mission = s.mission;
-    if (selectedFields.has('industry') && s.industry_suggestion) {
-      updates.industry = [s.industry_suggestion];
+    if (selectedFields.has('industry')) {
+      const industryName = selectedIndustryPack?.name || s.industry_suggestion;
+      if (industryName) updates.industry = [industryName];
+      if (selectedIndustryPack) updates.global_pack_id = selectedIndustryPack.id as any;
     }
     if (selectedFields.has('target_audience') && s.target_audience) {
       if (s.target_audience.age_range) updates.target_age_range = s.target_audience.age_range;
