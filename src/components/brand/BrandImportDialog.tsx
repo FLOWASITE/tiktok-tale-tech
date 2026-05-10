@@ -228,11 +228,15 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
 
   const handleApply = async () => {
     if (!result) return;
-    // Inject user's selected logo into raw_meta so downstream consumers (BrandCreate hydrate) honor it
+    // Inject user's selected logo + selected primary color into raw_meta so downstream consumers (BrandCreate hydrate) honor it
     const effectiveLogo = selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
     const enriched: BrandImportResult = {
       ...result,
-      raw_meta: { ...(result.raw_meta || {}), logo_url: effectiveLogo },
+      raw_meta: {
+        ...(result.raw_meta || {}),
+        logo_url: effectiveLogo,
+        selected_primary_color: selectedPrimaryColor,
+      },
     };
     if (!targetBrand) {
       // No target — pass back to caller (e.g. open create-form prefilled)
