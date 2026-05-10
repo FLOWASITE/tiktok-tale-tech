@@ -42,7 +42,7 @@ const ALL_FIELDS: { key: ImportableField; label: string; group: string }[] = [
 
 export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }: BrandImportDialogProps) {
   const { currentOrganization } = useOrganizationContext();
-  const { importFromWebsite, importFromFanpage, loading } = useBrandImport();
+  const { importFromWebsite, importFromFanpage, loading, progress, events, cancel } = useBrandImport();
   const { updateTemplate } = useBrandTemplates();
   const { connections } = useSocialConnections({
     organizationId: currentOrganization?.id,
