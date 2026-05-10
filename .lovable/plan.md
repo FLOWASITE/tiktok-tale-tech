@@ -1,54 +1,63 @@
-## Vấn đề
+## Mục tiêu
+Fix dứt điểm việc sau khi AI import website/fanpage, step **Giọng nói** vẫn trống ở:
+- Định vị thương hiệu
+- Tone of Voice
+- Mức trang trọng
 
-Sau khi AI đọc website/fanpage, ở step "Giọng nói" (Brand Voice & DNA) có 3 field không được autofill:
-- **Định vị thương hiệu** (`brand_positioning`)
-- **Tone of Voice** (`tone_of_voice`)
-- **Mức độ trang trọng** (`formality_level`)
+## Nguyên nhân hiện tại
+Response import thực tế đã có dữ liệu:
+```text
+tone_of_voice: ["Chuyên nghiệp", "Uy tín", "Tận tâm", "Trang trọng"]
+brand_positioning: "Công Ty ... là công ty tư vấn kiểm toán..."
+formality_level: "formal"
+```
+Nhưng form UI lại dùng option enum cố định:
+```text
+brandPositioning: business | expert | agency | consultant
+toneOfVoice: expert | calm | confident | friendly | analytical | serious | inspirational
+formalityLevel: formal | semi_formal | casual | friendly
+```
+Ngoài ra **brand_positioning hiện đang là select**, nên câu định vị dài từ AI không thể hiển thị. Đây là lý do field nhìn vẫn trống dù backend trả dữ liệu.
 
-### Nguyên nhân
+## Kế hoạch sửa
 
-1. **Extractor schema thiếu field**: `supabase/functions/_shared/brand-extractor.ts` chỉ extract `tone_of_voice`, KHÔNG có `brand_positioning` và `formality_level` trong `BrandSuggestion` interface, `SYSTEM_PROMPT`, `TOOL_SCHEMA` và sanitize block.
-2. **BrandCreate hydration không set positioning/formality**: `src/pages/BrandCreate.tsx` (effect tại line 265) chỉ gọi `setToneOfVoice` từ `s.tone_of_voice` nhưng không có nhánh nào set `setBrandPositioning` hay `setFormalityLevel` từ suggestion. (Hai setter chỉ chạy khi user chọn industry pack qua `handleIndustryTemplateSelect`.)
-3. **Tone of voice**: thực ra ĐÃ extract + hydrate đúng. Nhưng vì 2 field còn lại trống, user thấy cả block "Giọng nói" như chưa autofill. Cần verify lại sau khi fix 2 field kia + thêm log nếu vẫn miss.
-4. **Dialog ALL_FIELDS thiếu mục cho positioning/formality** → user không thấy AI có gợi ý gì cho 2 field này.
+### 1. Tách “Định vị thương hiệu” thành input textarea thay vì select
+Trong `BrandFormStepDNA.tsx`:
+- Đổi `Định vị thương hiệu` từ `<Select>` sang `<Textarea>`.
+- Cho phép hiển thị nguyên câu AI extract được, ví dụ: “TAF là công ty tư vấn kiểm toán...”
+- Giữ placeholder ngắn gọn và style theo design system.
 
-## Phạm vi fix (UI + extractor prompt, không đụng schema DB — cột đã tồn tại trong `brand_templates`)
+### 2. Không normalize `brand_positioning` thành enum nữa
+Trong `src/lib/brandVoiceNormalization.ts`:
+- Sửa `normalizeBrandPositioning` để trả về **string nguyên văn đã trim** thay vì ép về `business/expert/...`.
+- Chỉ clamp độ dài an toàn, không biến câu AI thành `business`.
+- Giữ normalization cho `tone_of_voice` và `formality_level` vì 2 field này vẫn là option UI.
 
-### 1. `supabase/functions/_shared/brand-extractor.ts`
-- Thêm vào `BrandSuggestion`:
-  - `brand_positioning?: string | null` (1 câu định vị, "for [audience] who [need], [brand] is [category] that [benefit]" hoặc tự do 1-2 câu)
-  - `formality_level?: 'casual' | 'neutral' | 'formal' | null`
-- Thêm rule trong `SYSTEM_PROMPT`:
-  - `brand_positioning`: 1 câu ngắn (≤ 200 ký tự) chốt vị thế thương hiệu trên thị trường, suy luận từ tagline + mission + USP + tone của source. Null nếu không đủ bằng chứng.
-  - `formality_level`: phân loại 1 trong 3 giá trị dựa trên cách xưng hô/dùng từ (anh/chị, bạn, mình, quý khách…). Null nếu source quá ngắn.
-- Thêm vào `TOOL_SCHEMA.parameters.properties`: `brand_positioning` (string|null), `formality_level` (string|null, enum hợp lệ).
-- Sanitize trong `suggestion`: `brand_positioning: trimOrNull(args.brand_positioning)?.slice(0, 280) ?? null`, `formality_level` validate enum.
+### 3. Map tone thực tế của AI sang option form tốt hơn
+Với response kiểu:
+```text
+"Chuyên nghiệp", "Uy tín", "Tận tâm", "Trang trọng"
+```
+Sửa mapping để ra ít nhất:
+```text
+expert, calm, serious
+```
+Cụ thể:
+- `Chuyên nghiệp`, `Uy tín` → `expert`
+- `Tận tâm`, `Ấm áp`, `An tâm` → `calm`
+- `Trang trọng`, `Chuẩn mực` → `serious`
 
-### 2. `src/components/brand/BrandImportDialog.tsx`
-- Thêm vào `ALL_FIELDS` (group `Voice`):
-  - `{ key: 'brand_positioning', label: 'Định vị thương hiệu', group: 'Voice' }`
-  - `{ key: 'formality_level', label: 'Mức độ trang trọng', group: 'Voice' }`
-- Update `ImportableField` type union ở đầu file.
-- Trong effect auto-select (line 121): `if (s.brand_positioning) next.add('brand_positioning')`, `if (s.formality_level) next.add('formality_level')`.
-- Trong `buildUpdates` (line 186): set `updates.brand_positioning = s.brand_positioning` và `updates.formality_level = s.formality_level`.
-- Trong `renderPreviewValue` switch (line 319) + helper bên dưới (line 694): trả về string preview (formality dịch sang VN: casual="Thân mật", neutral="Trung tính", formal="Trang trọng").
+### 4. Không để chọn Industry ghi đè mất dữ liệu import
+Trong `BrandCreate.tsx`:
+- Khi user chọn ngành sau import, chỉ apply tone/formality từ industry pack nếu import không có dữ liệu.
+- `brand_positioning` luôn ưu tiên câu AI import; không ép qua enum.
 
-### 3. `src/pages/BrandCreate.tsx`
-- Trong hydration effect (line 265-291), thêm:
-  ```ts
-  if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
-  if (s.formality_level) setFormalityLevel(s.formality_level);
-  ```
-- Đặt trước nhánh `s.target_audience` để giữ thứ tự logic.
+### 5. Thêm fallback ngay tại hydrate
+Nếu AI không trả tone hoặc mapping rỗng nhưng `formality_level=formal`, tự set tone `serious` để UI không trống hoàn toàn.
 
-### 4. Memory update
-- Cập nhật `mem://features/brand/import-visuals-vn.md` (đổi tên/scope thành import-suggestion) liệt kê thêm 2 field mới.
-
-## Out of scope
-- Không sửa DB schema (cột đã có).
-- Không đụng `_shared` file khác.
-- Không đổi flow IndustrySelectionDialog.
-
-## Verify sau khi build
-- Import 1 website rõ tone (vd flowa.one) → mở step "Giọng nói": 3 field đều có giá trị, badge "AI gợi ý" hiển thị (nếu UI có sẵn).
-- Nếu tone vẫn trống: kiểm tra response của edge function `import-brand-from-website` xem `suggestion.tone_of_voice` có rỗng không (do AI conservative).
+## Verify
+- Dùng response import `taf.vn` đã capture:
+  - Định vị thương hiệu phải hiện nguyên câu dài trong textarea.
+  - Tone phải tick được ít nhất `Chuyên gia`, `Điềm tĩnh`, `Nghiêm túc`.
+  - Mức trang trọng phải chọn `Trang trọng`.
+- Kiểm tra flow chọn ngành sau import không làm mất 3 field này.
