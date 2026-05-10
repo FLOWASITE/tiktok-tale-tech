@@ -122,7 +122,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-extractor': {
-    model: 'google/gemini-2.5-flash',
+    model: 'qwen-plus',
     temperature: 0.3,
     max_tokens: 4096,
     cache_ttl_seconds: 0,
@@ -130,7 +130,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-from-website': {
-    model: 'google/gemini-2.5-flash',
+    model: 'qwen-plus',
     temperature: 0.3,
     max_tokens: 1024,
     cache_ttl_seconds: 0,
@@ -138,7 +138,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-from-fanpage': {
-    model: 'google/gemini-2.5-flash',
+    model: 'qwen-plus',
     temperature: 0.3,
     max_tokens: 1024,
     cache_ttl_seconds: 0,
