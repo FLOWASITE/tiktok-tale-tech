@@ -450,6 +450,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                       const existing = readExistingFieldLabel(targetBrand, f.key);
                       const isLogo = f.key === 'logo_url' && value;
                       const isColor = f.key === 'primary_color' && value;
+                      const isIndustry = f.key === 'industry';
                       const palette: any = result?.raw_meta?.color_palette;
                       const colorConfidence: 'high' | 'medium' | 'low' = palette?.confidence || (palette?.source === 'logo' || palette?.source === 'css-vars' || palette?.source === 'meta' ? 'high' : palette?.source === 'mixed' ? 'medium' : 'low');
                       const colorIsAiGuess = f.key === 'primary_color' && colorConfidence === 'low';
@@ -459,7 +460,22 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                           key={f.key}
                           className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/30 cursor-pointer transition-colors"
                         >
-                          <Checkbox checked={checked} onCheckedChange={() => toggleField(f.key)} className="mt-1" />
+                          <Checkbox
+                            checked={isIndustry ? !!selectedIndustryPack : checked}
+                            onCheckedChange={() => {
+                              if (isIndustry) {
+                                if (selectedIndustryPack) {
+                                  setSelectedIndustryPack(null);
+                                  setSelectedFields((prev) => {
+                                    const n = new Set(prev); n.delete('industry'); return n;
+                                  });
+                                }
+                              } else {
+                                toggleField(f.key);
+                              }
+                            }}
+                            className="mt-1"
+                          />
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium">{f.label}</span>
