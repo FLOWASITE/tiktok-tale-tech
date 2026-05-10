@@ -3201,6 +3201,7 @@ export type Database = {
           headline: string | null
           id: string
           image_style: string | null
+          imported_from: Json | null
           include_logo: boolean
           industry: string[] | null
           industry_template_id: string | null
@@ -3258,6 +3259,7 @@ export type Database = {
           headline?: string | null
           id?: string
           image_style?: string | null
+          imported_from?: Json | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
@@ -3315,6 +3317,7 @@ export type Database = {
           headline?: string | null
           id?: string
           image_style?: string | null
+          imported_from?: Json | null
           include_logo?: boolean
           industry?: string[] | null
           industry_template_id?: string | null
