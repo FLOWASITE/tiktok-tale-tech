@@ -293,7 +293,8 @@ export interface ColorPalette {
   primary: string | null;
   secondary: string | null;
   accent: string | null;
-  source: "css-vars" | "meta" | "frequency" | "mixed" | "none";
+  source: "logo" | "css-vars" | "meta" | "frequency" | "ai" | "mixed" | "none";
+  confidence: "high" | "medium" | "low";
   candidates: string[];
 }
 
@@ -310,7 +311,7 @@ function isNeutralColor(hex: string): boolean {
 }
 
 function extractColorPalette(html: string | undefined): ColorPalette {
-  const out: ColorPalette = { primary: null, secondary: null, accent: null, source: "none", candidates: [] };
+  const out: ColorPalette = { primary: null, secondary: null, accent: null, source: "none", confidence: "low", candidates: [] };
   if (!html) return out;
 
   const sources: Array<{ source: string; hex: string }> = [];
@@ -383,7 +384,72 @@ function extractColorPalette(html: string | undefined): ColorPalette {
   out.secondary = out.candidates[1] || null;
   out.accent = out.candidates[2] || null;
   out.source = sourceTags.size > 1 ? "mixed" : (sourceTags.values().next().value as ColorPalette["source"]) || "none";
+  // Confidence: css-vars/meta = high, mixed = medium, frequency-only = low
+  if (out.source === "css-vars" || out.source === "meta") out.confidence = "high";
+  else if (out.source === "mixed") out.confidence = "medium";
+  else out.confidence = "low";
   return out;
+}
+
+// ============================================================
+// Logo-based color extraction (highest signal)
+// ============================================================
+async function extractColorFromLogo(logoUrl: string): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(logoUrl, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    const isSvg = ct.includes("svg") || logoUrl.toLowerCase().endsWith(".svg");
+
+    if (isSvg) {
+      const text = await res.text();
+      if (text.length > 800_000) return null;
+      const freq = new Map<string, number>();
+      const bump = (raw: string) => {
+        const hex = normalizeHex(raw);
+        if (!hex || isNeutralColor(hex)) return;
+        freq.set(hex, (freq.get(hex) || 0) + 1);
+      };
+      // fill="#xxx", stroke="#xxx", stop-color="#xxx"
+      for (const m of text.matchAll(/(?:fill|stroke|stop-color)\s*=\s*["']([^"']+)["']/gi)) bump(m[1]);
+      // style="fill:#xxx;..."
+      for (const m of text.matchAll(/(?:fill|stroke|stop-color)\s*:\s*([^;"'}\s]+)/gi)) bump(m[1]);
+      const top = [...freq.entries()].sort((a, b) => b[1] - a[1])[0];
+      return top ? top[0] : null;
+    }
+
+    // Raster: ask Lovable AI vision (small + cheap) to read dominant brand color
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return null;
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Đây là logo brand. Trả về MÀU CHỦ ĐẠO duy nhất dạng hex 7-ký-tự (vd #1a73e8). KHÔNG giải thích. Bỏ qua trắng/đen/xám. Nếu logo monochrome đen/trắng → trả 'null'." },
+              { type: "image_url", image_url: { url: logoUrl } },
+            ],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!aiRes.ok) return null;
+    const data = await aiRes.json();
+    const text: string = data?.choices?.[0]?.message?.content || "";
+    const m = text.match(/#?[0-9a-f]{6}\b/i);
+    return m ? normalizeHex(m[0]) : null;
+  } catch (e) {
+    console.warn("[extractColorFromLogo] failed:", (e as Error).message);
+    return null;
+  }
 }
 
 // ============================================================
@@ -577,6 +643,25 @@ async function runImport(
   const visuals = extractVisualSignals(home.html, targetUrl);
   const palette = extractColorPalette(home.html);
   const footerRegex = extractFooterSignals(home.html, targetUrl);
+
+  // Logo-based color is the most reliable signal — try it and prepend if found
+  const logoUrl = visuals.logo_url || (visuals.logo_candidates[0]?.url ?? null);
+  if (logoUrl) {
+    try {
+      const logoColor = await extractColorFromLogo(logoUrl);
+      if (logoColor && !isNeutralColor(logoColor)) {
+        const existing = palette.candidates.filter(c => c.toLowerCase() !== logoColor.toLowerCase());
+        palette.candidates = [logoColor, ...existing].slice(0, 6);
+        palette.primary = logoColor;
+        palette.secondary = palette.candidates[1] || palette.secondary;
+        palette.accent = palette.candidates[2] || palette.accent;
+        palette.source = "logo";
+        palette.confidence = "high";
+      }
+    } catch (e) {
+      console.warn("[runImport] logo color extraction failed:", (e as Error).message);
+    }
+  }
 
   // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
   const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);

@@ -412,7 +412,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                       const existing = readExistingFieldLabel(targetBrand, f.key);
                       const isLogo = f.key === 'logo_url' && value;
                       const isColor = f.key === 'primary_color' && value;
-                      const colorIsAiGuess = f.key === 'primary_color' && !result?.raw_meta?.theme_color && result?.suggestion?.primary_color_suggestion;
+                      const palette: any = result?.raw_meta?.color_palette;
+                      const colorConfidence: 'high' | 'medium' | 'low' = palette?.confidence || (palette?.source === 'logo' || palette?.source === 'css-vars' || palette?.source === 'meta' ? 'high' : palette?.source === 'mixed' ? 'medium' : 'low');
+                      const colorIsAiGuess = f.key === 'primary_color' && colorConfidence === 'low';
+                      const colorFromLogo = f.key === 'primary_color' && palette?.source === 'logo';
                       return (
                         <label
                           key={f.key}
@@ -425,8 +428,11 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                               {existing && (
                                 <Badge variant="outline" className="text-[10px]">đã có</Badge>
                               )}
+                              {colorFromLogo && (
+                                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400">Từ logo</Badge>
+                              )}
                               {colorIsAiGuess && (
-                                <Badge variant="secondary" className="text-[10px]">AI gợi ý</Badge>
+                                <Badge variant="secondary" className="text-[10px]">⚠️ AI đoán — kiểm tra lại</Badge>
                               )}
                             </div>
                             {existing && (
@@ -491,7 +497,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                   ))}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
-                                  Trích từ {result!.raw_meta!.color_palette!.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
+                                  Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
                                 </p>
                               </div>
                             ) : (
