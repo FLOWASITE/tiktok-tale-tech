@@ -474,7 +474,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           {!result ? (
             <>
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
