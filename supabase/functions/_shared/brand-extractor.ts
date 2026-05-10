@@ -84,6 +84,16 @@ const TOOL_SCHEMA = {
         usps: { type: "array", items: { type: "string" } },
         sample_texts: { type: "array", items: { type: "string" } },
         primary_color_suggestion: { type: ["string", "null"] },
+        footer_info: {
+          type: ["object", "null"],
+          properties: {
+            company_name: { type: ["string", "null"] },
+            address: { type: ["string", "null"] },
+            phone: { type: ["string", "null"] },
+            email: { type: ["string", "null"] },
+            tax_code: { type: ["string", "null"] },
+          },
+        },
       },
     },
   },
