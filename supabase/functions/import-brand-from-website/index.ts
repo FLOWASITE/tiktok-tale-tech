@@ -146,17 +146,6 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
-function normalizeUrl(raw: string): string | null {
-  try {
-    let s = raw.trim();
-    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
-    const u = new URL(s);
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
 interface RunInput {
   targetUrl: string;
   extraPaths: string[];
