@@ -1,49 +1,56 @@
 ## Mục tiêu
-Cho admin tự đánh dấu ngành nào là "Phổ biến" (hiện ở section đầu của `IndustrySelectionDialog`), thay vì hardcode 8 mã ngành trong frontend.
+Hai màn admin "Industry" hiện vỡ layout ở viewport ≤ 768px (đặc biệt 707px hiện tại):
+- `AdminIndustryPacks.tsx`: header bị tràn, action buttons trong PackCard chật kín.
+- `GlobalPacksTable.tsx`: table 7 cột không scroll ngang, cột "Phổ biến" với Switch + Input không vừa.
 
-Hiện tại: `src/components/brand/IndustrySelectionDialog.tsx:76` hardcode `POPULAR_CODES = ['ecommerce','fnb','healthcare',...]` → admin không tự đổi được, không theo thị trường thực tế.
+Chỉ chỉnh **UI/presentation**, không đụng logic, hooks, query, schema.
+
+---
 
 ## Thay đổi
 
-### 1. Database (1 migration mới)
-Thêm 2 cột vào `public.industry_global_packs`:
-- `is_popular boolean NOT NULL DEFAULT false` — flag đánh dấu ngành phổ biến
-- `popular_sort_order integer` — thứ tự hiển thị trong section "Phổ biến" (NULL = cuối)
+### 1. `src/pages/AdminIndustryPacks.tsx`
 
-Index: `CREATE INDEX idx_industry_packs_popular ON industry_global_packs(is_popular, popular_sort_order) WHERE is_popular = true;`
+**Header (dòng ~547-567)**
+- Đổi `flex items-center justify-between` → `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`.
+- Title `text-2xl` → `text-xl sm:text-2xl`, icon scale theo.
+- Action buttons: nhóm `flex flex-wrap gap-2`, nút "Create Pack" và "Refresh" full-width trên mobile (`flex-1 sm:flex-initial`); ẩn label "Refresh" trên mobile (chỉ icon).
 
-Backfill: set `is_popular = true` cho 8 mã hiện tại (`ecommerce, fnb, healthcare, realestate, it, fashion, beauty, education`) với `popular_sort_order` 1–8 để giữ behavior cũ.
+**Filters (dòng ~573-600)**
+- Đã có `flex-col sm:flex-row` — giữ nguyên, chỉ chỉnh select width thành `w-full sm:w-[160px]`.
 
-RLS: giữ policy hiện tại (public read, admin write — đã có sẵn).
+**Country Tabs (dòng ~603-621)**
+- TabsList đã `flex-wrap`. Thêm `overflow-x-auto sm:overflow-visible` để fallback. TabsTrigger thêm `text-xs sm:text-sm`.
 
-### 2. Admin UI (`src/components/admin/GlobalPacksTable.tsx` + `AdminIndustryPacks.tsx`)
-- Thêm cột **"Phổ biến"** trong bảng: hiện `Switch` toggle + input số nhỏ cho `popular_sort_order` (chỉ hiện khi đã bật).
-- Bulk action: nút "Đánh dấu phổ biến" / "Bỏ phổ biến" trên các row selected.
-- Hiển thị badge ⭐ ở cột tên khi `is_popular = true`.
-- Mutation: update `industry_global_packs` qua Supabase client (đã có pattern `is_active` toggle).
+**Grid pack list (dòng ~626, 674)**
+- Hiện `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`. Giữ nguyên (đã ổn cho 707px → 1 cột).
 
-### 3. Frontend dialog (`src/components/brand/IndustrySelectionDialog.tsx`)
-- Bỏ const `POPULAR_CODES`.
-- `useGlobalPacksForBrandSelection` đã trả pack list — extend hook để select thêm `is_popular, popular_sort_order` từ DB.
-- Logic `popular = packs.filter(p => p.isPopular).sort(by popular_sort_order)` thay cho filter theo array hardcode.
-- Giữ nguyên render UI section "Phổ biến" (mobile + desktop + sidebar count badge).
+**PackCard actions (dòng ~199-301)**
+- Wrapper `flex gap-2` → `flex flex-wrap gap-2`. Cụm 4 icon buttons giữ nguyên, nút status (Publish/Deprecate/Reactivate) thành `w-full sm:flex-1` để không bị bóp.
+- Stats grid `grid-cols-3` giữ nguyên.
 
-### 4. Hook (`src/hooks/useGlobalPacksForBrandSelection.ts`)
-Thêm 2 field vào select query và map ra type: `isPopular: boolean`, `popularSortOrder: number | null`.
+### 2. `src/components/admin/GlobalPacksTable.tsx`
 
-## File touch
-- 1 migration mới (schema + backfill)
-- `src/hooks/useGlobalPacksForBrandSelection.ts`
-- `src/components/admin/GlobalPacksTable.tsx`
-- `src/pages/AdminIndustryPacks.tsx` (nếu cần thêm filter "chỉ phổ biến")
-- `src/components/brand/IndustrySelectionDialog.tsx`
+**Header (dòng ~114-141)**
+- `flex items-center justify-between` → `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3`.
+- Cụm 2 nút filter wrap `flex-wrap`.
+
+**Table wrapper (dòng ~156-279)**
+- Bọc `<Table>` trong `<div className="overflow-x-auto -mx-4 sm:mx-0">` + table thêm `min-w-[720px]` để scroll ngang mượt.
+- Cột "Phổ biến": gói Switch + Input thành `flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2`.
+- Cột "Tên": thêm `min-w-[140px]` để không bị bóp; "Industry Code" `whitespace-nowrap`.
+
+**(Tùy chọn nhỏ)** Thêm `CardContent className="p-2 sm:p-6"` để giảm padding mobile, table có thêm chỗ thở.
+
+---
 
 ## Out of scope
-- Không đổi UI section "Đã dùng gần đây" / "AI gợi ý".
-- Không thêm i18n translation cho tên ngành phổ biến (đã dùng `industry_pack_translations`).
-- Không tracking analytics "lượt chọn" (có thể làm sau để auto-suggest popular).
+- Đổi cấu trúc data, tabs, dialog, hay logic toggle popular/active.
+- Layout admin sidebar / global shell.
+- i18n, accessibility audit toàn diện.
 
 ## Verify
-- Admin bật toggle "Phổ biến" cho ngành X → reload `BrandCreate` → ngành X xuất hiện trong section "Phổ biến" theo `popular_sort_order`.
-- Bỏ toggle → ngành biến mất khỏi section nhưng vẫn còn trong "Tất cả danh mục".
-- Backfill: behavior trước migration = sau migration (8 ngành cũ vẫn ở vị trí 1–8).
+Resize preview 360 / 707 / 1024 / 1440:
+- Header không tràn, button không vỡ hàng xấu.
+- PackCard 1 cột mobile, action row wrap đẹp.
+- GlobalPacksTable scroll ngang mượt ở mobile, switch + input không chồng.
