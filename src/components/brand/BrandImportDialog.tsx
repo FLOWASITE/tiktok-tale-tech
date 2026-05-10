@@ -110,6 +110,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
     if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
     if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
+    const f = result.raw_meta?.footer_info;
+    if (f && (f.company_name || f.phone || f.email || f.address || f.tax_code || (f.social_links && Object.keys(f.social_links).length))) {
+      next.add('footer_info');
+    }
     if (result.source === 'fanpage') next.add('attach_fanpage');
     setSelectedFields(next);
     const meta: any = result.raw_meta || {};
