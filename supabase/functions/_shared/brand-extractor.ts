@@ -78,12 +78,21 @@ const TOOL_SCHEMA = {
   },
 };
 
+export interface ExtractProgressEvent {
+  type: "model_attempt" | "model_fallback";
+  model: string;
+  attempt: number;
+  total: number;
+  reason?: string;
+}
+
 export interface ExtractInput {
   source: "website" | "fanpage";
   content: string;
   locale?: string;
   organizationId?: string;
   hint?: string; // e.g. domain, page name
+  onProgress?: (e: ExtractProgressEvent) => void;
 }
 
 export async function extractBrandSuggestions(
