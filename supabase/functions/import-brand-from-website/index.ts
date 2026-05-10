@@ -84,6 +84,15 @@ Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) =
     const targetUrl = rawUrl ? normalizeUrl(rawUrl) : null;
     if (!targetUrl) return json({ error: "URL không hợp lệ" }, 400);
 
+    // Admin kill-switch: check both orchestrator + extractor enabled
+    const [orchCfg, extrCfg] = await Promise.all([
+      getAIConfig("import-brand-from-website", organizationId).catch(() => null),
+      getAIConfig("import-brand-extractor", organizationId).catch(() => null),
+    ]);
+    if (orchCfg?.is_enabled === false || extrCfg?.is_enabled === false) {
+      return json({ error: "Tính năng Import Brand đang tạm ngưng (Admin)", code: "FEATURE_DISABLED" }, 503);
+    }
+
     console.log(`[import-brand-from-website] user=${user.id} url=${targetUrl} extras=${extraPaths.length}`);
 
     // Scrape homepage with branding
