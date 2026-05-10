@@ -914,6 +914,17 @@ export default function BrandCreate() {
           </div>
         </div>
       </div>
+
+      <IndustrySelectionDialog
+        open={showIndustryConfirmAfterImport}
+        onOpenChange={setShowIndustryConfirmAfterImport}
+        onSelectIndustry={(pack) => {
+          handleIndustryTemplateSelect(pack);
+          setShowIndustryConfirmAfterImport(false);
+        }}
+        suggestedContext={suggestedContext}
+        recentlyUsedIds={recentlyUsedIds}
+      />
     </TooltipProvider>
   );
 }
