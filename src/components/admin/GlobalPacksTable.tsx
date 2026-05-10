@@ -220,6 +220,26 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={pack.isPopular}
+                          onCheckedChange={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}
+                          aria-label="Đánh dấu phổ biến"
+                        />
+                        {pack.isPopular && (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={pack.popularSortOrder ?? ''}
+                            onChange={(e) => handleUpdatePopularOrder(pack.id, e.target.value)}
+                            placeholder="#"
+                            className="h-8 w-16 text-xs"
+                            title="Thứ tự hiển thị (số nhỏ lên trước)"
+                          />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
