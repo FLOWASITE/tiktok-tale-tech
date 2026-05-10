@@ -471,7 +471,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         <DialogFooter>
