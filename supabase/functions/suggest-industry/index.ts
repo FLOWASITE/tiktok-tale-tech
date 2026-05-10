@@ -94,14 +94,14 @@ Deno.serve(async (req) => {
             type: "function",
             function: {
               name: "return_industry_suggestions",
-              description: "Trả về top 3 ngành phù hợp",
+              description: "Trả về top 5 ngành phù hợp (gồm ngành chính + ngành liên quan)",
               parameters: {
                 type: "object",
                 properties: {
                   suggestions: {
                     type: "array",
                     minItems: 1,
-                    maxItems: 3,
+                    maxItems: 5,
                     items: {
                       type: "object",
                       properties: {
