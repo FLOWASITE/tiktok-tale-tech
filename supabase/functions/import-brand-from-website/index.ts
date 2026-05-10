@@ -82,24 +82,73 @@ function normalizeHex(v: string | undefined | null): string | null {
   return null;
 }
 
-interface LogoCandidate { url: string; source: string }
+interface LogoCandidate { url: string; source: string; score: number }
 interface VisualSignals {
   logo_url: string | null;
   logo_candidates: LogoCandidate[];
   theme_color: string | null;
 }
 
+function parseJsonLdBlocks(html: string): any[] {
+  const out: any[] = [];
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  for (const m of html.matchAll(re)) {
+    try {
+      const parsed = JSON.parse(m[1].trim());
+      if (Array.isArray(parsed)) out.push(...parsed);
+      else if (parsed && typeof parsed === "object") {
+        if (Array.isArray((parsed as any)["@graph"])) out.push(...(parsed as any)["@graph"]);
+        else out.push(parsed);
+      }
+    } catch { /* ignore malformed */ }
+  }
+  return out;
+}
+
+const TRACKING_URL_PATTERNS = /(1x1|pixel|tracking|gtag|gtm|googletagmanager|facebook\.com\/tr|google-analytics)/i;
+
+function scoreLogo(url: string, source: string, ctx: { alt?: string; cls?: string; inHeader?: boolean }): number {
+  let s = 0;
+  if (source === "json-ld:logo") s += 50;
+  if (source === "img.logo") s += 20;
+  if (source === "header.img") s += 25;
+  if (source === "apple-touch-icon") s += 15;
+  if (source === "og:image") s += 10;
+  if (source === "twitter:image") s += 8;
+  if (source === "favicon") s += 5;
+  if (source === "favicon-default") s += 3;
+  if (source === "fanpage:avatar") s += 30;
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".svg")) s += 30;
+  if (/logo/i.test(url)) s += 15;
+  if (ctx.alt && /logo/i.test(ctx.alt)) s += 10;
+  if (ctx.cls && /logo|brand|navbar|nav-/i.test(ctx.cls)) s += 10;
+  if (ctx.inHeader) s += 8;
+  if (/og[-_]?image|banner|cover|hero/i.test(url)) s -= 8;
+  return s;
+}
+
 function extractVisualSignals(html: string | undefined, baseUrl: string): VisualSignals {
   const out: VisualSignals = { logo_url: null, logo_candidates: [], theme_color: null };
   if (!html) return out;
 
-  // === Logo candidates (preserve all, deduped) ===
   const raw: LogoCandidate[] = [];
-  const push = (href: string | undefined, source: string) => {
+  const push = (href: string | undefined | null, source: string, ctx: { alt?: string; cls?: string; inHeader?: boolean } = {}) => {
     if (!href) return;
     const abs = resolveUrl(href, baseUrl);
-    if (abs) raw.push({ url: abs, source });
+    if (!abs) return;
+    if (TRACKING_URL_PATTERNS.test(abs)) return;
+    raw.push({ url: abs, source, score: scoreLogo(abs, source, ctx) });
   };
+
+  // JSON-LD Organization.logo (highest priority)
+  const ldBlocks = parseJsonLdBlocks(html);
+  for (const node of ldBlocks) {
+    const types = ([] as string[]).concat(node?.["@type"] || []).map(String);
+    if (!types.some((t) => /Organization|LocalBusiness|WebSite/i.test(t))) continue;
+    const logo = typeof node.logo === "string" ? node.logo : node.logo?.url;
+    if (logo) push(logo, "json-ld:logo");
+  }
 
   const apple = html.match(/<link[^>]+rel=["'][^"']*apple-touch-icon[^"']*["'][^>]+href=["']([^"']+)["']/i)
     || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*apple-touch-icon[^"']*["']/i);
@@ -113,27 +162,49 @@ function extractVisualSignals(html: string | undefined, baseUrl: string): Visual
     || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
   push(twImage?.[1], "twitter:image");
 
-  // <img> với class/alt chứa "logo"
-  const imgLogoRegex = /<img[^>]+(?:class|alt|id)=["'][^"']*logo[^"']*["'][^>]*>/gi;
+  // <header> img → likely site logo
+  const headerMatch = html.match(/<header[\s\S]*?<\/header>/i);
+  if (headerMatch) {
+    for (const m of headerMatch[0].matchAll(/<img[^>]+>/gi)) {
+      const tag = m[0];
+      const src = tag.match(/src=["']([^"']+)["']/i)?.[1];
+      const alt = tag.match(/alt=["']([^"']*)["']/i)?.[1];
+      const cls = tag.match(/class=["']([^"']*)["']/i)?.[1];
+      push(src, "header.img", { alt, cls, inHeader: true });
+    }
+  }
+
+  // <img> với class/alt/id chứa "logo"
+  const imgLogoRegex = /<img[^>]*>/gi;
   for (const m of html.matchAll(imgLogoRegex)) {
-    const href = m[0].match(/src=["']([^"']+)["']/i);
-    push(href?.[1], "img.logo");
+    const tag = m[0];
+    if (!/(?:class|alt|id)=["'][^"']*logo[^"']*["']/i.test(tag)) continue;
+    const src = tag.match(/src=["']([^"']+)["']/i)?.[1];
+    const alt = tag.match(/alt=["']([^"']*)["']/i)?.[1];
+    const cls = tag.match(/class=["']([^"']*)["']/i)?.[1];
+    push(src, "img.logo", { alt, cls });
   }
 
   const iconRegex = /<link[^>]+rel=["'][^"']*(?:shortcut\s+)?icon[^"']*["'][^>]*>/gi;
   for (const m of html.matchAll(iconRegex)) {
-    const href = m[0].match(/href=["']([^"']+)["']/i);
-    push(href?.[1], "favicon");
+    const tag = m[0];
+    const href = tag.match(/href=["']([^"']+)["']/i)?.[1];
+    const sizes = tag.match(/sizes=["']([^"']+)["']/i)?.[1];
+    // Skip very small favicons
+    if (sizes && /^(?:16x16|32x32)$/i.test(sizes.trim())) {
+      // still push but lower score handled by source
+    }
+    push(href, "favicon");
   }
   push("/favicon.ico", "favicon-default");
 
-  // Dedupe by url, keep first source
-  const seen = new Set<string>();
+  // Dedupe by url, keep highest score
+  const byUrl = new Map<string, LogoCandidate>();
   for (const c of raw) {
-    if (seen.has(c.url)) continue;
-    seen.add(c.url);
-    out.logo_candidates.push(c);
+    const prev = byUrl.get(c.url);
+    if (!prev || c.score > prev.score) byUrl.set(c.url, c);
   }
+  out.logo_candidates = [...byUrl.values()].sort((a, b) => b.score - a.score);
   out.logo_url = out.logo_candidates[0]?.url || null;
 
   // === Theme color ===
