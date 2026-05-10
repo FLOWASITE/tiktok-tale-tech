@@ -112,7 +112,10 @@ async function runImport(
     organizationId,
     hint: infoData.name,
     onProgress: emit
-      ? (e) => { emit("model_event", e as any).catch(() => {}); }
+      ? (e) => {
+          const { type, ...rest } = e as any;
+          emit(type, rest).catch(() => {});
+        }
       : undefined,
   });
 

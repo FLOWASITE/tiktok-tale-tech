@@ -142,7 +142,8 @@ async function runImport(
     hint: new URL(targetUrl).hostname,
     onProgress: emit
       ? (e) => {
-          emit("model_event", e as any).catch(() => {});
+          const { type, ...rest } = e as any;
+          emit(type, rest).catch(() => {});
         }
       : undefined,
   });
