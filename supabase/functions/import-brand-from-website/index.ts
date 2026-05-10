@@ -177,11 +177,18 @@ async function runImport(
     message: `Đang đọc trang chủ ${new URL(targetUrl).hostname}`,
   });
 
-  const home = await firecrawlScrape(targetUrl, ["markdown"]);
+  const home = await firecrawlScrape(targetUrl, ["markdown", "rawHtml"]);
   if (!home.success) {
     return { status: 502, body: { error: `Không scrape được trang chủ: ${home.error}` } };
   }
   await emit?.("subpage_done", { url: targetUrl, success: true, kind: "home" });
+
+  await emit?.("progress", {
+    step: "extract_visuals",
+    percent: 20,
+    message: "Đang trích xuất logo & màu chủ đạo",
+  });
+  const visuals = extractVisualSignals(home.html, targetUrl);
 
   if (extraPaths.length > 0) {
     await emit?.("progress", {
