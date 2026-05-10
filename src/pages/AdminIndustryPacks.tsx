@@ -196,7 +196,7 @@ function PackCard({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t border-border/50">
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
             {/* Edit Button */}
             <Tooltip>
               <TooltipTrigger asChild>
