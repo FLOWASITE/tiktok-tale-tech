@@ -38,6 +38,7 @@ const ALL_FIELDS: { key: ImportableField; label: string; group: string }[] = [
   { key: 'sample_texts', label: 'Sample texts (clone voice)', group: 'Voice' },
   { key: 'content_pillars', label: 'Content pillars', group: 'Strategy' },
   { key: 'usps', label: 'USPs', group: 'Strategy' },
+  { key: 'footer_info', label: 'Footer (SĐT, email, địa chỉ, MST, social)', group: 'Contact' },
   { key: 'attach_fanpage', label: 'Gắn fanpage này vào brand', group: 'Connection' },
 ];
 
