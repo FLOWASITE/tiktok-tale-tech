@@ -11,6 +11,7 @@ import { BrandCard } from '@/components/BrandCard';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
+import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
 import { BrandMobileFilters } from '@/components/brand/BrandMobileFilters';
 import { SwipeableBrandCard } from '@/components/brand/SwipeableBrandCard';
 import { PullToRefresh } from '@/components/brand/PullToRefresh';
