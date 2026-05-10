@@ -260,6 +260,8 @@ export async function fetchGlobalPackDetailsForBrand(
       industryLevel: (packData.industry_level as 'core' | 'sub') || 'core',
       parentPackId: packData.parent_pack_id,
       aliases: [],
+      isPopular: false,
+      popularSortOrder: null,
     },
     resolvedRules,
     disclaimer: profileData?.disclaimer || null,
