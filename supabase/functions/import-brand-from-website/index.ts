@@ -227,6 +227,152 @@ function extractVisualSignals(html: string | undefined, baseUrl: string): Visual
   return out;
 }
 
+// ============================================================
+// Footer / contact extraction
+// ============================================================
+export interface FooterInfo {
+  company_name: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  tax_code: string | null;
+  social_links: Record<string, string>;
+}
+
+const SOCIAL_DOMAIN_MAP: Array<{ key: string; re: RegExp }> = [
+  { key: "facebook", re: /(?:^|\.)facebook\.com$/i },
+  { key: "instagram", re: /(?:^|\.)instagram\.com$/i },
+  { key: "youtube", re: /(?:^|\.)(?:youtube\.com|youtu\.be)$/i },
+  { key: "tiktok", re: /(?:^|\.)tiktok\.com$/i },
+  { key: "linkedin", re: /(?:^|\.)linkedin\.com$/i },
+  { key: "twitter", re: /(?:^|\.)(?:twitter\.com|x\.com)$/i },
+  { key: "threads", re: /(?:^|\.)threads\.net$/i },
+  { key: "zalo", re: /(?:^|\.)(?:zalo\.me|zalo\.vn|zalo\.com)$/i },
+  { key: "pinterest", re: /(?:^|\.)pinterest\.com$/i },
+  { key: "telegram", re: /(?:^|\.)t\.me$/i },
+];
+
+const SOCIAL_NEGATIVE = /\/(?:sharer|share|intent|dialog|plugins|tr\?|v\d+\/dialog)/i;
+
+function stripHtml(s: string): string {
+  return s
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractFooterSignals(html: string | undefined, baseUrl: string): FooterInfo {
+  const out: FooterInfo = {
+    company_name: null, address: null, phone: null, email: null,
+    website: null, tax_code: null, social_links: {},
+  };
+  if (!html) return out;
+
+  let footerHtml = "";
+  const footers = [...html.matchAll(/<footer[\s\S]*?<\/footer>/gi)];
+  if (footers.length) footerHtml = footers[footers.length - 1][0];
+  if (!footerHtml) {
+    const bodyMatch = html.match(/<body[\s\S]*?<\/body>/i)?.[0] || html;
+    footerHtml = bodyMatch.slice(Math.floor(bodyMatch.length * 0.7));
+  }
+  const footerText = stripHtml(footerHtml);
+
+  const mailto = footerHtml.match(/href=["']mailto:([^"'?]+)/i)?.[1]
+    || html.match(/href=["']mailto:([^"'?]+)/i)?.[1];
+  if (mailto) out.email = mailto.trim().toLowerCase();
+  if (!out.email) {
+    const m = footerText.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+    if (m) out.email = m[0].toLowerCase();
+  }
+
+  const tel = footerHtml.match(/href=["']tel:([^"']+)/i)?.[1]
+    || html.match(/href=["']tel:([^"']+)/i)?.[1];
+  if (tel) out.phone = tel.replace(/[^\d+]/g, "").trim();
+  if (!out.phone) {
+    const m = footerText.match(/(?:\+?84|0)(?:[\s.-]?\d){8,10}/);
+    if (m) out.phone = m[0].replace(/[\s.-]/g, "");
+  }
+
+  const tax = footerText.match(/(?:MST|Mã\s*số\s*thuế|Tax\s*code|Tax\s*ID)\s*[:\-]?\s*([0-9]{10}(?:-[0-9]{3})?)/i);
+  if (tax) out.tax_code = tax[1];
+
+  const addrKw = footerText.match(/(?:Địa\s*chỉ|Address|Trụ\s*sở|Văn\s*phòng|VP\s*chính|Head\s*office)\s*[:\-]?\s*([^|•\n]{10,200}?)(?=\s*(?:Điện\s*thoại|Hotline|Tel|Phone|Email|MST|©|$))/i);
+  if (addrKw) out.address = addrKw[1].trim().replace(/\s+/g, " ").slice(0, 200);
+  if (!out.address) {
+    const itemprop = footerHtml.match(/itemprop=["']address["'][^>]*>([\s\S]*?)<\//i);
+    if (itemprop) {
+      const t = stripHtml(itemprop[1]);
+      if (t.length > 10) out.address = t.slice(0, 200);
+    }
+  }
+
+  const co = footerText.match(/((?:Công\s*ty|Co\.,?\s*Ltd\.?|JSC|Corporation|Inc\.|LLC|GmbH)[^\n|•©]{3,80})/i);
+  if (co) out.company_name = co[1].trim().replace(/\s+/g, " ").slice(0, 120);
+
+  // Social links — scan whole HTML
+  for (const m of html.matchAll(/<a[^>]+href=["']([^"']+)["']/gi)) {
+    const href = m[1];
+    if (SOCIAL_NEGATIVE.test(href)) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    let host = "";
+    try { host = new URL(abs).hostname.toLowerCase(); } catch { continue; }
+    for (const { key, re } of SOCIAL_DOMAIN_MAP) {
+      if (re.test(host) && !out.social_links[key]) {
+        out.social_links[key] = abs;
+        break;
+      }
+    }
+  }
+
+  // JSON-LD Organization → higher priority overrides
+  for (const node of parseJsonLdBlocks(html)) {
+    const types = ([] as string[]).concat(node?.["@type"] || []).map(String);
+    if (!types.some((t) => /Organization|LocalBusiness/i.test(t))) continue;
+    if (typeof node.name === "string" && !out.company_name) out.company_name = node.name.slice(0, 120);
+    if (typeof node.telephone === "string" && !out.phone) out.phone = node.telephone.replace(/[^\d+]/g, "");
+    if (typeof node.email === "string" && !out.email) out.email = node.email.toLowerCase();
+    if (node.address) {
+      const a = node.address;
+      const parts = typeof a === "string" ? [a]
+        : [a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode, a.addressCountry].filter(Boolean);
+      const joined = parts.join(", ").trim();
+      if (joined && (!out.address || joined.length > out.address.length)) out.address = joined.slice(0, 200);
+    }
+    const sameAs = ([] as string[]).concat(node.sameAs || []);
+    for (const url of sameAs) {
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        for (const { key, re } of SOCIAL_DOMAIN_MAP) {
+          if (re.test(host) && !out.social_links[key]) out.social_links[key] = url;
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  try { out.website = new URL(baseUrl).origin; } catch { /* ignore */ }
+  return out;
+}
+
+function mergeFooter(regex: FooterInfo, ai: any | null | undefined): FooterInfo {
+  const a = ai && typeof ai === "object" ? ai : {};
+  const trim = (v: any, max = 200) => typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+  return {
+    phone: regex.phone || trim(a.phone, 40),
+    email: regex.email || trim(a.email, 120),
+    tax_code: regex.tax_code || trim(a.tax_code, 40),
+    company_name: trim(a.company_name, 120) || regex.company_name,
+    address: trim(a.address, 200) || regex.address,
+    website: regex.website || trim(a.website, 200),
+    social_links: regex.social_links,
+  };
+}
+
 function normalizeUrl(raw: string): string | null {
   try {
     let s = raw.trim();
