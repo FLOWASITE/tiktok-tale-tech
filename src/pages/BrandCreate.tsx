@@ -273,7 +273,7 @@ export default function BrandCreate() {
       }
       if (s.tagline) setTagline(s.tagline);
       if (s.mission) setMission(s.mission);
-      if (s.industry_suggestion) setIndustries([s.industry_suggestion]);
+      // NOTE: Không auto-set industry — mở IndustrySelectionDialog để user xác nhận từ AI list.
       if (s.target_audience?.age_range) setTargetAgeRange(s.target_audience.age_range);
       if (s.target_audience?.gender) setTargetGender(s.target_audience.gender);
       if (Array.isArray(s.target_audience?.locations)) setTargetLocations(s.target_audience.locations);
@@ -290,11 +290,41 @@ export default function BrandCreate() {
         importedLogoUrlRef.current = logo;
       }
       const palette = (meta as any)?.color_palette;
-      const color = s.primary_color || palette?.primary || meta.theme_color || s.primary_color_suggestion;
-      if (color && /^#[0-9a-fA-F]{6}$/.test(color)) setPrimaryColor(color);
+      // Gom tất cả candidate màu để user chọn
+      const hexRe = /^#[0-9a-fA-F]{6}$/;
+      const rawCandidates: Array<{ hex: string; source: string }> = [];
+      const pushCand = (hex: unknown, source: string) => {
+        if (typeof hex === 'string' && hexRe.test(hex)) {
+          rawCandidates.push({ hex: hex.toLowerCase(), source });
+        }
+      };
+      pushCand(s.primary_color, 'AI');
+      pushCand(meta.theme_color, 'Theme color');
+      pushCand(palette?.primary, 'Logo dominant');
+      pushCand(s.primary_color_suggestion, 'AI gợi ý');
+      if (palette && Array.isArray(palette.candidates)) {
+        (palette.candidates as unknown[]).forEach((c) => pushCand(c, 'Logo palette'));
+      }
+      // dedupe theo hex
+      const seen = new Set<string>();
+      const uniq = rawCandidates.filter((c) => {
+        if (seen.has(c.hex)) return false;
+        seen.add(c.hex);
+        return true;
+      });
+      setImportedColorCandidates(uniq);
+      if (uniq.length === 1) {
+        setPrimaryColor(uniq[0].hex);
+        setColorChosenFromImport(true);
+      } else if (uniq.length === 0) {
+        setColorChosenFromImport(true); // không có gì để chọn
+      }
+      // secondary colors lấy phần còn lại từ palette.candidates
       if (palette && Array.isArray(palette.candidates)) {
         const extras = (palette.candidates as string[])
-          .filter((c) => /^#[0-9a-fA-F]{6}$/.test(c) && c.toLowerCase() !== (color || '').toLowerCase())
+          .filter((c) => hexRe.test(c))
+          .map((c) => c.toLowerCase())
+          .filter((c, i, arr) => arr.indexOf(c) === i)
           .slice(0, 4);
         if (extras.length) setSecondaryColors(extras);
       }
