@@ -227,7 +227,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         toast.success('Đã áp dụng vào brand', {
           description: `${selectedFields.size} nhóm dữ liệu đã được cập nhật`,
         });
-        onApplied?.(updated, result);
+        onApplied?.(updated, enriched);
         onOpenChange(false);
       }
     } finally {
