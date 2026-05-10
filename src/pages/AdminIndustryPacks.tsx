@@ -601,17 +601,17 @@ export default function AdminIndustryPacks() {
 
       {/* Country Tabs */}
       <Tabs value={selectedCountry} onValueChange={setSelectedCountry}>
-        <TabsList className="flex-wrap h-auto gap-1 p-1">
+        <TabsList className="flex-wrap h-auto gap-1 p-1 overflow-x-auto sm:overflow-visible max-w-full">
           {isLoadingCountries ? (
             <Skeleton className="h-10 w-32" />
           ) : (
             <>
-              <TabsTrigger value="all" className="gap-2">
+              <TabsTrigger value="all" className="gap-2 text-xs sm:text-sm">
                 <Globe className="h-4 w-4" />
                 <span>All</span>
               </TabsTrigger>
               {countries.map((country) => (
-                <TabsTrigger key={country.code} value={country.code} className="gap-2">
+                <TabsTrigger key={country.code} value={country.code} className="gap-2 text-xs sm:text-sm">
                   <span>{country.flag_emoji}</span>
                   <span>{country.code}</span>
                 </TabsTrigger>
