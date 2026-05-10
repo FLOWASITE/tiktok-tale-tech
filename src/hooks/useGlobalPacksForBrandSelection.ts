@@ -66,6 +66,10 @@ async function fetchGlobalPacksForSelection(
         short_name,
         preferred_terms,
         forbidden_terms
+      ),
+      industry_search_aliases (
+        alias,
+        language_code
       )
     `)
     .eq('is_active', true)
