@@ -470,73 +470,89 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
   return (
     <div className="flex gap-4 h-[calc(100vh-280px)]">
       {/* Category Sidebar */}
-      <Card className="w-72 flex-shrink-0">
-        <CardHeader className="pb-2 px-3 pt-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <FolderTree className="h-4 w-4" />
-            Danh mục ({totalCategories})
-          </CardTitle>
+      <Card className={`${sidebarCollapsed ? 'w-12' : 'w-72'} flex-shrink-0 transition-[width] duration-200 overflow-hidden`}>
+        <CardHeader className={`pb-2 pt-3 ${sidebarCollapsed ? 'px-1' : 'px-3'}`}>
+          <div className="flex items-center justify-between gap-1">
+            {!sidebarCollapsed && (
+              <CardTitle className="text-sm font-medium flex items-center gap-2 min-w-0">
+                <FolderTree className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Danh mục ({totalCategories})</span>
+              </CardTitle>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 flex-shrink-0 mx-auto"
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? 'Mở danh mục' : 'Đóng danh mục'}
+              title={sidebarCollapsed ? 'Mở danh mục' : 'Đóng danh mục'}
+            >
+              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-380px)]">
-            <div className="px-2 pb-2">
-              {/* All categories option */}
-              <button
-                className={`
-                  w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors
-                  flex items-center justify-between gap-2
-                  ${!selectedCategory ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}
-                `}
-                onClick={() => setSelectedCategory(null)}
-              >
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  <span className="text-sm">Tất cả</span>
-                </div>
-                <Badge variant="secondary" className="h-5 text-[10px]">
-                  {stats?.total || 0}
-                </Badge>
-              </button>
+        {!sidebarCollapsed && (
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-380px)]">
+              <div className="px-2 pb-2">
+                {/* All categories option */}
+                <button
+                  className={`
+                    w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors
+                    flex items-center justify-between gap-2
+                    ${!selectedCategory ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}
+                  `}
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    <span className="text-sm">Tất cả</span>
+                  </div>
+                  <Badge variant="secondary" className="h-5 text-[10px]">
+                    {stats?.total || 0}
+                  </Badge>
+                </button>
 
-              {/* Category list */}
-              {categoriesLoading ? (
-                <div className="space-y-1">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Skeleton key={i} className="h-9 w-full" />
-                  ))}
-                </div>
-              ) : (
-                categories?.filter(cat => cat.count > 0).map(cat => {
-                  const Icon = getCategoryIcon(cat.icon_name);
-                  const isSelected = selectedCategory === cat.id;
-                  
-                  return (
-                    <button
-                      key={cat.id}
-                      className={`
-                        w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors
-                        flex items-center justify-between gap-2
-                        ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}
-                      `}
-                      onClick={() => setSelectedCategory(isSelected ? null : cat.id)}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Icon 
-                          className="h-4 w-4 flex-shrink-0" 
-                          style={{ color: cat.color || undefined }}
-                        />
-                        <span className="text-sm truncate">{cat.label}</span>
-                      </div>
-                      <Badge variant="secondary" className="h-5 text-[10px] flex-shrink-0">
-                        {cat.count}
-                      </Badge>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
-        </CardContent>
+                {/* Category list */}
+                {categoriesLoading ? (
+                  <div className="space-y-1">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <Skeleton key={i} className="h-9 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  categories?.filter(cat => cat.count > 0).map(cat => {
+                    const Icon = getCategoryIcon(cat.icon_name);
+                    const isSelected = selectedCategory === cat.id;
+                    
+                    return (
+                      <button
+                        key={cat.id}
+                        className={`
+                          w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors
+                          flex items-center justify-between gap-2
+                          ${isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}
+                        `}
+                        onClick={() => setSelectedCategory(isSelected ? null : cat.id)}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon 
+                            className="h-4 w-4 flex-shrink-0" 
+                            style={{ color: cat.color || undefined }}
+                          />
+                          <span className="text-sm truncate">{cat.label}</span>
+                        </div>
+                        <Badge variant="secondary" className="h-5 text-[10px] flex-shrink-0">
+                          {cat.count}
+                        </Badge>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        )}
       </Card>
 
       {/* Main Content */}
