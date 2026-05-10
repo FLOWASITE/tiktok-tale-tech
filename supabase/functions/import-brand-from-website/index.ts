@@ -304,9 +304,11 @@ function isNeutralColor(hex: string): boolean {
   const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   // Filter near-grayscale (low saturation) and near white/black
-  if (max - min < 25) return true;
-  if (max < 30) return true;       // near black
-  if (min > 235) return true;      // near white
+  // Tighten thresholds: dark UI colors (#1a1a1a, #222, #333) đều coi là neutral
+  // để tránh chọn nhầm màu nền/text làm brand color.
+  if (max - min < 35) return true;
+  if (max < 60) return true;       // near black (incl. #1a1a1a, #2a2a2a, #333…)
+  if (min > 230) return true;      // near white
   return false;
 }
 

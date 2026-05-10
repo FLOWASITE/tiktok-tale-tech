@@ -1,16 +1,18 @@
-Sẽ sửa đúng vị trí người dùng khoanh trong popup “Import Brand”:
+Sẽ sửa đúng lỗi màu brand trong flow Import Brand:
 
-1. Trong `BrandImportDialog.tsx`, thêm logic lấy danh sách ngành từ hệ thống Industry Packs ngay khi có kết quả import.
-2. Dòng “Ngành (gợi ý)” sẽ không chỉ hiển thị 1 text nữa, mà hiển thị các lựa chọn dạng danh sách/chip ngay bên dưới text gợi ý:
-   - Ưu tiên match theo `industry_suggestion` từ AI import.
-   - Nếu có nhiều ngành gần đúng, show khoảng 5 ngành để user bấm chọn/xác nhận.
-   - Nếu không match được, fallback sang ngành phổ biến để không bị trống.
-3. Thay vòng tròn checkbox của “Ngành (gợi ý)” thành trạng thái bắt buộc chọn ngành khi tạo brand mới:
-   - Ban đầu chưa chọn thì vòng tròn rỗng.
-   - User bấm một ngành trong danh sách thì vòng tròn/tick được bật và ngành được lưu vào `raw_meta.selected_industry_pack`.
-4. Khi bấm “Tiếp tục tạo brand”, `BrandCreate.tsx` sẽ ưu tiên ngành đã chọn trong popup:
-   - Set `globalPackId` đúng pack user chọn.
-   - Set `industries` theo tên ngành đã chọn.
-   - Không còn phụ thuộc vào dialog sau import để xác nhận ngành.
+1. Backend import website
+- Chặn màu đen/xám/trắng lọt vào `color_palette.primary`, `theme_color` khi đó chỉ là màu UI/fav icon/CSS chứ không phải brand color.
+- Ưu tiên màu lấy từ logo đã chọn/được detect (`logo` source) hơn `theme-color`, CSS variable, frequency trong HTML.
+- Với logo SVG: bỏ qua `none`, `transparent`, `currentColor`, `black`, `white`, `#000`, `#fff`; chọn màu không-neutral nổi bật nhất.
+- Với logo raster: giữ prompt AI “bỏ qua đen/trắng/xám”, nhưng nếu AI trả màu neutral thì không set primary.
 
-Phạm vi chỉ frontend import/create brand, không đổi backend/schema.
+2. Popup Import Brand
+- Dòng “Màu chủ đạo” sẽ không tự coi màu đen là Primary nếu nguồn không đáng tin.
+- Hiển thị danh sách swatch theo thứ tự: màu logo trước, rồi theme/CSS/AI nếu hợp lệ.
+- Nếu phát hiện màu đang là neutral/không chắc, không auto-select; user phải click chọn màu.
+
+3. BrandCreate hydrate
+- Khi nhận dữ liệu import, chỉ auto-fill màu nếu đã được user chọn trong popup hoặc chỉ có 1 candidate hợp lệ.
+- Nếu có nhiều màu, giữ UI yêu cầu xác nhận màu để tránh lưu nhầm màu đen.
+
+Phạm vi: chỉ sửa frontend popup/create brand và edge function import website; không đổi schema/database.
