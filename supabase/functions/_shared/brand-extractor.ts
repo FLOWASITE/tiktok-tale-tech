@@ -102,6 +102,7 @@ const TOOL_SCHEMA = {
           },
         },
       },
+      required: ["brand_name", "tone_of_voice", "brand_positioning", "formality_level"],
     },
   },
 };
