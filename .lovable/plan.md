@@ -1,46 +1,39 @@
-## Mục tiêu
-Cho phép admin cấu hình model AI cho luồng Import Brand (website + fanpage) tại trang **/admin/ai → Functions**, giống các function khác, kèm fallback chain để né lỗi 402.
+## Vấn đề
+Test trước báo 402 do cả 3 model fallback của `import-brand-extractor` đều thuộc Lovable Gateway (`gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-3-flash-preview`). Khi workspace hết credit Lovable AI, toàn bộ chain fail.
 
-## Hiện trạng
-- `import-brand-extractor` đã đăng ký ở `useAIConfig.ts` (frontend catalog) và `ai-config.ts` (backend defaults). → Đã hiển thị trong Admin AI Functions ✅
-- Tuy nhiên function thực thi `extractBrandSuggestions` đang gọi `callAI` truyền cứng `functionName: "import-brand-extractor"` mà không đọc `model_override` từ DB → admin đổi model sẽ không có hiệu lực nếu `callAI` không tự lookup. Cần xác nhận + bổ sung fallback model.
-- Chưa có config riêng cho `import-brand-from-website` và `import-brand-from-fanpage` (đây là orchestrator, không trực tiếp gọi AI nhưng admin cần thấy để bật/tắt + theo dõi).
+Trong khi đó các brand function tương tự (`generate-brand-guideline`, `geo-scan-brand`) admin đã set `qwen-plus` (DashScope/Alibaba) — provider có credit riêng, không phụ thuộc Lovable Gateway.
 
-## Phạm vi triển khai
+## Phạm vi sửa
 
-### 1. Đăng ký 2 orchestrator function vào catalog (UI Admin)
-File: `src/hooks/useAIConfig.ts` (mục Brand Functions)
-- Thêm `import-brand-from-website` — category `brand`, type `text`, default `google/gemini-2.5-flash`, tag `orchestrator`
-- Thêm `import-brand-from-fanpage` — tương tự
-
-### 2. Backend defaults
+### 1. Đồng bộ default model với các brand function khác
 File: `supabase/functions/_shared/ai-config.ts`
-- Thêm 2 entry tương ứng với `is_enabled: true` để admin có thể bật/tắt từ UI; orchestrator sẽ check `is_enabled` trước khi chạy.
+- Đổi default cho 3 entry `import-brand-extractor`, `import-brand-from-website`, `import-brand-from-fanpage` từ `google/gemini-2.5-flash` → **`qwen-plus`** (giống `generate-brand-guideline`).
+- Lý do: Qwen-plus support tool-calling tốt, đa ngôn ngữ (đặc biệt VI), giá rẻ hơn, và workspace đã có DashScope credit.
 
-### 3. Fallback model chain cho extractor (giải quyết edge case #1, #2 đã báo cáo)
+File: `src/hooks/useAIConfig.ts`
+- Cập nhật `currentModel` của 3 entry tương ứng → `qwen-plus` (chỉ ảnh hưởng badge hiển thị mặc định trong Admin UI; admin vẫn override được).
+
+### 2. Multi-provider fallback chain
 File: `supabase/functions/_shared/brand-extractor.ts`
-- Đọc config từ `getAIConfig('import-brand-extractor')` để lấy `model` + `fallback_models` (admin set).
-- Nếu `callAI` trả 402/429 → tự retry với `google/gemini-2.5-flash-lite` rồi `google/gemini-3-flash-preview`.
-- Nếu vẫn fail → return error code chuẩn (`AI_QUOTA_EXHAUSTED`) thay vì string mơ hồ.
+- Đổi `FALLBACK_MODELS` thành chain xen kẽ provider để né 402 từng nhà:
+  ```
+  undefined           // primary từ admin config (qwen-plus)
+  "qwen-turbo"        // DashScope rẻ hơn, vẫn cùng provider
+  "google/gemini-2.5-flash"       // sang Lovable Gateway
+  "google/gemini-2.5-flash-lite"  // Lovable Gateway tier rẻ nhất
+  ```
+- Giữ logic chỉ fallback khi error là 402/429/quota; lỗi khác break ngay.
+- Giữ return code `AI_QUOTA_EXHAUSTED` khi cả 4 đều fail.
 
-File: `supabase/functions/import-brand-from-website/index.ts` + `import-brand-from-fanpage/index.ts`
-- Map error code `AI_QUOTA_EXHAUSTED` → HTTP 402 (giữ nguyên status từ AI gateway thay vì 502).
-
-### 4. Frontend xử lý 402
-File: `src/hooks/useBrandImport.ts`
-- Detect status 402 → toast với CTA "Nạp thêm credit" trỏ tới `/settings/usage` (tận dụng `QuotaExhaustedBanner` pattern đã có).
-
-### 5. Kiểm tra trước khi gọi
-File: `import-brand-from-website/index.ts` + `import-brand-from-fanpage/index.ts`
-- Trước khi tốn Firecrawl/FB API, gọi `getAIConfig('import-brand-extractor')` — nếu `is_enabled === false` → trả 503 với message "Tính năng Import Brand đang tạm ngưng (Admin)".
-
-## Không làm trong phạm vi này
-- Cache scrape per URL (edge case #3) — sẽ tách task riêng
-- Rate-limit per user (edge case #4)
-- Same-origin validation cho `extra_paths` (edge case #5)
-- Auto-fill `logo_url` từ `og_image` (edge case #6) — task UI riêng
+### 3. Không động vào
+- `ai-provider.ts` (đã hỗ trợ DashScope routing sẵn từ prefix `qwen-`).
+- Logic 402 mapping ở 2 orchestrator + frontend toast (đã đúng).
+- Tool-calling schema (Qwen OpenAI-compatible, dùng được cùng schema).
 
 ## Verification
-- Mở `/admin/ai` → Functions → search "import" → thấy 3 function (extractor + 2 orchestrator), có thể đổi model + toggle.
-- Test: tắt `import-brand-extractor` → bấm Import từ UI → nhận thông báo "tạm ngưng" (không tốn Firecrawl).
-- Test: với account đang 402 credit → nhận toast "Nạp credit" thay vì lỗi mơ hồ.
+- Test lại `import-brand-from-website` với `https://flowa.one` → mong đợi primary `qwen-plus` thành công ngay (vì workspace có DashScope key).
+- Mở `/admin/ai` → 3 function `import-brand-*` hiển thị default `qwen-plus`.
+- Nếu admin set lại model_override khác, fallback vẫn chạy đúng theo thứ tự trên.
+
+## Rủi ro
+- Qwen-plus tool-calling đôi khi trả args trong shape hơi khác — extractor đã có 3 tầng parse (`choices[0].message.tool_calls` → `data.tool_calls` → JSON regex từ content) nên đã an toàn.
