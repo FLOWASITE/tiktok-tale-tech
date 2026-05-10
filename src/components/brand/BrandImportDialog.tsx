@@ -37,7 +37,9 @@ const ALL_FIELDS: { key: ImportableField; label: string; group: string }[] = [
   { key: 'target_audience', label: 'Đối tượng mục tiêu', group: 'Identity' },
   { key: 'logo_url', label: 'Logo', group: 'Identity' },
   { key: 'primary_color', label: 'Màu chủ đạo', group: 'Identity' },
+  { key: 'brand_positioning', label: 'Định vị thương hiệu', group: 'Voice' },
   { key: 'tone_of_voice', label: 'Tone of voice', group: 'Voice' },
+  { key: 'formality_level', label: 'Mức độ trang trọng', group: 'Voice' },
   { key: 'sample_texts', label: 'Sample texts (clone voice)', group: 'Voice' },
   { key: 'content_pillars', label: 'Content pillars', group: 'Strategy' },
   { key: 'usps', label: 'USPs', group: 'Strategy' },
@@ -132,6 +134,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       next.add('target_audience');
     }
     if ((s.tone_of_voice?.length ?? 0) > 0) next.add('tone_of_voice');
+    if (s.brand_positioning) next.add('brand_positioning');
+    if (s.formality_level) next.add('formality_level');
     if ((s.sample_texts?.length ?? 0) > 0) next.add('sample_texts');
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
@@ -201,6 +205,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       if (s.target_audience.locations?.length) updates.target_locations = s.target_audience.locations;
     }
     if (selectedFields.has('tone_of_voice') && s.tone_of_voice?.length) updates.tone_of_voice = s.tone_of_voice;
+    if (selectedFields.has('brand_positioning') && s.brand_positioning) updates.brand_positioning = s.brand_positioning;
+    if (selectedFields.has('formality_level') && s.formality_level) updates.formality_level = s.formality_level;
     if (selectedFields.has('content_pillars') && s.content_pillars?.length) {
       updates.content_pillars = s.content_pillars.map((p) => ({ name: p.name, description: p.description || '' }));
     }
@@ -317,6 +323,11 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         return parts.join(' • ') || null;
       }
       case 'tone_of_voice': return s.tone_of_voice?.join(', ') || null;
+      case 'brand_positioning': return s.brand_positioning || null;
+      case 'formality_level': {
+        const map: Record<string, string> = { casual: 'Thân mật', neutral: 'Trung tính', formal: 'Trang trọng' };
+        return s.formality_level ? (map[s.formality_level] || s.formality_level) : null;
+      }
       case 'content_pillars': return s.content_pillars?.map((p) => p.name).join(' • ') || null;
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
@@ -692,6 +703,11 @@ function readExistingFieldLabel(brand: BrandTemplate | null | undefined, key: Im
       return parts.join(' • ') || null;
     }
     case 'tone_of_voice': return brand.tone_of_voice?.join(', ') || null;
+    case 'brand_positioning': return brand.brand_positioning || null;
+    case 'formality_level': {
+      const map: Record<string, string> = { casual: 'Thân mật', neutral: 'Trung tính', formal: 'Trang trọng' };
+      return brand.formality_level ? (map[brand.formality_level] || brand.formality_level) : null;
+    }
     case 'content_pillars': return brand.content_pillars?.map((p) => p.name).join(' • ') || null;
     case 'usps': return brand.competitive_advantages?.join(' • ') || null;
     case 'sample_texts': {

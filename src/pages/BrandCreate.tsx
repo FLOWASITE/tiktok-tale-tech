@@ -278,6 +278,8 @@ export default function BrandCreate() {
       if (s.target_audience?.gender) setTargetGender(s.target_audience.gender);
       if (Array.isArray(s.target_audience?.locations)) setTargetLocations(s.target_audience.locations);
       if (Array.isArray(s.tone_of_voice) && s.tone_of_voice.length) setToneOfVoice(s.tone_of_voice);
+      if (s.brand_positioning) setBrandPositioning(s.brand_positioning);
+      if (s.formality_level) setFormalityLevel(s.formality_level);
       if (Array.isArray(s.usps) && s.usps.length) setCompetitiveAdvantages(s.usps);
       if (Array.isArray(s.content_pillars) && s.content_pillars.length) {
         // content_pillars editor expects {name, description, color?}
