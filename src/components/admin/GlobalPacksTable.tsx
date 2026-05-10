@@ -36,7 +36,9 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
+  Star,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 interface GlobalPacksTableProps {
@@ -67,6 +69,36 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
           refetch();
         },
         onError: () => toast.error('Lỗi khi cập nhật'),
+      }
+    );
+  };
+
+  const handleTogglePopular = (packId: string, currentPopular: boolean, currentOrder: number | null) => {
+    const updates: Record<string, unknown> = { is_popular: !currentPopular };
+    // When enabling for the first time, push to bottom of popular list
+    if (!currentPopular && currentOrder == null) {
+      updates.popular_sort_order = 999;
+    }
+    updatePack(
+      { packId, updates },
+      {
+        onSuccess: () => {
+          toast.success(currentPopular ? 'Đã bỏ khỏi Phổ biến' : 'Đã thêm vào Phổ biến');
+          refetch();
+        },
+        onError: () => toast.error('Lỗi khi cập nhật'),
+      }
+    );
+  };
+
+  const handleUpdatePopularOrder = (packId: string, value: string) => {
+    const parsed = value === '' ? null : Number(value);
+    if (parsed !== null && (Number.isNaN(parsed) || parsed < 0)) return;
+    updatePack(
+      { packId, updates: { popular_sort_order: parsed } },
+      {
+        onSuccess: () => refetch(),
+        onError: () => toast.error('Lỗi khi cập nhật thứ tự'),
       }
     );
   };
@@ -129,6 +161,11 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                 <TableHead>Target</TableHead>
                 <TableHead>Profiles</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5" /> Phổ biến
+                  </span>
+                </TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -150,10 +187,13 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                       </code>
                     </TableCell>
                     <TableCell>
-                      <div>
+                      <div className="flex items-center gap-2">
                         <p className="font-medium">{pack.name}</p>
-                        <p className="text-xs text-muted-foreground">v{pack.version}</p>
+                        {pack.isPopular && (
+                          <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" aria-label="Phổ biến" />
+                        )}
                       </div>
+                      <p className="text-xs text-muted-foreground">v{pack.version}</p>
                     </TableCell>
                     <TableCell>
                       <Badge className={targetConfig.color}>
@@ -180,6 +220,26 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={pack.isPopular}
+                          onCheckedChange={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}
+                          aria-label="Đánh dấu phổ biến"
+                        />
+                        {pack.isPopular && (
+                          <Input
+                            type="number"
+                            min={0}
+                            value={pack.popularSortOrder ?? ''}
+                            onChange={(e) => handleUpdatePopularOrder(pack.id, e.target.value)}
+                            placeholder="#"
+                            className="h-8 w-16 text-xs"
+                            title="Thứ tự hiển thị (số nhỏ lên trước)"
+                          />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -204,6 +264,10 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                                 Kích hoạt
                               </>
                             )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}>
+                            <Star className={`h-4 w-4 mr-2 ${pack.isPopular ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            {pack.isPopular ? 'Bỏ khỏi Phổ biến' : 'Đánh dấu Phổ biến'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

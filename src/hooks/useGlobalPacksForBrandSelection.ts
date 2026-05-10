@@ -31,6 +31,8 @@ export interface GlobalPackForSelection {
   parentPackId: string | null;
   /** Search aliases (synonyms) for fuzzy matching */
   aliases: string[];
+  isPopular: boolean;
+  popularSortOrder: number | null;
 }
 
 interface UseGlobalPacksOptions {
@@ -58,6 +60,8 @@ async function fetchGlobalPacksForSelection(
       industry_level,
       parent_pack_id,
       sort_order,
+      is_popular,
+      popular_sort_order,
       industry_categories (
         code
       ),
@@ -138,6 +142,8 @@ async function fetchGlobalPacksForSelection(
       industryLevel: (pack.industry_level as 'core' | 'sub') || 'core',
       parentPackId: pack.parent_pack_id,
       aliases,
+      isPopular: (pack as any).is_popular === true,
+      popularSortOrder: (pack as any).popular_sort_order ?? null,
     };
   });
 }
@@ -254,6 +260,8 @@ export async function fetchGlobalPackDetailsForBrand(
       industryLevel: (packData.industry_level as 'core' | 'sub') || 'core',
       parentPackId: packData.parent_pack_id,
       aliases: [],
+      isPopular: false,
+      popularSortOrder: null,
     },
     resolvedRules,
     disclaimer: profileData?.disclaimer || null,

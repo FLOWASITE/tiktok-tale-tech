@@ -65,6 +65,8 @@ export interface GlobalPackListItem {
   version: string;
   name: string; // From translation
   profileCount: number;
+  isPopular: boolean;
+  popularSortOrder: number | null;
 }
 
 // ============== FETCH FUNCTIONS ==============
@@ -178,6 +180,8 @@ async function fetchGlobalPacksList(
       target_audience,
       is_active,
       version,
+      is_popular,
+      popular_sort_order,
       industry_pack_translations!inner (name),
       industry_jurisdiction_profiles (id)
     `)
@@ -213,6 +217,8 @@ async function fetchGlobalPacksList(
       version: row.version || '1.0',
       name: translations[0]?.name || row.industry_code,
       profileCount: profiles?.length || 0,
+      isPopular: (row as any).is_popular === true,
+      popularSortOrder: (row as any).popular_sort_order ?? null,
     };
   });
 }
@@ -353,6 +359,9 @@ export function useUpdateGlobalPack() {
       });
       queryClient.invalidateQueries({
         queryKey: ['globalPacksList'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['globalPacksForSelection'],
       });
     },
   });

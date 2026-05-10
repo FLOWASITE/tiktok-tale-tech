@@ -73,7 +73,7 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
   services: <Wrench className="w-5 h-5" />,
 };
 
-const POPULAR_CODES = ['ecommerce', 'fnb', 'healthcare', 'realestate', 'it', 'fashion', 'beauty', 'education'];
+// Popular industries are now driven by `is_popular` flag in DB (admin-managed).
 
 interface AiSuggestion {
   packId: string;
@@ -161,7 +161,9 @@ export function IndustrySelectionDialog({
       }
     });
     
-    const popular = packs.filter(p => POPULAR_CODES.includes(p.code));
+    const popular = packs
+      .filter(p => p.isPopular)
+      .sort((a, b) => (a.popularSortOrder ?? 999) - (b.popularSortOrder ?? 999));
 
     const byId = new Map(packs.map(p => [p.id, p] as const));
     const recent = recentlyUsedIds
@@ -240,7 +242,7 @@ export function IndustrySelectionDialog({
 
   // --- Shared IndustryCard ---
   const IndustryCard = ({ pack, compact = false }: { pack: GlobalPackForSelection; isSelected?: boolean; compact?: boolean }) => {
-    const isPopular = POPULAR_CODES.includes(pack.code);
+    const isPopular = pack.isPopular;
     const isSub = pack.industryLevel === 'sub';
     const subCount = subPacksByParent[pack.id]?.length || 0;
     

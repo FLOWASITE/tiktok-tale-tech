@@ -6719,7 +6719,9 @@ export type Database = {
           industry_code: string
           industry_level: string | null
           is_active: boolean | null
+          is_popular: boolean
           parent_pack_id: string | null
+          popular_sort_order: number | null
           related_industries: string[] | null
           risk_guidelines: Json | null
           sort_order: number | null
@@ -6740,7 +6742,9 @@ export type Database = {
           industry_code: string
           industry_level?: string | null
           is_active?: boolean | null
+          is_popular?: boolean
           parent_pack_id?: string | null
+          popular_sort_order?: number | null
           related_industries?: string[] | null
           risk_guidelines?: Json | null
           sort_order?: number | null
@@ -6761,7 +6765,9 @@ export type Database = {
           industry_code?: string
           industry_level?: string | null
           is_active?: boolean | null
+          is_popular?: boolean
           parent_pack_id?: string | null
+          popular_sort_order?: number | null
           related_industries?: string[] | null
           risk_guidelines?: Json | null
           sort_order?: number | null

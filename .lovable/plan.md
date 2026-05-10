@@ -1,60 +1,49 @@
 ## Mục tiêu
-Giảm friction khi user chọn ngành nghề trong `IndustrySelectionDialog` — từ "duyệt 60+ ngành" thành "AI gợi ý đúng ngành + tìm nhanh + nhớ ngành đã dùng".
+Cho admin tự đánh dấu ngành nào là "Phổ biến" (hiện ở section đầu của `IndustrySelectionDialog`), thay vì hardcode 8 mã ngành trong frontend.
 
-## 4 cải tiến
+Hiện tại: `src/components/brand/IndustrySelectionDialog.tsx:76` hardcode `POPULAR_CODES = ['ecommerce','fnb','healthcare',...]` → admin không tự đổi được, không theo thị trường thực tế.
 
-### 1. AI gợi ý ngành từ kết quả Brand Import
-Khi user import xong website/fanpage, gọi edge function mới `suggest-industry` phân tích `name + description + content_summary + footer_info` → trả top 3 ngành phù hợp kèm `confidence %` và `reason` ngắn.
+## Thay đổi
 
-- Edge function `suggest-industry` (Gemini Flash, JSON tool-call output): nhận `{ brandText, language }`, fetch danh sách `industry_global_packs` (cache shared), trả `[{ packId, code, name, confidence, reason }]`.
-- Trong `IndustrySelectionDialog` thêm prop `suggestedContext?: { brandText: string }`. Khi có context, render section **"AI gợi ý cho bạn"** ở trên cùng (3 card có badge ✨ + % match + lý do 1 dòng).
-- `BrandCreate.tsx` truyền `suggestedContext` từ kết quả import vào dialog.
+### 1. Database (1 migration mới)
+Thêm 2 cột vào `public.industry_global_packs`:
+- `is_popular boolean NOT NULL DEFAULT false` — flag đánh dấu ngành phổ biến
+- `popular_sort_order integer` — thứ tự hiển thị trong section "Phổ biến" (NULL = cuối)
 
-### 2. Tìm kiếm thông minh hơn
-Hiện `IndustrySelectionDialog` chỉ match `name/shortName/code`. Mở rộng:
+Index: `CREATE INDEX idx_industry_packs_popular ON industry_global_packs(is_popular, popular_sort_order) WHERE is_popular = true;`
 
-- Thêm bảng `industry_search_aliases` (nhẹ, seed sẵn): `pack_id`, `alias`, `lang`. Vd: pack `beauty` có alias `["thẩm mỹ","spa","làm đẹp","mỹ phẩm","skincare"]`; `fnb` có `["cà phê","nhà hàng","quán ăn","ẩm thực"]`.
-- Hook `useGlobalPacksForBrandSelection` join thêm aliases.
-- Logic search trong dialog: normalize bỏ dấu (Vietnamese diacritics) + match aliases + fuzzy đơn giản (Levenshtein ≤ 2 cho từ ≥ 4 ký tự) để bắt typo "thẩm my" → "thẩm mỹ".
-- Highlight phần match trong tên hiển thị.
+Backfill: set `is_popular = true` cho 8 mã hiện tại (`ecommerce, fnb, healthcare, realestate, it, fashion, beauty, education`) với `popular_sort_order` 1–8 để giữ behavior cũ.
 
-### 3. Recently used + Recommended
-Thêm tracking ngành đã chọn:
+RLS: giữ policy hiện tại (public read, admin write — đã có sẵn).
 
-- Cột `last_used_industry_pack_ids uuid[]` trên `organizations` (cap 5, mới nhất đầu) — update qua trigger khi `brand_templates.industry_template_id` thay đổi, hoặc gọi RPC `record_industry_use(pack_id)`.
-- Trong dialog state default (chưa search/chưa chọn category) bổ sung 2 section đầu:
-  - **"Đã dùng gần đây"** (nếu có ≥ 1) — lấy từ org.
-  - **"Phổ biến"** (POPULAR_CODES hiện có).
-  - Sau đó mới đến "Tất cả danh mục".
+### 2. Admin UI (`src/components/admin/GlobalPacksTable.tsx` + `AdminIndustryPacks.tsx`)
+- Thêm cột **"Phổ biến"** trong bảng: hiện `Switch` toggle + input số nhỏ cho `popular_sort_order` (chỉ hiện khi đã bật).
+- Bulk action: nút "Đánh dấu phổ biến" / "Bỏ phổ biến" trên các row selected.
+- Hiển thị badge ⭐ ở cột tên khi `is_popular = true`.
+- Mutation: update `industry_global_packs` qua Supabase client (đã có pattern `is_active` toggle).
 
-### 4. UX duyệt ngành rõ ràng hơn
-Refactor layout desktop của dialog (mobile giữ pattern drawer hiện tại):
+### 3. Frontend dialog (`src/components/brand/IndustrySelectionDialog.tsx`)
+- Bỏ const `POPULAR_CODES`.
+- `useGlobalPacksForBrandSelection` đã trả pack list — extend hook để select thêm `is_popular, popular_sort_order` từ DB.
+- Logic `popular = packs.filter(p => p.isPopular).sort(by popular_sort_order)` thay cho filter theo array hardcode.
+- Giữ nguyên render UI section "Phổ biến" (mobile + desktop + sidebar count badge).
 
-- **Sidebar trái**: list `industry_categories` (đã có table) + filter chip `B2B / B2C / Cả hai` (lấy từ `target_audience` của pack).
-- **Khu giữa**: grid ngành theo category đang chọn (Core trên + Sub indent dưới với divider rõ).
-- **Preview pane phải** (sticky, hiện khi hover/focus 1 pack):
-  - Tên + short name + category
-  - 3 compliance rules tiêu biểu
-  - Top 5 forbidden terms
-  - Brand voice tone (nếu có)
-  - 1 ví dụ caption ngắn từ `industry_templates.metadata.sample_caption` (nếu thiếu → ẩn)
-  - Nút "Chọn ngành này" rõ ràng
-- Breadcrumb nhỏ: `Category › Core › Sub` khi đang ở deep level.
+### 4. Hook (`src/hooks/useGlobalPacksForBrandSelection.ts`)
+Thêm 2 field vào select query và map ra type: `isPopular: boolean`, `popularSortOrder: number | null`.
 
-## Technical notes
-- Database: 1 migration tạo `industry_search_aliases` + cột `last_used_industry_pack_ids` + RPC `record_industry_use`. RLS: aliases public read, last_used update qua RPC SECURITY DEFINER.
-- Edge function: `supabase/functions/suggest-industry/index.ts` dùng `callAI()` shared, cache 24h theo hash(brandText), `verify_jwt = true`.
-- Frontend: chỉ sửa `IndustrySelectionDialog.tsx` + `useGlobalPacksForBrandSelection.ts` + `BrandCreate.tsx`. Tạo helper `src/lib/industrySearch.ts` cho normalize + fuzzy.
-- Không thay đổi schema `industry_global_packs/templates` (immutable theo project rule).
-- Giữ Soft Luxury: neutral gray, không gradient mới ngoài badge "Hot" hiện có.
+## File touch
+- 1 migration mới (schema + backfill)
+- `src/hooks/useGlobalPacksForBrandSelection.ts`
+- `src/components/admin/GlobalPacksTable.tsx`
+- `src/pages/AdminIndustryPacks.tsx` (nếu cần thêm filter "chỉ phổ biến")
+- `src/components/brand/IndustrySelectionDialog.tsx`
 
 ## Out of scope
-- Không sửa logic compliance/brand voice cascade.
-- Không thêm ngành mới vào `industry_global_packs` (đó là việc của admin).
-- Không thay đổi mobile drawer flow lớn (chỉ áp dụng "Recently used" + smart search; preview pane chỉ desktop).
+- Không đổi UI section "Đã dùng gần đây" / "AI gợi ý".
+- Không thêm i18n translation cho tên ngành phổ biến (đã dùng `industry_pack_translations`).
+- Không tracking analytics "lượt chọn" (có thể làm sau để auto-suggest popular).
 
 ## Verify
-- Import 1 website mỹ phẩm → suggest top 1 = `beauty` hoặc `cosmetics` với confidence ≥ 70%.
-- Search "tham my" (không dấu, sai chính tả) → ra `beauty` / `cosmetics`.
-- Tạo brand 2 lần với cùng ngành → lần 2 ngành đó hiện ở section "Đã dùng gần đây".
-- Hover 1 pack trên desktop → preview pane hiện compliance rules trong < 200ms (data đã có sẵn từ hook).
+- Admin bật toggle "Phổ biến" cho ngành X → reload `BrandCreate` → ngành X xuất hiện trong section "Phổ biến" theo `popular_sort_order`.
+- Bỏ toggle → ngành biến mất khỏi section nhưng vẫn còn trong "Tất cả danh mục".
+- Backfill: behavior trước migration = sau migration (8 ngành cũ vẫn ở vị trí 1–8).
