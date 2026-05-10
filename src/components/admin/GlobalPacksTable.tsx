@@ -73,6 +73,36 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
     );
   };
 
+  const handleTogglePopular = (packId: string, currentPopular: boolean, currentOrder: number | null) => {
+    const updates: Record<string, unknown> = { is_popular: !currentPopular };
+    // When enabling for the first time, push to bottom of popular list
+    if (!currentPopular && currentOrder == null) {
+      updates.popular_sort_order = 999;
+    }
+    updatePack(
+      { packId, updates },
+      {
+        onSuccess: () => {
+          toast.success(currentPopular ? 'Đã bỏ khỏi Phổ biến' : 'Đã thêm vào Phổ biến');
+          refetch();
+        },
+        onError: () => toast.error('Lỗi khi cập nhật'),
+      }
+    );
+  };
+
+  const handleUpdatePopularOrder = (packId: string, value: string) => {
+    const parsed = value === '' ? null : Number(value);
+    if (parsed !== null && (Number.isNaN(parsed) || parsed < 0)) return;
+    updatePack(
+      { packId, updates: { popular_sort_order: parsed } },
+      {
+        onSuccess: () => refetch(),
+        onError: () => toast.error('Lỗi khi cập nhật thứ tự'),
+      }
+    );
+  };
+
   const targetAudienceConfig = {
     B2B: { icon: Briefcase, color: 'text-blue-500 bg-blue-500/10' },
     B2C: { icon: Users, color: 'text-green-500 bg-green-500/10' },
