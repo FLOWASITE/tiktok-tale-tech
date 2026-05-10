@@ -654,6 +654,70 @@ export function IndustrySelectionDialog({
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* AI Suggestions */}
+                    {(aiLoading || aiSuggestedPacks.length > 0) && (
+                      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-medium flex items-center gap-2 text-primary">
+                            <Wand2 className="w-4 h-4" />
+                            AI gợi ý cho bạn
+                          </h3>
+                          {aiLoading && <span className="text-xs text-muted-foreground">Đang phân tích...</span>}
+                        </div>
+                        {aiLoading ? (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <Skeleton key={i} className="h-20" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {aiSuggestedPacks.map(({ pack, suggestion }) => (
+                              <button
+                                key={pack.id}
+                                type="button"
+                                onClick={() => handleSelect(pack)}
+                                onMouseEnter={() => setHoveredPack(pack)}
+                                onMouseLeave={() => setHoveredPack(null)}
+                                className="group p-3 rounded-xl border-2 border-primary/30 bg-card text-left transition-all hover:border-primary hover:shadow-md hover:scale-[1.02]"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                                    {getIcon(pack.code, 'sm')}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                                      <Badge variant="secondary" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{suggestion.reason}</p>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Recently used */}
+                    {recentlyUsedPacks.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            Đã dùng gần đây
+                          </h3>
+                          <Badge variant="secondary" className="text-xs">{recentlyUsedPacks.length}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                          {recentlyUsedPacks.map((pack) => (
+                            <IndustryCard key={pack.id} pack={pack} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-medium flex items-center gap-2">
