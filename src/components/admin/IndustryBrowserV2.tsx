@@ -34,6 +34,7 @@ import {
   CheckCircle,
   XCircle,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   Layers,
   Building2,
