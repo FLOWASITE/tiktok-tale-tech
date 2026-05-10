@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { normalizeBrandVoiceSuggestion } from '@/lib/brandVoiceNormalization';
 
 export interface BrandSuggestion {
   brand_name?: string | null;
@@ -14,7 +15,7 @@ export interface BrandSuggestion {
   } | null;
   tone_of_voice?: string[] | null;
   brand_positioning?: string | null;
-  formality_level?: 'casual' | 'neutral' | 'formal' | null;
+  formality_level?: 'casual' | 'neutral' | 'formal' | 'semi_formal' | 'friendly' | null;
   content_pillars?: Array<{ name: string; description?: string }> | null;
   usps?: string[] | null;
   sample_texts?: string[] | null;
@@ -199,6 +200,13 @@ function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
+function normalizeResult(result: BrandImportResult): BrandImportResult {
+  return {
+    ...result,
+    suggestion: normalizeBrandVoiceSuggestion(result.suggestion),
+  } as BrandImportResult;
+}
+
 export function useBrandImport() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<BrandImportProgress>({ step: '', percent: 0, message: '' });
@@ -238,7 +246,7 @@ export function useBrandImport() {
     reset();
     abortRef.current = new AbortController();
     try {
-      return await runStream({
+      const result = await runStream({
         fn: 'import-brand-from-website',
         body: {
           url,
@@ -251,6 +259,7 @@ export function useBrandImport() {
         onEvent: (e) => setEvents((prev) => [...prev, e].slice(-12)),
         signal: abortRef.current.signal,
       });
+      return normalizeResult(result);
     } catch (e) {
       return handleError(e, 'website');
     } finally {
@@ -267,7 +276,7 @@ export function useBrandImport() {
     reset();
     abortRef.current = new AbortController();
     try {
-      return await runStream({
+      const result = await runStream({
         fn: 'import-brand-from-fanpage',
         body: {
           social_connection_id: socialConnectionId,
@@ -279,6 +288,7 @@ export function useBrandImport() {
         onEvent: (e) => setEvents((prev) => [...prev, e].slice(-12)),
         signal: abortRef.current.signal,
       });
+      return normalizeResult(result);
     } catch (e) {
       return handleError(e, 'fanpage');
     } finally {

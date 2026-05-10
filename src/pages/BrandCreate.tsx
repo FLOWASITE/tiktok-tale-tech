@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useQuery } from '@tanstack/react-query';
+import { normalizeBrandPositioning, normalizeBrandVoiceSuggestion, normalizeFormalityLevel, normalizeToneOfVoice } from '@/lib/brandVoiceNormalization';
 
 interface LocationState {
   editTemplate?: BrandTemplate;
@@ -222,9 +223,9 @@ export default function BrandCreate() {
             : 'personal'
       );
 
-      setBrandPositioning(editingTemplate.brand_positioning || '');
-      setToneOfVoice(asStringArray(editingTemplate.tone_of_voice));
-      setFormalityLevel(editingTemplate.formality_level || '');
+      setBrandPositioning(normalizeBrandPositioning(editingTemplate.brand_positioning) || '');
+      setToneOfVoice(normalizeToneOfVoice(editingTemplate.tone_of_voice));
+      setFormalityLevel(normalizeFormalityLevel(editingTemplate.formality_level) || '');
       setLanguageStyle(asStringArray(editingTemplate.language_style));
       setPreferredWords(asStringArray(editingTemplate.preferred_words));
       setForbiddenWords(asStringArray(editingTemplate.forbidden_words));
@@ -265,7 +266,7 @@ export default function BrandCreate() {
   useEffect(() => {
     if (importedSuggestion && !editingTemplate && !hasHydratedRef.current) {
       hasHydratedRef.current = true;
-      const s = importedSuggestion.suggestion || {};
+      const s = normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {});
       const meta = importedSuggestion.raw_meta || {};
       if (s.brand_name) {
         setName(s.brand_name);
@@ -428,19 +429,25 @@ export default function BrandCreate() {
     // Use global_pack_id for v2.1 architecture (keeping industryTemplateId for backward compatibility)
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
+    const importedVoice = importedSuggestion ? normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {}) : null;
+    const importedPositioning = normalizeBrandPositioning(importedVoice?.brand_positioning);
+    const importedTones = normalizeToneOfVoice(importedVoice?.tone_of_voice);
+    const importedFormality = normalizeFormalityLevel(importedVoice?.formality_level);
     
-    if (packData.brandPositioning) {
-      setBrandPositioning(packData.brandPositioning);
+    if (importedPositioning || packData.brandPositioning) {
+      setBrandPositioning(importedPositioning || normalizeBrandPositioning(packData.brandPositioning) || '');
     }
 
     const voice = (packData as any).brandVoice || {};
     // Only set values if pack provides them - don't reset to empty
-    const packTones = asStringArray(voice.tone_of_voice);
-    if (packTones.length > 0) {
-      setToneOfVoice(packTones);
+    const packTones = normalizeToneOfVoice(voice.tone_of_voice);
+    const nextTones = importedTones.length > 0 ? importedTones : packTones;
+    if (nextTones.length > 0) {
+      setToneOfVoice(nextTones);
     }
-    if (voice.formality_level) {
-      setFormalityLevel(voice.formality_level);
+    const nextFormality = importedFormality || normalizeFormalityLevel(voice.formality_level);
+    if (nextFormality) {
+      setFormalityLevel(nextFormality);
     }
     const packLangStyle = asStringArray(voice.language_style);
     if (packLangStyle.length > 0) {
