@@ -183,12 +183,12 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                     className={`cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
                     onClick={() => onSelectPack?.(pack.id)}
                   >
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
                         {pack.industryCode}
                       </code>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[140px]">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{pack.name}</p>
                         {pack.isPopular && (
