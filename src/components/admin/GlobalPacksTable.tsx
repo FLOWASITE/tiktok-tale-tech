@@ -154,7 +154,8 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
             <p>Không tìm thấy Global Pack nào</p>
           </div>
         ) : (
-          <Table>
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Industry Code</TableHead>
