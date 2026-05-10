@@ -141,7 +141,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 sm:p-6">
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
