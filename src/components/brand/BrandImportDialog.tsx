@@ -196,7 +196,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     }
     if (selectedFields.has('primary_color')) {
       const palette = (result.raw_meta as any)?.color_palette;
-      const color = palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion;
+      const color = selectedPrimaryColor || palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion;
       if (color) updates.primary_color = color;
       const candidates: string[] = Array.isArray(palette?.candidates) ? palette.candidates : [];
       const secondaries = candidates.filter((c) => c && c !== color).slice(0, 4);
