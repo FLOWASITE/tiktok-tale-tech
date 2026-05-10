@@ -98,6 +98,7 @@ export const AI_FUNCTIONS = [
   // Brand Functions
   { name: 'generate-brand-voice', description: 'Tạo brand voice', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-brand-guideline', description: 'Tạo brand guideline', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'import-brand-extractor', description: 'Import brand từ website/fanpage', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'enrich-industry-profiles', description: 'Làm giàu profile ngành', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
   { name: 'enrich-personas', description: 'Làm giàu personas', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
   { name: 'generate-missing-profiles', description: 'Tạo profiles còn thiếu', category: 'brand', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },

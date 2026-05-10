@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
-import { Sparkles, Palette, Users, Target, Plus, Zap } from 'lucide-react';
+import { Sparkles, Palette, Users, Target, Plus, Zap, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface BrandEmptyStateProps {
   onCreateNew: () => void;
+  onImportFromUrl?: () => void;
 }
 
 const floatingIcons = [
