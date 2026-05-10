@@ -60,6 +60,8 @@ async function fetchGlobalPacksForSelection(
       industry_level,
       parent_pack_id,
       sort_order,
+      is_popular,
+      popular_sort_order,
       industry_categories (
         code
       ),
