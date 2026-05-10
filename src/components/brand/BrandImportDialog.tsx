@@ -86,6 +86,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setSelectedFanpageId('');
       setResult(null);
       setSelectedFields(new Set());
+      setSelectedLogoUrl(null);
       setTab('website');
     }
   }, [open]);
