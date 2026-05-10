@@ -61,7 +61,26 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [selectedPrimaryColor, setSelectedPrimaryColor] = useState<string | null>(null);
+  const [selectedIndustryPack, setSelectedIndustryPack] = useState<GlobalPackForSelection | null>(null);
   const [applying, setApplying] = useState(false);
+
+  const { data: allPacks = [] } = useGlobalPacksForBrandSelection({ languageCode: 'vi', includeSubIndustries: true });
+
+  const industryCandidates = useMemo<GlobalPackForSelection[]>(() => {
+    if (!result || !allPacks.length) return [];
+    const hint = (result.suggestion?.industry_suggestion || '').trim();
+    let matches: GlobalPackForSelection[] = [];
+    if (hint) {
+      matches = smartFilter(allPacks, hint).slice(0, 5);
+    }
+    if (matches.length === 0) {
+      matches = allPacks
+        .filter((p) => p.isPopular)
+        .sort((a, b) => (a.popularSortOrder ?? 999) - (b.popularSortOrder ?? 999))
+        .slice(0, 5);
+    }
+    return matches;
+  }, [result, allPacks]);
 
   const logoCandidates = useMemo(() => {
     if (!result) return [] as Array<{ url: string; source: string }>;
