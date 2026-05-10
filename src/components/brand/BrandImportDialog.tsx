@@ -575,6 +575,47 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                   Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
                                 </p>
                               </div>
+                            ) : isIndustry ? (
+                              <div className="space-y-2">
+                                {value && (
+                                  <p className="text-xs text-muted-foreground">
+                                    AI gợi ý: <span className="font-medium text-foreground">{value}</span>
+                                  </p>
+                                )}
+                                <p className="text-[11px] text-muted-foreground">
+                                  {industryCandidates.length > 0
+                                    ? 'Chọn 1 ngành phù hợp để áp dụng:'
+                                    : 'Đang tải danh sách ngành…'}
+                                </p>
+                                <div
+                                  className="flex flex-wrap gap-2"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {industryCandidates.map((p) => {
+                                    const active = selectedIndustryPack?.id === p.id;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={p.id}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedIndustryPack(p);
+                                          setSelectedFields((prev) => new Set(prev).add('industry'));
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                                          active
+                                            ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/40'
+                                            : 'border-border bg-background hover:border-muted-foreground/40'
+                                        }`}
+                                      >
+                                        {active && <Check className="w-3 h-3" />}
+                                        <span className="truncate max-w-[160px]">{p.shortName || p.name}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-2">
                                 {isLogo && (
