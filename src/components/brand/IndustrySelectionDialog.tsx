@@ -161,7 +161,9 @@ export function IndustrySelectionDialog({
       }
     });
     
-    const popular = packs.filter(p => POPULAR_CODES.includes(p.code));
+    const popular = packs
+      .filter(p => p.isPopular)
+      .sort((a, b) => (a.popularSortOrder ?? 999) - (b.popularSortOrder ?? 999));
 
     const byId = new Map(packs.map(p => [p.id, p] as const));
     const recent = recentlyUsedIds
