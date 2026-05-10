@@ -29,6 +29,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useQuery } from '@tanstack/react-query';
 import { normalizeBrandPositioning, normalizeBrandVoiceSuggestion, normalizeFormalityLevel, normalizeToneOfVoice } from '@/lib/brandVoiceNormalization';
+import { mergeBrandVoiceWithPack } from '@/lib/mergeBrandVoiceWithPack';
 
 interface LocationState {
   editTemplate?: BrandTemplate;
@@ -449,37 +450,16 @@ export default function BrandCreate() {
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
 
-    const importedRaw = importedSuggestion?.suggestion || null;
-    const importedVoice = importedRaw ? normalizeBrandVoiceSuggestion(importedRaw) : null;
-    const hasImportedPositioning = !!(importedVoice?.brand_positioning && String(importedVoice.brand_positioning).trim());
-    const hasImportedTones = Array.isArray(importedVoice?.tone_of_voice) && importedVoice!.tone_of_voice!.length > 0;
-    const hasImportedFormality = !!importedVoice?.formality_level;
+    const merged = mergeBrandVoiceWithPack(
+      { brandPositioning, toneOfVoice, formalityLevel },
+      importedSuggestion?.suggestion || null,
+      packData as any,
+    );
+    if (merged.source.brandPositioning !== 'state') setBrandPositioning(merged.brandPositioning);
+    if (merged.source.toneOfVoice !== 'state') setToneOfVoice(merged.toneOfVoice as string[]);
+    if (merged.source.formalityLevel !== 'state') setFormalityLevel(merged.formalityLevel as string);
 
     const voice = (packData as any).brandVoice || {};
-
-    // Positioning: ƯU TIÊN tuyệt đối câu AI import. Chỉ dùng pack default khi state HIỆN TẠI rỗng và import cũng rỗng.
-    if (hasImportedPositioning) {
-      setBrandPositioning(String(importedVoice!.brand_positioning));
-    } else if (!brandPositioning && packData.brandPositioning) {
-      setBrandPositioning(packData.brandPositioning);
-    }
-
-    // Tone: ƯU TIÊN import. Pack chỉ apply khi state HIỆN TẠI rỗng và import rỗng.
-    if (hasImportedTones) {
-      setToneOfVoice(importedVoice!.tone_of_voice as string[]);
-    } else if ((!toneOfVoice || toneOfVoice.length === 0)) {
-      const packTones = normalizeToneOfVoice(voice.tone_of_voice);
-      if (packTones.length > 0) setToneOfVoice(packTones);
-    }
-
-    // Formality: tương tự
-    if (hasImportedFormality) {
-      setFormalityLevel(importedVoice!.formality_level as string);
-    } else if (!formalityLevel) {
-      const packFormality = normalizeFormalityLevel(voice.formality_level);
-      if (packFormality) setFormalityLevel(packFormality);
-    }
-
     const packLangStyle = asStringArray(voice.language_style);
     if (packLangStyle.length > 0 && languageStyle.length === 0) {
       setLanguageStyle(packLangStyle);
