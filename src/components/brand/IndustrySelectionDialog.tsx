@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { smartFilter } from '@/lib/industrySearch';
 import { 
-  Search, ChevronRight, Check, Sparkles, X, Star,
+  Search, ChevronRight, Check, Sparkles, X, Star, Wand2, Clock,
   Briefcase, Coffee, Code, GraduationCap, Heart, Plane, ShoppingCart,
   Megaphone, Scale, Hammer, Store, Factory, Leaf, Truck, Shield,
   Landmark, Smartphone, Gamepad2, Palette, Dumbbell, Sofa, Ship, Rocket,
