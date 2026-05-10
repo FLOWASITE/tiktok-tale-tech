@@ -111,6 +111,11 @@ async function fetchGlobalPacksForSelection(
 
     const category = pack.industry_categories as unknown as { code: string } | null;
 
+    const aliasRows = (pack as any).industry_search_aliases as Array<{ alias: string; language_code: string }> | null;
+    const aliases = Array.isArray(aliasRows)
+      ? aliasRows.filter(a => !a.language_code || a.language_code === languageCode).map(a => a.alias)
+      : [];
+
     return {
       id: pack.id,
       code: pack.industry_code,
@@ -125,13 +130,14 @@ async function fetchGlobalPacksForSelection(
         language_style: Array.isArray(brandVoice?.language_style) ? brandVoice!.language_style! : [],
         allow_emoji: typeof brandVoice?.allow_emoji === 'boolean' ? brandVoice.allow_emoji : false,
       },
-      brandPositioning: null, // Will be fetched from jurisdiction profile if needed
+      brandPositioning: null,
       preferredTerms: translation?.preferred_terms || [],
       forbiddenTerms: translation?.forbidden_terms || [],
       isActive: pack.is_active ?? true,
       version: pack.version || '1.0',
       industryLevel: (pack.industry_level as 'core' | 'sub') || 'core',
       parentPackId: pack.parent_pack_id,
+      aliases,
     };
   });
 }
