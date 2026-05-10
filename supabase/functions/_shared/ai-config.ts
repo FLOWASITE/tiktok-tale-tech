@@ -129,6 +129,22 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  'import-brand-from-website': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.3,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'import-brand-from-fanpage': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.3,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   'telegram-intent': {
     model: 'google/gemini-2.5-flash-lite',
     temperature: 0.1,
