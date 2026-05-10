@@ -446,6 +446,39 @@ export function IndustrySelectionDialog({
                   </div>
                 )}
 
+                {/* AI Related (lower confidence) + category-derived related */}
+                {(aiRelatedPacks.length > 0 || categoryRelatedPacks.length > 0) && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Ngành liên quan có thể phù hợp
+                    </h4>
+                    <div className="space-y-1.5">
+                      {aiRelatedPacks.map(({ pack, suggestion }) => (
+                        <button
+                          key={pack.id}
+                          type="button"
+                          onClick={() => handleSelect(pack)}
+                          className="flex items-center gap-3 w-full p-2.5 rounded-lg border bg-card text-left transition-all active:scale-[0.97] hover:border-primary/60"
+                        >
+                          <div className="p-1.5 rounded-lg bg-muted shrink-0">{getIcon(pack.code, 'sm')}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                              <Badge variant="outline" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{suggestion.reason}</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        </button>
+                      ))}
+                      {categoryRelatedPacks.map((pack) => (
+                        <IndustryCard key={pack.id} pack={pack} compact />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Recently used */}
                 {recentlyUsedPacks.length > 0 && (
                   <div>
