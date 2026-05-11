@@ -409,10 +409,31 @@ export function BrandFormStepProducts({
             Thêm sản phẩm để AI tạo content phù hợp với từng mặt hàng
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowSuggestDialog(true)}
+          className="gap-1.5"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          Gợi ý từ Website
+        </Button>
         <Badge variant="outline" className="text-xs">
           {localProducts.length}/10
         </Badge>
       </div>
+
+      <SuggestProductsFromWebsiteDialog
+        open={showSuggestDialog}
+        onOpenChange={setShowSuggestDialog}
+        defaultUrl={websiteUrl}
+        existingProductNames={localProducts.map((p) => p.name)}
+        onAddProducts={(picked) => {
+          const remaining = Math.max(0, 10 - localProducts.length);
+          const toAdd = picked.slice(0, remaining);
+          onLocalProductsChange([...localProducts, ...toAdd]);
+        }}
+      />
 
       {/* Tip Banner - Only show if has personas but no products */}
       {personas.length > 0 && localProducts.length === 0 && (
