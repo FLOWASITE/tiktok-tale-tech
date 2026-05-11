@@ -154,7 +154,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     const firstLogo = (Array.isArray(meta.logo_candidates) && meta.logo_candidates[0]?.url)
       || meta.logo_url || meta.picture || meta.og_image || null;
     setSelectedLogoUrl(firstLogo);
-    setSelectedPrimaryColor(null);
+    setSelectedPrimaryColor(autoColor || null);
   }, [result, targetBrand]);
 
   const handleAnalyze = async () => {
