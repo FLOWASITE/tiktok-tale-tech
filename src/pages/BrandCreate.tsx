@@ -379,6 +379,37 @@ export default function BrandCreate() {
         setShowIndustryConfirmAfterImport(true);
         toast.success('Đã nạp dữ liệu từ import. Hãy chọn ngành phù hợp để tiếp tục.');
       }
+
+      // Hydrate product/service suggestions from website import
+      const productSugs = (meta as any)?.product_suggestions as Array<any> | undefined;
+      if (Array.isArray(productSugs) && productSugs.length > 0) {
+        const mapped = productSugs.slice(0, 10).map((p, i) => ({
+          id: `temp-import-${Date.now()}-${i}`,
+          name: String(p.name || '').trim(),
+          sku: '',
+          category: p.category || '',
+          description: p.description || '',
+          price_display: p.price_display || '',
+          image_url: p.image_url || '',
+          unique_selling_points: Array.isArray(p.unique_selling_points) ? p.unique_selling_points : [],
+          target_audience: '',
+          pain_points_solved: [],
+          benefits: [],
+          keywords: Array.isArray(p.keywords) ? p.keywords : [],
+          suggested_content_angles: [],
+          best_channels: [],
+          is_featured: false,
+          is_active: true,
+        })).filter((p) => p.name.length > 0);
+        if (mapped.length > 0) {
+          setLocalProducts((prev) => {
+            const existing = new Set(prev.map((p) => p.name.trim().toLowerCase()));
+            const fresh = mapped.filter((p) => !existing.has(p.name.toLowerCase()));
+            return [...prev, ...fresh];
+          });
+          toast.success(`Đã đề xuất ${mapped.length} sản phẩm từ website`);
+        }
+      }
     }
   }, [importedSuggestion, editingTemplate]);
 
