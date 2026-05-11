@@ -905,6 +905,11 @@ export default function BrandCreate() {
                   brandName={brandName}
                   localMappings={localMappings}
                   onLocalMappingsChange={setLocalMappings}
+                  websiteUrl={
+                    (importedSuggestion?.raw_meta as any)?.source_url ||
+                    footerInfo.website ||
+                    undefined
+                  }
                 />
               )}
 
