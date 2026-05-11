@@ -44,6 +44,7 @@ import { LocalProduct } from '@/components/brand/ProductCatalogEditor';
 import { CustomerPersona } from '@/types/customerPersona';
 import { PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
 import { LocalProductPersonaLinker, LocalProductPersonaMapping } from '@/components/brand/LocalProductPersonaLinker';
+import { SuggestProductsFromWebsiteDialog } from '@/components/brand/SuggestProductsFromWebsiteDialog';
 
 interface BrandFormStepProductsProps {
   brandTemplateId?: string | null;
@@ -53,6 +54,7 @@ interface BrandFormStepProductsProps {
   brandName?: string;
   localMappings: LocalProductPersonaMapping[];
   onLocalMappingsChange: (mappings: LocalProductPersonaMapping[]) => void;
+  websiteUrl?: string;
 }
 
 const defaultProductData: Omit<LocalProduct, 'id'> = {
