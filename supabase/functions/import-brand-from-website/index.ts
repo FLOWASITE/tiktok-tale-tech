@@ -811,10 +811,10 @@ async function extractProductSuggestions(
       });
       if (products.length >= 10) break;
     }
-    return { ok: true, products };
+    return { ok: true, products, model: usedModel };
   } catch (e) {
-    console.warn("[extractProductSuggestions] failed:", (e as Error).message);
-    return { ok: false, code: "EXCEPTION" };
+    console.warn("[extractProductSuggestions] parse failed:", (e as Error).message);
+    return { ok: false, code: "PARSE_ERROR" };
   }
 }
 
