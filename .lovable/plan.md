@@ -1,60 +1,67 @@
-## Kế hoạch sửa dứt điểm
+## Mục tiêu
+Khi user Import Brand từ website, hệ thống tự động phát hiện và gợi ý danh sách **sản phẩm/dịch vụ** từ nội dung scrape được, để user chọn add vào `brand_products` ngay trong wizard — không phải nhập tay từng cái.
 
-Mình sẽ đổi hướng từ “normalize xong hy vọng state còn” sang “giữ payload import làm nguồn sự thật và apply lại ở đúng thời điểm UI mở step Giọng nói”.
+## Flow đề xuất
 
-### 1. Bắt đúng chỗ bị mất dữ liệu
-Trong `BrandCreate.tsx`, tạo helper nội bộ để đọc `importedSuggestion.suggestion`, normalize một lần, rồi apply vào state:
-- `brand_positioning` → set thẳng free text
-- `tone_of_voice` → map về `expert/calm/serious/...`
-- `formality_level` → map về `formal/semi_formal/casual/friendly`
-
-Helper này sẽ được gọi ở 3 thời điểm:
-- Khi hydrate sau import
-- Sau khi chọn ngành Industry Memory
-- Khi user chuyển sang step 4 “Giọng nói” nếu state vẫn trống
-
-Mục tiêu: kể cả dialog chọn ngành hoặc render timing làm reset state, step 4 vẫn tự fill lại từ payload import.
-
-### 2. Sửa lỗi double-normalize làm tone bị rỗng
-Hiện `handleIndustryTemplateSelect` đang lấy `importedVoice` đã normalize rồi lại gọi `normalizeToneOfVoice(importedVoice?.tone_of_voice)`. Vì `normalizeToneOfVoice` không nhận lại enum array tốt trong một số nhánh, sẽ có rủi ro rỗng/không tick.
-
-Sẽ sửa thành:
-- Nếu `importedVoice.tone_of_voice` đã là array enum thì dùng trực tiếp
-- Chỉ normalize khi là raw AI labels
-
-### 3. Không cho Industry Memory ghi đè Brand Voice import
-Trong `handleIndustryTemplateSelect`:
-- Industry chỉ set ngành, pack id, language style, preferred/forbidden terms
-- `brand_positioning`, `tone_of_voice`, `formality_level` luôn ưu tiên import nếu import có dữ liệu
-- Pack defaults chỉ dùng khi import thật sự không có field đó
-
-### 4. Làm UI step Giọng nói tolerant hơn
-Trong `BrandFormStepDNA.tsx`:
-- Giữ textarea cho `Định vị thương hiệu`
-- Tone buttons sẽ nhận các alias cũ nếu state còn sót từ data cũ như `professional/authoritative/empathetic/...` và normalize trước khi render selected
-- Formality select sẽ normalize value trước khi đưa vào `<Select>` để tránh value `neutral/professional` làm Select trống
-
-### 5. Thêm kiểm tra nhanh bằng unit/script nhỏ cho normalization
-Thêm hoặc chạy kiểm tra nhỏ với case thực tế:
 ```text
-tone_of_voice: ["Chuyên nghiệp", "Uy tín", "Tận tâm", "Trang trọng"]
-brand_positioning: "TAF là công ty tư vấn kiểm toán..."
-formality_level: "formal"
-```
-Kỳ vọng:
-```text
-brand_positioning: giữ nguyên câu
-tone_of_voice: expert, calm, serious
-formality_level: formal
+[Import Website URL]
+   ↓ Firecrawl scrape (markdown + rawHtml + links)
+   ↓ extract-brand-from-website (đã có)
+   ↓ NEW: extract-products-from-website (Gemini Vision + text)
+[Brand Import Dialog]
+   ├─ Tab "Thông tin chung" (đã có: name, voice, color, logo)
+   └─ Tab "Sản phẩm gợi ý" (MỚI)
+       ├─ List 5-15 SP với checkbox
+       │   • name, category, description, price (nếu detect)
+       │   • image_url (lấy từ <img> trong product card)
+       │   • USP suggestions (3 bullet)
+       └─ [Chọn tất cả] [Bỏ qua] [Import N sản phẩm]
+   ↓ Save → bulk insert vào brand_products
 ```
 
-## Files dự kiến sửa
-- `src/pages/BrandCreate.tsx`
-- `src/components/BrandFormStepDNA.tsx`
-- Có thể chỉnh nhẹ `src/lib/brandVoiceNormalization.ts` nếu cần alias/tolerant input
+## Phần Backend
 
-## Tiêu chí xong
-Sau import website/fanpage, vào step 4 phải thấy:
-- `Định vị thương hiệu` có câu AI extract trong textarea
-- `Tone of Voice` có tick sẵn ít nhất 1-3 option
-- `Mức trang trọng` hiển thị option đã chọn, ví dụ `Trang trọng`
+**Edge function mới: `suggest-products-from-website`**
+- Input: `website_url`, `brand_template_id` (optional, nếu null thì preview only)
+- Pipeline:
+  1. Reuse Firecrawl scrape (cache lại từ `import-brand-from-website` nếu vừa chạy → tránh double credit)
+  2. Tìm các URL có pattern `/product/`, `/shop/`, `/san-pham/`, `/dich-vu/`, `/services/` từ `links[]` → ưu tiên scrape top 10
+  3. Hoặc detect product cards trong HTML chính (schema.org `Product`, `og:type=product`, `<article class*=product>`)
+  4. Gọi Gemini 2.5 Flash với tool calling, schema:
+     ```ts
+     { products: [{ name, category, description, price_display, image_url, usp[3], keywords[] }] }
+     ```
+  5. **Soft-fail 402/429** y như `suggest-industry`: trả `{ products: [], fallback: true, errorCode }`
+- Output: `{ products: ProductSuggestion[], source_urls: string[], cached: boolean }`
+
+**Tái sử dụng:**
+- `_shared/brand-extractor.ts` pattern (tool calling + AI gateway)
+- `analyze-product-image` cho enrichment ảnh nếu user accept
+
+## Phần Frontend
+
+**`src/components/brand/ProductSuggestionsStep.tsx`** (mới)
+- Hiển thị grid các product card với checkbox + thumbnail
+- Inline edit: sửa name/price trước khi import
+- Bulk action: "Chọn tất cả featured", "Chỉ nhập sản phẩm có ảnh"
+
+**Integration điểm:**
+- `BrandImportDialog.tsx` → thêm step "Sản phẩm" sau "Visual"
+- `BrandCreate.tsx` → sau khi save brand template → bulk insert via `useProductCatalog.createProduct` (loop hoặc tạo `bulkCreate`)
+
+**Hydration:**
+- Lưu suggestions vào `importedProductsRef` để không mất khi user chuyển step
+
+## Edge cases & guardrails
+- **No products detected** → ẩn step, không block flow
+- **Trùng tên** → warn "Đã có sản phẩm tương tự" (fuzzy match)
+- **Credit exhausted (402)** → toast "Hết credit AI, bạn có thể nhập sản phẩm thủ công sau"
+- **Rate limit Firecrawl** → reuse cached scrape, không gọi lại
+- **Ảnh sản phẩm là external URL** → lưu trực tiếp `image_url` (giống logo flow), không re-upload
+
+## Câu hỏi cần xác nhận trước khi build
+1. Giới hạn số SP gợi ý mặc định: **5, 10, hay 15**?
+2. Có muốn cho phép gợi ý thêm từ **Fanpage** (qua `import-brand-from-fanpage` + analyze post images) không, hay chỉ Website ở phase này?
+3. Khi Brand chưa save mà đã chọn SP → lưu tạm `sessionStorage` rồi insert sau khi `brand_template_id` có, hay chặn cho đến khi brand save xong?
+
+Trả lời 3 câu trên rồi mình sẽ tinh chỉnh plan và bắt tay implement.
