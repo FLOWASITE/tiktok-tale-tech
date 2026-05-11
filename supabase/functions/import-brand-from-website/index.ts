@@ -874,12 +874,12 @@ async function runImport(
     });
   }
 
-  const subMarkdowns: string[] = [];
+  const subPages: Array<{ url: string; markdown: string }> = [];
   await Promise.all(
     mergedPaths.map(async (sub) => {
       const r = await firecrawlScrape(sub, ["markdown"]);
       if (r.success && r.markdown) {
-        subMarkdowns.push(r.markdown.slice(0, 4000));
+        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000) });
         await emit?.("subpage_done", { url: sub, success: true });
       } else {
         await emit?.("subpage_done", { url: sub, success: false, error: r.error });
@@ -895,7 +895,7 @@ async function runImport(
     "",
     "## Homepage",
     home.markdown || "",
-    ...subMarkdowns.map((m, i) => `\n## Sub page ${i + 1}\n${m}`),
+    ...subPages.map((p, i) => `\n## Sub page ${i + 1}: ${p.url}\n${p.markdown}`),
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
