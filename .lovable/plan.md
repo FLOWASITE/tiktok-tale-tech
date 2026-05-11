@@ -1,46 +1,22 @@
-## Vấn đề
-Sau fix lần trước, checkbox "Màu chủ đạo" vẫn rỗng (chỗ khoanh đỏ). Hai nguyên nhân khả dĩ:
+## Nguyên nhân
+`taf.vn` không khai báo `theme-color`, không có CSS variable inline như `--primary`, và màu brand nằm trong logo raster `/uploads/logo.jpg`. Pipeline hiện tại có gọi AI vision để đọc màu từ logo, nhưng nếu AI gateway thiếu key/thất bại/timeout thì không có fallback local cho ảnh raster, nên `color_palette.primary` rỗng và UI không có “Màu chủ đạo”.
 
-1. **Build chưa load** — banner "A new build is ready / See latest build" trong screenshot cho thấy user đang xem bundle CŨ. Cần bấm "See latest build" để load fix.
-2. **Edge case**: nếu vì lý do nào đó `raw_meta.color_palette.primary` null nhưng `candidates[0]` có giá trị (vd palette extract failed mid-way), điều kiện `autoColor` hiện tại sẽ miss.
+## Kế hoạch sửa
+1. **Thêm fallback đọc màu từ raster logo trong edge function**
+   - Trong `supabase/functions/import-brand-from-website/index.ts`, mở rộng `extractColorFromLogo()`.
+   - Giữ logic SVG hiện tại.
+   - Với JPG/PNG/WebP: nếu AI vision không trả màu, dùng fallback deterministic bằng Canvas API trong Deno để lấy dominant non-neutral color từ pixel ảnh.
+   - Lọc trắng/đen/xám như logic hiện tại, gom màu theo bucket để tránh nhiễu.
 
-## Sửa (1 file)
-`src/components/brand/BrandImportDialog.tsx`
+2. **Ưu tiên logo thật của website**
+   - `taf.vn` có logo trong `<header><div class="logo"><img src="/uploads/logo.jpg">` và JSON-LD.
+   - Giữ scoring hiện tại nhưng đảm bảo logo raster vẫn được xử lý nếu lấy được URL.
 
-### 1. Mở rộng fallback `autoColor` (line 145)
-Thêm `color_palette.candidates?.[0]` vào chuỗi fallback:
-```ts
-const palette = result.raw_meta?.color_palette;
-const autoColor = palette?.primary 
-  || palette?.candidates?.[0]
-  || result.raw_meta?.theme_color 
-  || result.suggestion?.primary_color_suggestion;
-if (autoColor) next.add('primary_color');
-```
+3. **Đồng bộ fallback khi lưu màu**
+   - Trong `BrandImportDialog.tsx`, cập nhật `handleApply` để nếu `selectedPrimaryColor` rỗng thì fallback thêm `palette.candidates?.[0]` trước `theme_color`/AI suggestion.
+   - Tránh case UI có candidate nhưng submit không lưu.
 
-### 2. Safety net qua `renderPreviewValue` (line 336)
-Đồng bộ thứ tự fallback giống effect để `value` không bao giờ falsy khi có ít nhất 1 candidate:
-```ts
-case 'primary_color': 
-  return result.raw_meta?.color_palette?.primary 
-    || result.raw_meta?.color_palette?.candidates?.[0]
-    || result.raw_meta?.theme_color 
-    || s.primary_color_suggestion 
-    || null;
-```
-
-### 3. Defensive auto-tick khi render
-Trong block render (sau line 465), nếu `isColor && value && !checked && !targetBrand` (chỉ apply khi tạo brand mới), schedule một `useEffect` riêng auto-add `primary_color` vào `selectedFields`. Tránh race với effect chính bằng cách check `!selectedFields.has('primary_color')` trước khi setState.
-
-Thực tế gọn hơn: thêm 1 `useEffect([result])` second pass — nếu `renderPreviewValue('primary_color')` truthy mà set chưa có, add vào. Đây là fail-safe phòng case effect chính chạy trước khi `result.raw_meta` populate đầy đủ.
-
-## Không đổi
-- `handleApply` (line 230-233) đã đọc đúng fallback chain.
-- Logic click swatch (line 565-570) đã auto-tick khi user click — giữ nguyên.
-- Edge function `import-brand-from-website` không cần đổi (palette.primary đã set đúng từ logo extraction).
-
-## Test
-1. **Quan trọng**: bấm "See latest build" trên banner → reload → import lại zalhub.vn.
-2. Kỳ vọng: checkbox "Màu chủ đạo" tick sẵn, swatch Primary có ring active, badge "Từ logo" xanh.
-3. Bỏ tick → swatch mất active → submit không lưu màu.
-4. Click Secondary → checkbox vẫn tick, đổi màu sang Secondary.
+4. **Test mục tiêu**
+   - Import `https://taf.vn`.
+   - Kỳ vọng `raw_meta.color_palette.primary` ra đỏ brand khoảng `#c01020`/đỏ gần tương đương.
+   - Checkbox “Màu chủ đạo” tự tick, swatch Primary active, và khi bấm lưu thì `primary_color` được ghi.
