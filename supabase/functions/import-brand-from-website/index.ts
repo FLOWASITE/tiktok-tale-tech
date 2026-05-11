@@ -423,7 +423,15 @@ async function extractColorFromLogo(logoUrl: string): Promise<string | null> {
       return top ? top[0] : null;
     }
 
-    // Raster: ask Lovable AI vision (small + cheap) to read dominant brand color
+    // Raster (PNG/JPG/WebP): try deterministic pixel sampling FIRST (no API cost), then AI fallback.
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const pixelColor = await extractDominantColorFromRaster(buf).catch((e) => {
+      console.warn("[extractColorFromLogo] pixel decode failed:", (e as Error).message);
+      return null;
+    });
+    if (pixelColor) return pixelColor;
+
+    // Fallback: ask Lovable AI vision (small + cheap) to read dominant brand color
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return null;
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -452,6 +460,64 @@ async function extractColorFromLogo(logoUrl: string): Promise<string | null> {
     console.warn("[extractColorFromLogo] failed:", (e as Error).message);
     return null;
   }
+}
+
+// Deterministic pixel-based dominant color extraction for PNG/JPEG.
+// Uses imagescript (pure-TS Deno-friendly). Bucketizes pixels at 16-step
+// granularity and ignores near-white/black/grayscale neutrals.
+async function extractDominantColorFromRaster(buf: Uint8Array): Promise<string | null> {
+  if (buf.byteLength === 0 || buf.byteLength > 4_000_000) return null;
+  let mod: any;
+  try {
+    mod = await import("https://deno.land/x/imagescript@1.2.17/mod.ts");
+  } catch (e) {
+    console.warn("[extractDominantColorFromRaster] import failed:", (e as Error).message);
+    return null;
+  }
+  const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  const isJpg = buf[0] === 0xff && buf[1] === 0xd8;
+  let img: any;
+  try {
+    if (isPng) img = await mod.Image.decode(buf);
+    else if (isJpg) img = await mod.Image.decode(buf);
+    else img = await mod.decode(buf); // webp/other
+  } catch (e) {
+    console.warn("[extractDominantColorFromRaster] decode failed:", (e as Error).message);
+    return null;
+  }
+  if (!img || !img.width || !img.height) return null;
+
+  // Downsample for speed: cap at ~200px
+  const maxDim = 200;
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  if (scale < 1) {
+    try { img = img.resize(Math.max(1, Math.round(img.width * scale)), Math.max(1, Math.round(img.height * scale))); } catch { /* ignore */ }
+  }
+
+  const freq = new Map<string, number>();
+  const w = img.width, h = img.height;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const px = img.getPixelAt(x + 1, y + 1); // imagescript is 1-indexed
+      const r = (px >>> 24) & 0xff;
+      const g = (px >>> 16) & 0xff;
+      const b = (px >>> 8) & 0xff;
+      const a = px & 0xff;
+      if (a < 128) continue;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      if (min > 230) continue;        // near white
+      if (max < 60) continue;         // near black
+      if (max - min < 35) continue;   // gray
+      const rq = Math.min(255, Math.round(r / 16) * 16);
+      const gq = Math.min(255, Math.round(g / 16) * 16);
+      const bq = Math.min(255, Math.round(b / 16) * 16);
+      const key = `${rq.toString(16).padStart(2, "0")}${gq.toString(16).padStart(2, "0")}${bq.toString(16).padStart(2, "0")}`;
+      freq.set(key, (freq.get(key) || 0) + 1);
+    }
+  }
+  if (freq.size === 0) return null;
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1])[0];
+  return `#${top[0]}`;
 }
 
 // ============================================================
