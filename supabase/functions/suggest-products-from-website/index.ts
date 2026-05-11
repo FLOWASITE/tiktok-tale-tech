@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
     }
 
     // Step 5: AI extract
-    const result = await callAIExtract(combined, locale);
+    const result = await callAIExtract(combined, locale, organizationId);
     if (!result.ok) {
       // Soft-fail for quota/rate-limit so UI can offer manual fallback
       const soft = result.code === "CREDITS_EXHAUSTED" || result.code === "RATE_LIMIT";
