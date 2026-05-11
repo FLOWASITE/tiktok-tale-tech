@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
     const extraPaths: string[] = Array.isArray(body?.extra_paths) ? body.extra_paths.slice(0, 6) : [];
     const maxProducts: number = Math.min(15, Math.max(3, Number(body?.max_products) || 10));
     const locale: string = body?.locale || "vi";
+    const organizationId: string | undefined = body?.organization_id;
 
     console.log(`[suggest-products] user=${user.id} url=${url} extras=${extraPaths.length}`);
 
