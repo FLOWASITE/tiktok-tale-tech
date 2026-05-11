@@ -96,80 +96,106 @@ function pickProductUrls(links: string[] | undefined, baseUrl: string, max = 8):
   return [...out];
 }
 
-async function callAIExtract(content: string, locale: string): Promise<{
-  ok: true; products: ProductSuggestion[];
+async function callAIExtract(content: string, locale: string, organizationId?: string): Promise<{
+  ok: true; products: ProductSuggestion[]; model?: string;
 } | { ok: false; status?: number; error: string; code?: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { ok: false, error: "LOVABLE_API_KEY not configured" };
-
   const langInstr = locale === "en"
     ? "Output product names/descriptions in English."
     : "Output product names/descriptions in Vietnamese (tiếng Việt).";
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence Vietnamese description that highlights what it does for the customer.`,
-        },
-        {
-          role: "user",
-          content: `Below is scraped content from a brand's website (homepage + product pages). Extract up to 12 distinct products or services.\n\n${content.slice(0, 25000)}`,
-        },
-      ],
-      tools: [{
-        type: "function",
-        function: {
-          name: "extract_products",
-          description: "Extract product/service catalog from website content",
-          parameters: {
-            type: "object",
-            properties: {
-              products: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    name: { type: "string", description: "Product/service name" },
-                    category: { type: "string", description: "One of: product, service, course, digital, subscription, consulting, other" },
-                    description: { type: "string", description: "1-2 sentence customer-focused description" },
-                    price_display: { type: "string", description: "Price as shown on site, e.g. '500.000đ' or 'Liên hệ'. Empty if unknown." },
-                    image_url: { type: "string", description: "Absolute URL of product image if found" },
-                    unique_selling_points: { type: "array", items: { type: "string" }, description: "2-3 short USP bullets" },
-                    keywords: { type: "array", items: { type: "string" }, description: "3-5 SEO keywords" },
-                    source_url: { type: "string", description: "URL of the page this product was found on" },
-                  },
-                  required: ["name"],
-                },
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence Vietnamese description that highlights what it does for the customer.`,
+    },
+    {
+      role: "user" as const,
+      content: `Below is scraped content from a brand's website (homepage + product pages). Extract up to 12 distinct products or services.\n\n${content.slice(0, 25000)}`,
+    },
+  ];
+
+  const tools = [{
+    type: "function" as const,
+    function: {
+      name: "extract_products",
+      description: "Extract product/service catalog from website content",
+      parameters: {
+        type: "object",
+        properties: {
+          products: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Product/service name" },
+                category: { type: "string", description: "One of: product, service, course, digital, subscription, consulting, other" },
+                description: { type: "string", description: "1-2 sentence customer-focused description" },
+                price_display: { type: "string", description: "Price as shown on site, e.g. '500.000đ' or 'Liên hệ'. Empty if unknown." },
+                image_url: { type: "string", description: "Absolute URL of product image if found" },
+                unique_selling_points: { type: "array", items: { type: "string" }, description: "2-3 short USP bullets" },
+                keywords: { type: "array", items: { type: "string" }, description: "3-5 SEO keywords" },
+                source_url: { type: "string", description: "URL of the page this product was found on" },
               },
+              required: ["name"],
             },
-            required: ["products"],
           },
         },
-      }],
-      tool_choice: { type: "function", function: { name: "extract_products" } },
-    }),
-  });
+        required: ["products"],
+      },
+    },
+  }];
 
-  if (resp.status === 402) return { ok: false, status: 402, error: "Hết credit AI Gateway", code: "CREDITS_EXHAUSTED" };
-  if (resp.status === 429) return { ok: false, status: 429, error: "AI Gateway rate limited", code: "RATE_LIMIT" };
-  if (!resp.ok) {
-    const txt = await resp.text();
-    console.error("[suggest-products] AI error:", resp.status, txt);
-    return { ok: false, status: resp.status, error: `AI error ${resp.status}`, code: `AI_ERROR_${resp.status}` };
+  const FALLBACK_MODELS: (string | undefined)[] = [
+    undefined,
+    "qwen-turbo",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash-lite",
+  ];
+
+  let result: any = null;
+  let lastError = "";
+  let usedModel = "primary";
+
+  for (let i = 0; i < FALLBACK_MODELS.length; i++) {
+    const modelOverride = FALLBACK_MODELS[i];
+    usedModel = modelOverride || "primary";
+    try {
+      result = await callAI({
+        functionName: "suggest-products-from-website",
+        organizationId,
+        messages,
+        tools,
+        toolChoice: { type: "function", function: { name: "extract_products" } },
+        ...(modelOverride ? { modelOverride } : {}),
+      } as any);
+      if (result?.success) break;
+      lastError = result?.error || "";
+      const isQuota = /402|429|quota|payment|rate limit|credits/i.test(lastError);
+      if (!isQuota) break;
+      console.warn(`[suggest-products] model failed (${usedModel}): ${lastError} — trying next`);
+    } catch (e) {
+      lastError = (e as Error).message;
+      console.warn(`[suggest-products] exception (${usedModel}):`, lastError);
+    }
   }
 
-  const data = await resp.json();
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (!toolCall?.function?.arguments) return { ok: false, error: "AI did not return tool call" };
+  if (!result?.success) {
+    const isQuota = /402|429|quota|payment|rate limit|credits/i.test(lastError);
+    return {
+      ok: false,
+      status: isQuota ? 402 : 502,
+      error: isQuota ? "Hết credit AI" : (lastError || "AI extraction failed"),
+      code: isQuota ? "CREDITS_EXHAUSTED" : "AI_ERROR",
+    };
+  }
+
   try {
+    const data: any = result.data;
+    const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) return { ok: false, error: "AI did not return tool call" };
     const parsed = JSON.parse(toolCall.function.arguments);
     const products = Array.isArray(parsed.products) ? parsed.products as ProductSuggestion[] : [];
-    return { ok: true, products };
+    return { ok: true, products, model: usedModel };
   } catch (e) {
     return { ok: false, error: `parse failed: ${e instanceof Error ? e.message : "unknown"}` };
   }
