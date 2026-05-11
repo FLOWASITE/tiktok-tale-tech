@@ -1,44 +1,39 @@
-## Mục tiêu
-Khi user import brand từ website (BrandImportDialog) → AI trích luôn danh sách **Sản phẩm/Dịch vụ** trong cùng lượt scrape, đính kèm vào payload import. Bước "Sản phẩm" trong wizard sẽ pre-populate từ data đó (kèm checkbox cho user xác nhận), không cần click "Gợi ý từ Website" lần thứ 2 (nút giữ lại làm fallback/refetch).
+## Vấn đề
 
-## Vì sao
-- Edge function `import-brand-from-website` đã scrape homepage + auto-discover subpage chứa `san-pham`, `dich-vu`, `services`, `products`. Toàn bộ markdown đã có sẵn trong `combinedContent` truyền cho AI extractor.
-- Hiện tại AI chỉ extract brand fields. Bước products lại gọi `suggest-products-from-website` → scrape lại lần 2 (Firecrawl tốn credit + chậm + UX rời rạc).
-- Gộp vào 1 lượt: tiết kiệm Firecrawl, kết quả đến cùng lúc với brand info, user thấy ngay sản phẩm đề xuất ở step Products.
+Admin đã set `import-brand-from-website` dùng **DashScope/Alibaba (Qwen)** trong `/admin/ai`, nhưng product extraction vẫn fail `CREDITS_EXHAUSTED` vì:
 
-## Thay đổi
+- `extractProductSuggestions` (line 696-792) **fetch trực tiếp** `https://ai.gateway.lovable.dev` với hard-code `model: "google/gemini-2.5-flash"` → bỏ qua admin config hoàn toàn.
+- `extractBrandSuggestions` (shared) đã dùng `callAI()` đúng với multi-provider fallback Qwen → Lovable Gateway, nên brand extract OK; chỉ product extract fail.
+- `suggest-products-from-website` (nút "Gợi ý từ Website" tay) cũng cùng pattern hard-code → cùng bug.
 
-### 1. Edge function `import-brand-from-website/index.ts`
-- Boost subpage discovery: tăng `discoverSubpages` cap **3 → 5** và ưu tiên các path khớp `san-pham|dich-vu|services?|products?|shop|collections?|courses?` (rerank để product page chắc chắn được scrape khi tồn tại).
-- Sau khi `extractBrandSuggestions` xong, gọi thêm 1 LLM call song song (`extractProductSuggestions`) dùng `combinedContent` đã có sẵn — **không scrape lại Firecrawl**. Tool-call schema giống `suggest-products-from-website` (name, category, description, price_display, image_url, USPs, keywords, source_url), max 10 items, locale-aware.
-- Nếu LLM call này lỗi/quota → swallow, log warn, trả `product_suggestions: []` + `product_suggestions_error: code` (không fail toàn bộ import).
-- Append vào response:
-  ```json
-  raw_meta: {
-    ...,
-    product_suggestions: ProductSuggestion[],
-    product_suggestions_meta: { source: "import", error?: "RATE_LIMIT" | ... }
-  }
-  ```
-- Stream branch: emit thêm `progress { step: "ai_products", percent: 75 }` trước khi parse.
+## Hướng fix
 
-### 2. `BrandImportDialog.tsx`
-- Thêm preview row mới "Sản phẩm phát hiện" (collapsed bằng `Collapsible`) dưới palette: hiển thị badge `N sản phẩm` + danh sách tên ngắn gọn, có checkbox toàn bộ (mặc định tick) — không yêu cầu user chọn từng cái ở đây để giữ dialog gọn.
-- Khi user `Apply`, đính kèm `product_suggestions` (kèm flag selected) vào payload `importedSuggestion.raw_meta.product_suggestions` (đã có sẵn từ edge → chỉ cần forward).
+### 1. `supabase/functions/import-brand-from-website/index.ts`
+- Refactor `extractProductSuggestions` → dùng `callAI({ functionName, organizationId, messages, tools, tool_choice })` từ `_shared/ai-provider.ts` thay vì fetch raw.
+  - Tận dụng admin override (DashScope Qwen) + multi-provider fallback có sẵn (Qwen Plus → Qwen Turbo → Lovable Gateway Gemini Flash → Flash-Lite) giống `extractBrandSuggestions`.
+  - Truyền `organizationId` từ `runImport` xuống (hiện chưa pass).
+- Đăng ký function name `import-brand-products` (hoặc reuse `import-brand-from-website`) trong `AI_FUNCTIONS` registry để admin có thể override riêng nếu muốn — phương án ngắn gọn: reuse cùng functionName để 1 lần config áp cho cả brand + product.
+- Map `tool_calls` từ kết quả `callAI` (đã chuẩn hoá OpenAI-compatible).
+- Surface error code rõ trong `product_suggestions_meta.error` + log model thực tế đã dùng (`product_suggestions_meta.model`).
 
-### 3. `BrandCreate.tsx` (hydrate)
-- Trong `useEffect` hydrate (line 267): nếu `meta.product_suggestions?.length`, map thành `LocalProduct[]` với `id: temp-import-{i}`, `is_active: true`, gắn vào state `localProducts` (chưa có thì khởi tạo, có rồi thì merge dedupe theo `name.toLowerCase()`).
-- Toast bổ sung: "Đã đề xuất N sản phẩm từ website".
+### 2. `supabase/functions/suggest-products-from-website/index.ts`
+- Áp cùng refactor: bỏ fetch raw, dùng `callAI(functionName: "suggest-products-from-website", organizationId, …)` với fallback chain.
+- Trả `errorCode: "CREDITS_EXHAUSTED" | "RATE_LIMIT"` rõ ràng để UI toast cụ thể qua `parseEdgeFunctionError`.
 
-### 4. `BrandFormStepProducts.tsx`
-- Banner mới (chỉ hiện nếu có `localProducts` mang prefix `temp-import-`): "N sản phẩm tự động từ website. Hãy chỉnh hoặc xoá nếu không phù hợp."
-- Giữ nút "Gợi ý từ Website" làm tùy chọn refetch (vẫn dùng `SuggestProductsFromWebsiteDialog` cũ — không bỏ, vì user có thể đổi `websiteUrl` hoặc muốn rescan).
+### 3. `src/hooks/useAIConfig.ts` (registry `AI_FUNCTIONS`)
+- Đảm bảo có entry `import-brand-from-website` (đã có) — verify entry hiện ghi `currentModel` là `qwen-plus` hay `gemini-2.5-flash`. Nếu không khớp với model thực dùng → cập nhật để admin badge hiển thị đúng.
+- Thêm entry `suggest-products-from-website` nếu chưa có.
 
-### 5. Không động đến
-- `suggest-products-from-website` (giữ làm refetch backend).
-- Schema DB (`brand_products`) — không cần migration.
+### 4. `src/components/brand/BrandImportDialog.tsx`
+- Đọc `raw_meta.product_suggestions_meta.error`. Nếu có lỗi → hiển thị 1 dòng cảnh báo nhỏ dưới palette: "Không trích được sản phẩm tự động (AI hết quota). Có thể thêm tay ở bước Sản phẩm." Không block import.
 
 ## Test
-1. Import `https://taf.vn` → mong đợi `raw_meta.product_suggestions` có ≥1 sản phẩm, dialog hiện preview, vào BrandCreate step "Sản phẩm" thấy danh sách đã pre-populate.
-2. Website không có product page → `product_suggestions: []`, không hiện banner, nút "Gợi ý từ Website" vẫn dùng được.
-3. AI quota exhausted → import brand vẫn thành công, products rỗng, log warn.
+1. Admin set DashScope `qwen-plus` cho `import-brand-from-website` → import `taf.vn` → log show `[callAI] provider=dashscope model=qwen-plus`, `product_suggestions.length > 0`.
+2. Force Qwen 402 → fallback Lovable Gateway thành công.
+3. Tất cả provider fail → import vẫn 200, banner cảnh báo hiện trong dialog.
+4. Bấm "Gợi ý từ Website" tay sau khi đã có DashScope config → cũng dùng Qwen, không hard-code Gemini.
+
+## Không động đến
+- `extractBrandSuggestions` (đã đúng).
+- Schema DB, RLS, Firecrawl pipeline.
+- `BrandCreate.tsx` hydrate logic.

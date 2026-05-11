@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Sparkles, Globe, Package, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 import type { LocalProduct } from '@/components/brand/ProductCatalogEditor';
 
@@ -34,6 +35,7 @@ interface Props {
 export function SuggestProductsFromWebsiteDialog({
   open, onOpenChange, defaultUrl, existingProductNames = [], onAddProducts,
 }: Props) {
+  const { currentOrganization } = useOrganizationContext();
   const [url, setUrl] = useState(defaultUrl || '');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
@@ -55,7 +57,7 @@ export function SuggestProductsFromWebsiteDialog({
     setSelected(new Set());
     try {
       const { data, error } = await supabase.functions.invoke('suggest-products-from-website', {
-        body: { url: trimmed, max_products: 10, locale: 'vi' },
+        body: { url: trimmed, max_products: 10, locale: 'vi', organization_id: currentOrganization?.id },
       });
       if (error) throw error;
       const list = (data?.products || []) as ProductSuggestion[];
