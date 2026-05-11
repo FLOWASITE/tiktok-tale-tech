@@ -161,6 +161,17 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     setSelectedPrimaryColor(autoColor || null);
   }, [result, targetBrand]);
 
+  // Safety net: nếu có color value mà checkbox chưa tick (race / re-render), tự add
+  useEffect(() => {
+    if (!result) return;
+    const cp: any = result.raw_meta?.color_palette;
+    const hasColor = cp?.primary || cp?.candidates?.[0] || result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion;
+    if (hasColor && !selectedFields.has('primary_color')) {
+      setSelectedFields((prev) => new Set(prev).add('primary_color'));
+      if (!selectedPrimaryColor) setSelectedPrimaryColor(cp?.primary || cp?.candidates?.[0] || result.raw_meta?.theme_color || null);
+    }
+  }, [result, selectedFields, selectedPrimaryColor]);
+
   const handleAnalyze = async () => {
     if (tab === 'website') {
       if (!url.trim()) {
