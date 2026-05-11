@@ -973,7 +973,9 @@ async function runImport(
         color_palette: palette,
         footer_info: mergedFooter,
         discovered_subpages: autoDiscovered,
-        scraped_pages: 1 + subMarkdowns.length,
+        scraped_pages: 1 + subPages.length,
+        product_suggestions: productSuggestions,
+        product_suggestions_meta: { source: "import", count: productSuggestions.length, error: productSuggestionsError },
       },
     },
   };
