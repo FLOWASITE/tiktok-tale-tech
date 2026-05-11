@@ -845,8 +845,8 @@ async function runImport(
     }
   }
 
-  // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
-  const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);
+  // Auto-discover subpages from header/nav (cap 5, prioritize product/service paths)
+  const autoDiscovered = discoverSubpages(home.html, targetUrl, 5);
   const mergedPathSet = new Set<string>();
   const mergedPaths: string[] = [];
   for (const p of [...extraPaths, ...autoDiscovered]) {
@@ -855,7 +855,7 @@ async function runImport(
     if (mergedPathSet.has(abs)) continue;
     mergedPathSet.add(abs);
     mergedPaths.push(abs);
-    if (mergedPaths.length >= 4) break;
+    if (mergedPaths.length >= 6) break;
   }
 
   if (autoDiscovered.length > 0) {
