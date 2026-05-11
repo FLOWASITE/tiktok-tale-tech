@@ -677,6 +677,118 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
+// ============================================================
+// Product/Service extraction (re-uses scraped content, no re-scrape)
+// ============================================================
+interface ProductSuggestion {
+  name: string;
+  category?: string;
+  description?: string;
+  price_display?: string;
+  image_url?: string;
+  unique_selling_points?: string[];
+  keywords?: string[];
+  source_url?: string;
+}
+
+async function extractProductSuggestions(
+  content: string,
+  locale: string,
+): Promise<{ ok: true; products: ProductSuggestion[] } | { ok: false; code: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return { ok: false, code: "NO_API_KEY" };
+
+  const langInstr = locale === "en"
+    ? "Output product names/descriptions in English."
+    : "Output product names/descriptions in Vietnamese (tiếng Việt).";
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence description that highlights what it does for the customer.`,
+          },
+          {
+            role: "user",
+            content: `Below is scraped content from a brand's website (homepage + sub pages). Extract up to 10 distinct products or services.\n\n${content.slice(0, 25000)}`,
+          },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "extract_products",
+            description: "Extract product/service catalog from website content",
+            parameters: {
+              type: "object",
+              properties: {
+                products: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      category: { type: "string", description: "One of: product, service, course, digital, subscription, consulting, other" },
+                      description: { type: "string" },
+                      price_display: { type: "string" },
+                      image_url: { type: "string" },
+                      unique_selling_points: { type: "array", items: { type: "string" } },
+                      keywords: { type: "array", items: { type: "string" } },
+                      source_url: { type: "string" },
+                    },
+                    required: ["name"],
+                  },
+                },
+              },
+              required: ["products"],
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "extract_products" } },
+      }),
+    });
+
+    if (resp.status === 402) return { ok: false, code: "CREDITS_EXHAUSTED" };
+    if (resp.status === 429) return { ok: false, code: "RATE_LIMIT" };
+    if (!resp.ok) return { ok: false, code: `AI_ERROR_${resp.status}` };
+
+    const data = await resp.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) return { ok: false, code: "NO_TOOL_CALL" };
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const raw = Array.isArray(parsed.products) ? parsed.products as ProductSuggestion[] : [];
+
+    const seen = new Set<string>();
+    const products: ProductSuggestion[] = [];
+    for (const p of raw) {
+      const name = (p.name || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      products.push({
+        name,
+        category: p.category || undefined,
+        description: p.description || undefined,
+        price_display: p.price_display || undefined,
+        image_url: p.image_url || undefined,
+        unique_selling_points: Array.isArray(p.unique_selling_points) ? p.unique_selling_points.slice(0, 5) : [],
+        keywords: Array.isArray(p.keywords) ? p.keywords.slice(0, 8) : [],
+        source_url: p.source_url || undefined,
+      });
+      if (products.length >= 10) break;
+    }
+    return { ok: true, products };
+  } catch (e) {
+    console.warn("[extractProductSuggestions] failed:", (e as Error).message);
+    return { ok: false, code: "EXCEPTION" };
+  }
+}
+
 interface RunInput {
   targetUrl: string;
   extraPaths: string[];
