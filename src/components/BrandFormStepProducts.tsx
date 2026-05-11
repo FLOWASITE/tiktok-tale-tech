@@ -83,6 +83,7 @@ export function BrandFormStepProducts({
   brandName,
   localMappings,
   onLocalMappingsChange,
+  websiteUrl,
 }: BrandFormStepProductsProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<LocalProduct | null>(null);
@@ -90,6 +91,7 @@ export function BrandFormStepProducts({
   const [formData, setFormData] = useState<Omit<LocalProduct, 'id'>>(defaultProductData);
   const [newItem, setNewItem] = useState('');
   const [activeArrayField, setActiveArrayField] = useState<string | null>(null);
+  const [showSuggestDialog, setShowSuggestDialog] = useState(false);
 
   const handleAddProduct = () => {
     if (!formData.name.trim()) return;
