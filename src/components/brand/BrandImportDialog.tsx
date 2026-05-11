@@ -472,6 +472,28 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                 <Button variant="ghost" size="sm" onClick={handleSelectAll}>Chọn tất cả</Button>
               </div>
 
+              {(() => {
+                const pmeta: any = (result as any)?.raw_meta?.product_suggestions_meta;
+                const psList: any[] = (result as any)?.raw_meta?.product_suggestions || [];
+                if (!pmeta) return null;
+                if (psList.length > 0) {
+                  return (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                      Đã phát hiện <b>{psList.length} sản phẩm/dịch vụ</b> từ website. Sẽ tự nạp vào bước "Sản phẩm".
+                    </div>
+                  );
+                }
+                if (pmeta.error) {
+                  const isQuota = pmeta.error === 'CREDITS_EXHAUSTED' || pmeta.error === 'RATE_LIMIT';
+                  return (
+                    <div className="rounded-md border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                      Không trích được sản phẩm tự động {isQuota ? '(AI tạm hết quota)' : `(${pmeta.error})`}. Bạn có thể thêm tay ở bước "Sản phẩm".
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {Object.entries(groupedFields).map(([group, fields]) => (
                 <div key={group} className="space-y-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</h4>
