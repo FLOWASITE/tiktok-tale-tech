@@ -127,17 +127,19 @@ Deno.serve(async (req) => {
     if (!aiResponse.ok) {
       const txt = await aiResponse.text();
       console.error("[suggest-industry] AI error:", aiResponse.status, txt);
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Quá nhiều yêu cầu, thử lại sau." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Hết credit AI Gateway." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error ${aiResponse.status}`);
+      // Soft-fail: trả 200 với suggestions rỗng để UI fallback (search thủ công), tránh blank screen
+      const errorCode =
+        aiResponse.status === 402 ? "CREDITS_EXHAUSTED"
+        : aiResponse.status === 429 ? "RATE_LIMIT"
+        : `AI_ERROR_${aiResponse.status}`;
+      const message =
+        aiResponse.status === 402 ? "Hết credit AI Gateway, vui lòng chọn ngành thủ công."
+        : aiResponse.status === 429 ? "Quá nhiều yêu cầu, thử lại sau."
+        : "AI gợi ý tạm không khả dụng.";
+      return new Response(
+        JSON.stringify({ suggestions: [], fallback: true, errorCode, error: message }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await aiResponse.json();
