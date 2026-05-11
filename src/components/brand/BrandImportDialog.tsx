@@ -141,8 +141,12 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
     if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
-    // Auto-check màu chủ đạo nếu có palette từ logo / theme-color / AI gợi ý
-    const autoColor = result.raw_meta?.color_palette?.primary || result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion;
+    // Auto-check màu chủ đạo nếu có palette từ logo / theme-color / candidates / AI gợi ý
+    const colorPalette: any = result.raw_meta?.color_palette;
+    const autoColor = colorPalette?.primary
+      || colorPalette?.candidates?.[0]
+      || result.raw_meta?.theme_color
+      || result.suggestion?.primary_color_suggestion;
     if (autoColor) next.add('primary_color');
     const f = result.raw_meta?.footer_info;
     if (f && (f.company_name || f.phone || f.email || f.address || f.tax_code || (f.social_links && Object.keys(f.social_links).length))) {
@@ -156,6 +160,17 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     setSelectedLogoUrl(firstLogo);
     setSelectedPrimaryColor(autoColor || null);
   }, [result, targetBrand]);
+
+  // Safety net: nếu có color value mà checkbox chưa tick (race / re-render), tự add
+  useEffect(() => {
+    if (!result) return;
+    const cp: any = result.raw_meta?.color_palette;
+    const hasColor = cp?.primary || cp?.candidates?.[0] || result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion;
+    if (hasColor && !selectedFields.has('primary_color')) {
+      setSelectedFields((prev) => new Set(prev).add('primary_color'));
+      if (!selectedPrimaryColor) setSelectedPrimaryColor(cp?.primary || cp?.candidates?.[0] || result.raw_meta?.theme_color || null);
+    }
+  }, [result, selectedFields, selectedPrimaryColor]);
 
   const handleAnalyze = async () => {
     if (tab === 'website') {
@@ -333,7 +348,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
       case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
-      case 'primary_color': return result.raw_meta?.color_palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion || null;
+      case 'primary_color': return result.raw_meta?.color_palette?.primary || result.raw_meta?.color_palette?.candidates?.[0] || result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'footer_info': {
         const f = result.raw_meta?.footer_info;
         if (!f) return null;
