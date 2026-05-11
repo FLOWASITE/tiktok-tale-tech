@@ -1002,7 +1002,12 @@ async function runImport(
         discovered_subpages: autoDiscovered,
         scraped_pages: 1 + subPages.length,
         product_suggestions: productSuggestions,
-        product_suggestions_meta: { source: "import", count: productSuggestions.length, error: productSuggestionsError },
+        product_suggestions_meta: {
+          source: "import",
+          count: productSuggestions.length,
+          error: productSuggestionsError,
+          model: productResult.ok ? productResult.model : undefined,
+        },
       },
     },
   };
