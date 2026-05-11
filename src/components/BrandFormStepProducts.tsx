@@ -435,6 +435,21 @@ export function BrandFormStepProducts({
         }}
       />
 
+      {/* Import banner: highlight pre-suggested products from initial website scan */}
+      {localProducts.some((p) => p.id.startsWith('temp-import-')) && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm animate-fade-in">
+          <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <span className="font-medium">
+              {localProducts.filter((p) => p.id.startsWith('temp-import-')).length} sản phẩm tự động từ website
+            </span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              AI đã trích xuất từ lượt nhập website ban đầu. Hãy chỉnh sửa hoặc xoá nếu chưa phù hợp.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Tip Banner - Only show if has personas but no products */}
       {personas.length > 0 && localProducts.length === 0 && (
         <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20 animate-fade-in">

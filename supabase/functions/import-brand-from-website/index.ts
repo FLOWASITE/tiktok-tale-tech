@@ -231,9 +231,11 @@ function extractVisualSignals(html: string | undefined, baseUrl: string): Visual
 // Subpage auto-discovery (About / Contact / Service)
 // ============================================================
 const SUBPAGE_KEYWORDS = [
-  "about", "gioi-thieu", "gioi_thieu", "ve-chung-toi", "ve-chung-toi",
+  "san-pham", "sanpham", "product", "products",
+  "dich-vu", "dichvu", "service", "services",
+  "shop", "store", "collection", "collections", "course", "courses", "khoa-hoc",
+  "about", "gioi-thieu", "gioi_thieu", "ve-chung-toi",
   "contact", "lien-he", "lienhe", "lien_he",
-  "service", "services", "dich-vu", "dichvu", "san-pham", "sanpham", "product", "products",
 ];
 
 function discoverSubpages(html: string | undefined, baseUrl: string, max = 3): string[] {
@@ -677,6 +679,118 @@ function normalizeUrl(raw: string): string | null {
   }
 }
 
+// ============================================================
+// Product/Service extraction (re-uses scraped content, no re-scrape)
+// ============================================================
+interface ProductSuggestion {
+  name: string;
+  category?: string;
+  description?: string;
+  price_display?: string;
+  image_url?: string;
+  unique_selling_points?: string[];
+  keywords?: string[];
+  source_url?: string;
+}
+
+async function extractProductSuggestions(
+  content: string,
+  locale: string,
+): Promise<{ ok: true; products: ProductSuggestion[] } | { ok: false; code: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return { ok: false, code: "NO_API_KEY" };
+
+  const langInstr = locale === "en"
+    ? "Output product names/descriptions in English."
+    : "Output product names/descriptions in Vietnamese (tiếng Việt).";
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence description that highlights what it does for the customer.`,
+          },
+          {
+            role: "user",
+            content: `Below is scraped content from a brand's website (homepage + sub pages). Extract up to 10 distinct products or services.\n\n${content.slice(0, 25000)}`,
+          },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "extract_products",
+            description: "Extract product/service catalog from website content",
+            parameters: {
+              type: "object",
+              properties: {
+                products: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      category: { type: "string", description: "One of: product, service, course, digital, subscription, consulting, other" },
+                      description: { type: "string" },
+                      price_display: { type: "string" },
+                      image_url: { type: "string" },
+                      unique_selling_points: { type: "array", items: { type: "string" } },
+                      keywords: { type: "array", items: { type: "string" } },
+                      source_url: { type: "string" },
+                    },
+                    required: ["name"],
+                  },
+                },
+              },
+              required: ["products"],
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "extract_products" } },
+      }),
+    });
+
+    if (resp.status === 402) return { ok: false, code: "CREDITS_EXHAUSTED" };
+    if (resp.status === 429) return { ok: false, code: "RATE_LIMIT" };
+    if (!resp.ok) return { ok: false, code: `AI_ERROR_${resp.status}` };
+
+    const data = await resp.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) return { ok: false, code: "NO_TOOL_CALL" };
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const raw = Array.isArray(parsed.products) ? parsed.products as ProductSuggestion[] : [];
+
+    const seen = new Set<string>();
+    const products: ProductSuggestion[] = [];
+    for (const p of raw) {
+      const name = (p.name || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      products.push({
+        name,
+        category: p.category || undefined,
+        description: p.description || undefined,
+        price_display: p.price_display || undefined,
+        image_url: p.image_url || undefined,
+        unique_selling_points: Array.isArray(p.unique_selling_points) ? p.unique_selling_points.slice(0, 5) : [],
+        keywords: Array.isArray(p.keywords) ? p.keywords.slice(0, 8) : [],
+        source_url: p.source_url || undefined,
+      });
+      if (products.length >= 10) break;
+    }
+    return { ok: true, products };
+  } catch (e) {
+    console.warn("[extractProductSuggestions] failed:", (e as Error).message);
+    return { ok: false, code: "EXCEPTION" };
+  }
+}
+
 interface RunInput {
   targetUrl: string;
   extraPaths: string[];
@@ -731,8 +845,8 @@ async function runImport(
     }
   }
 
-  // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
-  const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);
+  // Auto-discover subpages from header/nav (cap 5, prioritize product/service paths)
+  const autoDiscovered = discoverSubpages(home.html, targetUrl, 5);
   const mergedPathSet = new Set<string>();
   const mergedPaths: string[] = [];
   for (const p of [...extraPaths, ...autoDiscovered]) {
@@ -741,7 +855,7 @@ async function runImport(
     if (mergedPathSet.has(abs)) continue;
     mergedPathSet.add(abs);
     mergedPaths.push(abs);
-    if (mergedPaths.length >= 4) break;
+    if (mergedPaths.length >= 6) break;
   }
 
   if (autoDiscovered.length > 0) {
@@ -760,12 +874,12 @@ async function runImport(
     });
   }
 
-  const subMarkdowns: string[] = [];
+  const subPages: Array<{ url: string; markdown: string }> = [];
   await Promise.all(
     mergedPaths.map(async (sub) => {
       const r = await firecrawlScrape(sub, ["markdown"]);
       if (r.success && r.markdown) {
-        subMarkdowns.push(r.markdown.slice(0, 4000));
+        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000) });
         await emit?.("subpage_done", { url: sub, success: true });
       } else {
         await emit?.("subpage_done", { url: sub, success: false, error: r.error });
@@ -781,28 +895,31 @@ async function runImport(
     "",
     "## Homepage",
     home.markdown || "",
-    ...subMarkdowns.map((m, i) => `\n## Sub page ${i + 1}\n${m}`),
+    ...subPages.map((p, i) => `\n## Sub page ${i + 1}: ${p.url}\n${p.markdown}`),
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
     step: "ai_analyzing",
     percent: 50,
-    message: "AI đang phân tích nội dung",
+    message: "AI đang phân tích nội dung & sản phẩm",
   });
 
-  const extracted = await extractBrandSuggestions({
-    source: "website",
-    content: combinedContent,
-    locale,
-    organizationId,
-    hint: new URL(targetUrl).hostname,
-    onProgress: emit
-      ? (e) => {
-          const { type, ...rest } = e as any;
-          emit(type, rest).catch(() => {});
-        }
-      : undefined,
-  });
+  const [extracted, productResult] = await Promise.all([
+    extractBrandSuggestions({
+      source: "website",
+      content: combinedContent,
+      locale,
+      organizationId,
+      hint: new URL(targetUrl).hostname,
+      onProgress: emit
+        ? (e) => {
+            const { type, ...rest } = e as any;
+            emit(type, rest).catch(() => {});
+          }
+        : undefined,
+    }),
+    extractProductSuggestions(combinedContent, locale),
+  ]);
 
   if (!extracted.success) {
     const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
@@ -815,6 +932,14 @@ async function runImport(
         code: extracted.error,
       },
     };
+  }
+
+  const productSuggestions: ProductSuggestion[] = productResult.ok ? productResult.products : [];
+  const productSuggestionsError = productResult.ok ? undefined : productResult.code;
+  if (!productResult.ok) {
+    console.warn(`[runImport] product extraction failed: ${productResult.code}`);
+  } else {
+    console.log(`[runImport] extracted ${productSuggestions.length} product suggestions`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
@@ -848,7 +973,9 @@ async function runImport(
         color_palette: palette,
         footer_info: mergedFooter,
         discovered_subpages: autoDiscovered,
-        scraped_pages: 1 + subMarkdowns.length,
+        scraped_pages: 1 + subPages.length,
+        product_suggestions: productSuggestions,
+        product_suggestions_meta: { source: "import", count: productSuggestions.length, error: productSuggestionsError },
       },
     },
   };
