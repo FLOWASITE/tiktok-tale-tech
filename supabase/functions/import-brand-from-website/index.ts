@@ -231,9 +231,11 @@ function extractVisualSignals(html: string | undefined, baseUrl: string): Visual
 // Subpage auto-discovery (About / Contact / Service)
 // ============================================================
 const SUBPAGE_KEYWORDS = [
-  "about", "gioi-thieu", "gioi_thieu", "ve-chung-toi", "ve-chung-toi",
+  "san-pham", "sanpham", "product", "products",
+  "dich-vu", "dichvu", "service", "services",
+  "shop", "store", "collection", "collections", "course", "courses", "khoa-hoc",
+  "about", "gioi-thieu", "gioi_thieu", "ve-chung-toi",
   "contact", "lien-he", "lienhe", "lien_he",
-  "service", "services", "dich-vu", "dichvu", "san-pham", "sanpham", "product", "products",
 ];
 
 function discoverSubpages(html: string | undefined, baseUrl: string, max = 3): string[] {
