@@ -141,8 +141,12 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
     if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
-    // Auto-check màu chủ đạo nếu có palette từ logo / theme-color / AI gợi ý
-    const autoColor = result.raw_meta?.color_palette?.primary || result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion;
+    // Auto-check màu chủ đạo nếu có palette từ logo / theme-color / candidates / AI gợi ý
+    const colorPalette: any = result.raw_meta?.color_palette;
+    const autoColor = colorPalette?.primary
+      || colorPalette?.candidates?.[0]
+      || result.raw_meta?.theme_color
+      || result.suggestion?.primary_color_suggestion;
     if (autoColor) next.add('primary_color');
     const f = result.raw_meta?.footer_info;
     if (f && (f.company_name || f.phone || f.email || f.address || f.tax_code || (f.social_links && Object.keys(f.social_links).length))) {
