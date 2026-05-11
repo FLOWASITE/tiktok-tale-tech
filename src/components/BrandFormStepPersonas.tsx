@@ -151,38 +151,46 @@ export function BrandFormStepPersonas({
     return Math.round((score / maxScore) * 100);
   };
 
+  // Shared builder: industry persona -> CustomerPersona
+  const buildPersonaFromIndustry = (
+    industryPersona: any,
+    opts: { idSuffix?: string; isPrimary?: boolean } = {}
+  ): CustomerPersona => ({
+    id: `temp-${Date.now()}${opts.idSuffix ? `-${opts.idSuffix}` : ''}`,
+    brand_template_id: '',
+    name: industryPersona.name,
+    avatar_emoji: industryPersona.avatar_emoji || '👤',
+    is_primary: opts.isPrimary ?? false,
+    age_range: industryPersona.age_range,
+    gender: industryPersona.gender,
+    location: industryPersona.location,
+    income_level: industryPersona.income_level,
+    occupation: industryPersona.occupation,
+    pain_points: industryPersona.pain_points || [],
+    desires: industryPersona.desires || [],
+    objections: industryPersona.objections || [],
+    values: industryPersona.values || [],
+    interests: industryPersona.interests || [],
+    buying_triggers: industryPersona.buying_triggers || [],
+    information_sources: industryPersona.information_sources || [],
+    preferred_channels: industryPersona.preferred_channels || [],
+    typical_funnel_stage: industryPersona.typical_funnel_stage,
+    communication_style: industryPersona.communication_style,
+    response_tone_hints: industryPersona.response_tone_hints || [],
+    content_preferences: industryPersona.content_preferences,
+    persona_prompt_hints: industryPersona.persona_prompt_hints,
+    source_industry_persona_id: industryPersona.id,
+    is_customized: false,
+  } as CustomerPersona);
+
   // Batch import with immediate use option
   const handleImportPersona = (industryPersona: any, openEditor: boolean = false) => {
     if (safePersonas.length >= 5) return;
     if (safePersonas.some(p => (p as any).source_industry_persona_id === industryPersona.id)) return;
 
-    const newPersona: CustomerPersona = {
-      id: `temp-${Date.now()}`,
-      brand_template_id: '',
-      name: industryPersona.name,
-      avatar_emoji: industryPersona.avatar_emoji || '👤',
-      is_primary: safePersonas.length === 0,
-      age_range: industryPersona.age_range,
-      gender: industryPersona.gender,
-      location: industryPersona.location,
-      income_level: industryPersona.income_level,
-      occupation: industryPersona.occupation,
-      pain_points: industryPersona.pain_points || [],
-      desires: industryPersona.desires || [],
-      objections: industryPersona.objections || [],
-      values: industryPersona.values || [],
-      interests: industryPersona.interests || [],
-      buying_triggers: industryPersona.buying_triggers || [],
-      information_sources: industryPersona.information_sources || [],
-      preferred_channels: industryPersona.preferred_channels || [],
-      typical_funnel_stage: industryPersona.typical_funnel_stage,
-      communication_style: industryPersona.communication_style,
-      response_tone_hints: industryPersona.response_tone_hints || [],
-      content_preferences: industryPersona.content_preferences,
-      persona_prompt_hints: industryPersona.persona_prompt_hints,
-      source_industry_persona_id: industryPersona.id,
-      is_customized: false,
-    };
+    const newPersona = buildPersonaFromIndustry(industryPersona, {
+      isPrimary: safePersonas.length === 0,
+    });
 
     onPersonasChange([...safePersonas, newPersona]);
 
@@ -211,35 +219,12 @@ export function BrandFormStepPersonas({
       // Check if already imported
       if (safePersonas.some(p => (p as any).source_industry_persona_id === id)) continue;
 
-      const newPersona: CustomerPersona = {
-        id: `temp-${Date.now()}-${importCount}`,
-        brand_template_id: '',
-        name: industryPersona.name,
-        avatar_emoji: industryPersona.avatar_emoji || '👤',
-        is_primary: safePersonas.length === 0 && importCount === 0,
-        age_range: industryPersona.age_range,
-        gender: industryPersona.gender,
-        location: industryPersona.location,
-        income_level: industryPersona.income_level,
-        occupation: industryPersona.occupation,
-        pain_points: industryPersona.pain_points || [],
-        desires: industryPersona.desires || [],
-        objections: industryPersona.objections || [],
-        values: industryPersona.values || [],
-        interests: industryPersona.interests || [],
-        buying_triggers: industryPersona.buying_triggers || [],
-        information_sources: industryPersona.information_sources || [],
-        preferred_channels: industryPersona.preferred_channels || [],
-        typical_funnel_stage: industryPersona.typical_funnel_stage,
-        communication_style: industryPersona.communication_style,
-        response_tone_hints: industryPersona.response_tone_hints || [],
-        content_preferences: industryPersona.content_preferences,
-        persona_prompt_hints: industryPersona.persona_prompt_hints,
-        source_industry_persona_id: industryPersona.id,
-        is_customized: false,
-      };
-
-      newPersonas.push(newPersona);
+      newPersonas.push(
+        buildPersonaFromIndustry(industryPersona, {
+          idSuffix: String(importCount),
+          isPrimary: safePersonas.length === 0 && importCount === 0,
+        })
+      );
       importCount++;
     }
 
@@ -251,6 +236,56 @@ export function BrandFormStepPersonas({
     setSelectedIndustryPersonaIds(new Set());
     setShowIndustryImport(false);
   };
+
+  // ===== Auto-import industry personas khi vừa chọn ngành =====
+  const autoImportedKeysRef = useRef<Set<string>>(new Set());
+  const industryKey = globalPackId || industryTemplateId || '';
+
+  useEffect(() => {
+    if (!industryKey) return;
+    if (loadingIndustry) return;
+    if (!safeIndustryPersonas.length) return;
+    if (autoImportedKeysRef.current.has(industryKey)) return;
+
+    // Điều kiện an toàn: chỉ auto-import khi chưa có persona nào do user tạo/sửa.
+    // Cho phép nếu personas rỗng, hoặc tất cả đều là imported chưa customize (từ ngành cũ).
+    const hasUserContent = safePersonas.some(
+      (p) => (p as any).is_customized === true || !(p as any).source_industry_persona_id
+    );
+    if (hasUserContent) {
+      // Đánh dấu để không thử lại cho ngành này (tránh spam check).
+      autoImportedKeysRef.current.add(industryKey);
+      return;
+    }
+
+    const prevPersonas = safePersonas;
+    const remainingSlots = Math.max(0, 5 - 0); // sẽ thay thế personas cũ (toàn imported chưa sửa)
+    const picks = safeIndustryPersonas.slice(0, Math.min(3, remainingSlots));
+    if (!picks.length) return;
+
+    const built = picks.map((ip, idx) =>
+      buildPersonaFromIndustry(ip, {
+        idSuffix: `auto-${idx}`,
+        isPrimary: idx === 0,
+      })
+    );
+
+    autoImportedKeysRef.current.add(industryKey);
+    onPersonasChange(built);
+
+    toast.success(
+      `Đã nạp sẵn ${built.length} persona mẫu cho ngành. Bạn có thể chỉnh sửa hoặc xoá.`,
+      {
+        duration: 5000,
+        action: {
+          label: 'Hoàn tác',
+          onClick: () => onPersonasChange(prevPersonas),
+        },
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [industryKey, loadingIndustry, safeIndustryPersonas.length]);
+
 
   const addPersona = (template?: Partial<CustomerPersona>) => {
     if (safePersonas.length >= 5) return;
