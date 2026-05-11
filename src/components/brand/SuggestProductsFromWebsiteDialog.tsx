@@ -35,6 +35,7 @@ interface Props {
 export function SuggestProductsFromWebsiteDialog({
   open, onOpenChange, defaultUrl, existingProductNames = [], onAddProducts,
 }: Props) {
+  const { currentOrganization } = useOrganizationContext();
   const [url, setUrl] = useState(defaultUrl || '');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
