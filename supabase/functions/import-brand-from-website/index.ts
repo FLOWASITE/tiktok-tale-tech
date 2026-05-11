@@ -901,22 +901,25 @@ async function runImport(
   await emit?.("progress", {
     step: "ai_analyzing",
     percent: 50,
-    message: "AI đang phân tích nội dung",
+    message: "AI đang phân tích nội dung & sản phẩm",
   });
 
-  const extracted = await extractBrandSuggestions({
-    source: "website",
-    content: combinedContent,
-    locale,
-    organizationId,
-    hint: new URL(targetUrl).hostname,
-    onProgress: emit
-      ? (e) => {
-          const { type, ...rest } = e as any;
-          emit(type, rest).catch(() => {});
-        }
-      : undefined,
-  });
+  const [extracted, productResult] = await Promise.all([
+    extractBrandSuggestions({
+      source: "website",
+      content: combinedContent,
+      locale,
+      organizationId,
+      hint: new URL(targetUrl).hostname,
+      onProgress: emit
+        ? (e) => {
+            const { type, ...rest } = e as any;
+            emit(type, rest).catch(() => {});
+          }
+        : undefined,
+    }),
+    extractProductSuggestions(combinedContent, locale),
+  ]);
 
   if (!extracted.success) {
     const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
@@ -929,6 +932,14 @@ async function runImport(
         code: extracted.error,
       },
     };
+  }
+
+  const productSuggestions: ProductSuggestion[] = productResult.ok ? productResult.products : [];
+  const productSuggestionsError = productResult.ok ? undefined : productResult.code;
+  if (!productResult.ok) {
+    console.warn(`[runImport] product extraction failed: ${productResult.code}`);
+  } else {
+    console.log(`[runImport] extracted ${productSuggestions.length} product suggestions`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
