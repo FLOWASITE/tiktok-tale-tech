@@ -57,7 +57,7 @@ export function SuggestProductsFromWebsiteDialog({
     setSelected(new Set());
     try {
       const { data, error } = await supabase.functions.invoke('suggest-products-from-website', {
-        body: { url: trimmed, max_products: 10, locale: 'vi' },
+        body: { url: trimmed, max_products: 10, locale: 'vi', organization_id: currentOrganization?.id },
       });
       if (error) throw error;
       const list = (data?.products || []) as ProductSuggestion[];
