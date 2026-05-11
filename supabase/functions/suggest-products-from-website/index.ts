@@ -6,6 +6,7 @@
 // Response: { products: ProductSuggestion[], source_urls: string[], fallback?: boolean, errorCode? }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
