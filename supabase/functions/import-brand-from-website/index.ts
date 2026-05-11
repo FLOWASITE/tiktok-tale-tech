@@ -945,7 +945,7 @@ async function runImport(
           }
         : undefined,
     }),
-    extractProductSuggestions(combinedContent, locale),
+    extractProductSuggestions(combinedContent, locale, organizationId),
   ]);
 
   if (!extracted.success) {
