@@ -1,67 +1,35 @@
 ## Mục tiêu
-Khi user Import Brand từ website, hệ thống tự động phát hiện và gợi ý danh sách **sản phẩm/dịch vụ** từ nội dung scrape được, để user chọn add vào `brand_products` ngay trong wizard — không phải nhập tay từng cái.
+Khi user chọn ngành (industry pack/template) ở bước Identity, tự động nạp sẵn **personas mẫu** từ Industry Memory vào bước Personas, để user không phải bấm "Nhập từ ngành" thủ công.
 
-## Flow đề xuất
+## Phạm vi
+Chỉ FE + 1 hook hiện có (`useIndustryPersonasForImport`). Không sửa edge function, không sửa schema.
 
-```text
-[Import Website URL]
-   ↓ Firecrawl scrape (markdown + rawHtml + links)
-   ↓ extract-brand-from-website (đã có)
-   ↓ NEW: extract-products-from-website (Gemini Vision + text)
-[Brand Import Dialog]
-   ├─ Tab "Thông tin chung" (đã có: name, voice, color, logo)
-   └─ Tab "Sản phẩm gợi ý" (MỚI)
-       ├─ List 5-15 SP với checkbox
-       │   • name, category, description, price (nếu detect)
-       │   • image_url (lấy từ <img> trong product card)
-       │   • USP suggestions (3 bullet)
-       └─ [Chọn tất cả] [Bỏ qua] [Import N sản phẩm]
-   ↓ Save → bulk insert vào brand_products
-```
+## Hành vi
+1. **Trigger**: `industryTemplateId` hoặc `globalPackId` thay đổi → fetch xong industry personas.
+2. **Điều kiện auto-import** (an toàn, không phá data user):
+   - `personas` đang **rỗng** HOẶC chỉ chứa personas có `source_industry_persona_id` của ngành **trước đó** (chưa bị user sửa: `is_customized !== true`).
+   - Chưa từng auto-import cho đúng `industryKey` này (track bằng `useRef<Set<string>>` trong session).
+3. **Số lượng**: import tối đa **3 personas đầu** (giữ chỗ cho user thêm tay, tổng cap vẫn 5).
+4. **Logic mapping**: tái dùng đúng object shape của `handleBatchImport` đã có (gọi hàm helper tách ra để chia sẻ).
+5. **Không ghi đè**: nếu có bất kỳ persona nào `is_customized = true` hoặc do user tạo tay (không có `source_industry_persona_id`) → **bỏ qua** auto-import, để user tự bấm.
+6. **Đổi ngành**: khi `industryKey` mới khác cũ và toàn bộ personas hiện tại đều là "imported chưa sửa" → xoá personas cũ rồi nạp set mới (vì đã không còn phù hợp ngành).
+7. **Feedback**: toast nhẹ `"Đã nạp sẵn N persona mẫu cho ngành <tên>. Bạn có thể chỉnh sửa hoặc xoá."` + nút **Hoàn tác** (revert về state trước import) trong 5s.
 
-## Phần Backend
+## Thay đổi code
+- `src/components/BrandFormStepPersonas.tsx`
+  - Tách `buildPersonaFromIndustry(industryPersona, opts)` từ logic trong `handleImportPersona` / `handleBatchImport` (DRY).
+  - Thêm `useEffect` auto-import theo điều kiện trên, dùng `useRef` để chống chạy lặp.
+  - Toast + Undo qua `sonner` action button.
+- Không đụng `BrandCreate.tsx` (props đã có `industryTemplateId` + `globalPackId`).
 
-**Edge function mới: `suggest-products-from-website`**
-- Input: `website_url`, `brand_template_id` (optional, nếu null thì preview only)
-- Pipeline:
-  1. Reuse Firecrawl scrape (cache lại từ `import-brand-from-website` nếu vừa chạy → tránh double credit)
-  2. Tìm các URL có pattern `/product/`, `/shop/`, `/san-pham/`, `/dich-vu/`, `/services/` từ `links[]` → ưu tiên scrape top 10
-  3. Hoặc detect product cards trong HTML chính (schema.org `Product`, `og:type=product`, `<article class*=product>`)
-  4. Gọi Gemini 2.5 Flash với tool calling, schema:
-     ```ts
-     { products: [{ name, category, description, price_display, image_url, usp[3], keywords[] }] }
-     ```
-  5. **Soft-fail 402/429** y như `suggest-industry`: trả `{ products: [], fallback: true, errorCode }`
-- Output: `{ products: ProductSuggestion[], source_urls: string[], cached: boolean }`
+## Edge cases
+- Hook đang `loadingIndustry` → chờ, không auto-import.
+- `industryPersonas` rỗng (ngành chưa có persona mẫu) → no-op, không toast.
+- User vào lại bước Personas sau khi đã xoá hết personas auto-imported → KHÔNG auto-import lại (ref đã đánh dấu industryKey).
+- Khi user nhấn **Hoàn tác** → xoá personas vừa thêm (match theo id tạm), giữ ref đã đánh dấu để không spam lại.
 
-**Tái sử dụng:**
-- `_shared/brand-extractor.ts` pattern (tool calling + AI gateway)
-- `analyze-product-image` cho enrichment ảnh nếu user accept
-
-## Phần Frontend
-
-**`src/components/brand/ProductSuggestionsStep.tsx`** (mới)
-- Hiển thị grid các product card với checkbox + thumbnail
-- Inline edit: sửa name/price trước khi import
-- Bulk action: "Chọn tất cả featured", "Chỉ nhập sản phẩm có ảnh"
-
-**Integration điểm:**
-- `BrandImportDialog.tsx` → thêm step "Sản phẩm" sau "Visual"
-- `BrandCreate.tsx` → sau khi save brand template → bulk insert via `useProductCatalog.createProduct` (loop hoặc tạo `bulkCreate`)
-
-**Hydration:**
-- Lưu suggestions vào `importedProductsRef` để không mất khi user chuyển step
-
-## Edge cases & guardrails
-- **No products detected** → ẩn step, không block flow
-- **Trùng tên** → warn "Đã có sản phẩm tương tự" (fuzzy match)
-- **Credit exhausted (402)** → toast "Hết credit AI, bạn có thể nhập sản phẩm thủ công sau"
-- **Rate limit Firecrawl** → reuse cached scrape, không gọi lại
-- **Ảnh sản phẩm là external URL** → lưu trực tiếp `image_url` (giống logo flow), không re-upload
-
-## Câu hỏi cần xác nhận trước khi build
-1. Giới hạn số SP gợi ý mặc định: **5, 10, hay 15**?
-2. Có muốn cho phép gợi ý thêm từ **Fanpage** (qua `import-brand-from-fanpage` + analyze post images) không, hay chỉ Website ở phase này?
-3. Khi Brand chưa save mà đã chọn SP → lưu tạm `sessionStorage` rồi insert sau khi `brand_template_id` có, hay chặn cho đến khi brand save xong?
-
-Trả lời 3 câu trên rồi mình sẽ tinh chỉnh plan và bắt tay implement.
+## Test tay
+1. Tạo brand mới → chọn ngành A → sang Personas: thấy 3 persona đã có sẵn + toast Undo.
+2. Sửa 1 persona (đặt `is_customized=true`) → quay lại Identity đổi sang ngành B → Personas: KHÔNG bị ghi đè.
+3. Brand chưa sửa gì → đổi ngành A→B → personas auto cập nhật theo B.
+4. Ngành không có persona mẫu → không có toast, không lỗi.
