@@ -41,9 +41,16 @@ interface ScriptsTabProps {
 export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialViewScriptId, onSwitchTab }: ScriptsTabProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { scripts, loading, deleteScript, updateScript, generating, generateScript } = useScripts();
+  const { scripts: allScripts, loading, deleteScript, updateScript, generating, generateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const { createLink } = useTopicContentLinks({ enabled: false });
+
+  // Filter by current brand (UI-level isolation); legacy scripts without brand_template_id stay visible
+  const scripts = useMemo(() => {
+    if (!currentBrand) return allScripts;
+    return allScripts.filter((s) => !s.brand_template_id || s.brand_template_id === currentBrand.id);
+  }, [allScripts, currentBrand]);
 
   // Create brand template lookup map
   const brandTemplateMap = useMemo(() => {
