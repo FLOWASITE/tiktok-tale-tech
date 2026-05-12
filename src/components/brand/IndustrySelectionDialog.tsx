@@ -298,7 +298,7 @@ export function IndustrySelectionDialog({
         onMouseEnter={() => setHoveredPack(pack)}
         onMouseLeave={() => setHoveredPack(null)}
         className={cn(
-          "group relative p-5 rounded-xl border-2 bg-card text-left transition-all duration-200 min-h-[100px]",
+          "group relative flex flex-col gap-3 p-4 rounded-xl border-2 bg-card text-left transition-all duration-200 min-h-[140px]",
           "hover:border-primary hover:shadow-lg hover:scale-[1.02]",
           isSub && "border-dashed"
         )}
@@ -311,25 +311,22 @@ export function IndustrySelectionDialog({
             </Badge>
           </div>
         )}
-        
-        <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl shrink-0 transition-colors bg-muted group-hover:bg-primary/10">
-            {getIcon(pack.code, 'md')}
-          </div>
-          <div className="flex-1 min-w-0 pr-4">
-            <h4 className="font-semibold text-base leading-snug line-clamp-2">
-              {pack.shortName || pack.name}
-            </h4>
-            {pack.name !== pack.shortName && pack.shortName && (
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed line-clamp-1">
-                {pack.name}
-              </p>
-            )}
-            {!isSub && subCount > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">+{subCount} ngành phụ</p>
-            )}
-          </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+
+        <div className="p-2.5 rounded-xl shrink-0 self-start transition-colors bg-muted group-hover:bg-primary/10">
+          {getIcon(pack.code, 'sm')}
+        </div>
+        <div className="flex-1 min-w-0 w-full">
+          <h4 className="font-semibold text-sm leading-snug line-clamp-2 break-words">
+            {pack.shortName || pack.name}
+          </h4>
+          {pack.name !== pack.shortName && pack.shortName && (
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2 break-words">
+              {pack.name}
+            </p>
+          )}
+          {!isSub && subCount > 0 && (
+            <p className="text-[11px] text-muted-foreground mt-2">+{subCount} ngành phụ</p>
+          )}
         </div>
       </button>
     );
