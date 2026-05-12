@@ -1446,12 +1446,24 @@ async function runImport(
   const aiProducts: ProductSuggestion[] = productResult.ok
     ? productResult.products.map(p => ({ ...p, source: p.source || "ai" }))
     : [];
-  const productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
+  let productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
+
+  // Layer 5: markdown regex fallback when both structured and AI come up short
+  let markdownFallbackCount = 0;
+  if (productSuggestions.length < 3) {
+    const mdProducts = extractProductsFromMarkdown(combinedContent, targetUrl);
+    if (mdProducts.length > 0) {
+      const before = productSuggestions.length;
+      productSuggestions = mergeProducts(productSuggestions, mdProducts);
+      markdownFallbackCount = productSuggestions.length - before;
+    }
+  }
+
   const productSuggestionsError = productResult.ok ? undefined : productResult.code;
-  if (!productResult.ok && structuredProducts.length === 0) {
+  if (!productResult.ok && structuredProducts.length === 0 && markdownFallbackCount === 0) {
     console.warn(`[runImport] product extraction failed: ${productResult.code}`);
   } else {
-    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} final=${productSuggestions.length} sitemapUsed=${sitemapUsed}`);
+    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} enriched=${enrichedCount} markdown=${markdownFallbackCount} final=${productSuggestions.length} sitemapUsed=${sitemapUsed} subdomain=${subdomainUsed}`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
@@ -1492,9 +1504,13 @@ async function runImport(
           count: productSuggestions.length,
           structured_count: structuredProducts.length,
           ai_count: aiProducts.length,
+          enriched_count: enrichedCount,
+          markdown_fallback_count: markdownFallbackCount,
           final_count: productSuggestions.length,
           sources: Array.from(new Set(productSuggestions.map(p => p.source).filter(Boolean))),
           sitemap_used: sitemapUsed,
+          sitemap_sources: sitemapSources,
+          subdomain_used: subdomainUsed,
           error: productSuggestionsError,
           model: productResult.ok ? productResult.model : undefined,
         },
