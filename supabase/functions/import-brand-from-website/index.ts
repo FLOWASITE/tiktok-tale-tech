@@ -691,25 +691,217 @@ interface ProductSuggestion {
   unique_selling_points?: string[];
   keywords?: string[];
   source_url?: string;
+  source?: "jsonld" | "opengraph" | "microdata" | "html" | "ai";
+}
+
+// ============================================================
+// Layer 1 — Structured product extraction (JSON-LD / OG / microdata / HTML cards)
+// Free, deterministic, runs before AI; treated as ground truth.
+// ============================================================
+function slugifyName(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+const PRODUCT_PATH_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\//i;
+const PRICE_RE = /(?:[\d.,]+\s*(?:đ|vnd|₫|usd|\$|€|£))|(?:(?:giá|price)[:\s]+[\d.,]+)/i;
+
+function extractStructuredProducts(html: string | undefined, baseUrl: string): ProductSuggestion[] {
+  if (!html) return [];
+  const out: ProductSuggestion[] = [];
+  const seen = new Set<string>();
+  const push = (p: ProductSuggestion) => {
+    const name = (p.name || "").trim();
+    if (!name || name.length < 2 || name.length > 200) return;
+    const key = slugifyName(name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ ...p, name });
+  };
+
+  // 1. JSON-LD Product / Service / ItemList / Offer
+  const walkLd = (node: any) => {
+    if (!node || typeof node !== "object") return;
+    const types = ([] as string[]).concat(node["@type"] || []).map(String);
+    const isProductLike = types.some((t) => /^(Product|Service|IndividualProduct|ProductModel|Offer)$/i.test(t));
+    if (isProductLike && typeof node.name === "string") {
+      const offer = node.offers && (Array.isArray(node.offers) ? node.offers[0] : node.offers);
+      const price = offer?.price ?? offer?.priceSpecification?.price;
+      const currency = offer?.priceCurrency ?? offer?.priceSpecification?.priceCurrency;
+      let priceDisplay: string | undefined;
+      if (price) priceDisplay = currency ? `${price} ${currency}` : String(price);
+      const imgRaw = node.image;
+      const imgUrl = Array.isArray(imgRaw) ? imgRaw[0] : (typeof imgRaw === "string" ? imgRaw : (imgRaw?.url));
+      const urlRaw = node.url || node["@id"] || offer?.url;
+      push({
+        name: node.name,
+        description: typeof node.description === "string" ? node.description.slice(0, 400) : undefined,
+        price_display: priceDisplay,
+        image_url: typeof imgUrl === "string" ? resolveUrl(imgUrl, baseUrl) || imgUrl : undefined,
+        source_url: typeof urlRaw === "string" ? resolveUrl(urlRaw, baseUrl) || urlRaw : undefined,
+        category: types.find(t => /Service/i.test(t)) ? "service" : "product",
+        source: "jsonld",
+      });
+    }
+    // ItemList → walk itemListElement
+    if (types.some(t => /ItemList|OfferCatalog/i.test(t))) {
+      const items = ([] as any[]).concat(node.itemListElement || node.itemListElements || []);
+      for (const it of items) walkLd(it?.item || it);
+    }
+  };
+  for (const node of parseJsonLdBlocks(html)) walkLd(node);
+
+  // 2. OpenGraph product
+  const ogType = html.match(/<meta[^>]+property=["']og:type["'][^>]+content=["']([^"']+)["']/i)?.[1];
+  if (ogType && /product/i.test(ogType)) {
+    const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const priceAmt = html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const priceCur = html.match(/<meta[^>]+property=["']product:price:currency["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    if (ogTitle) {
+      push({
+        name: ogTitle,
+        description: ogDesc,
+        price_display: priceAmt ? (priceCur ? `${priceAmt} ${priceCur}` : priceAmt) : undefined,
+        image_url: ogImg ? resolveUrl(ogImg, baseUrl) || ogImg : undefined,
+        source_url: baseUrl,
+        category: "product",
+        source: "opengraph",
+      });
+    }
+  }
+
+  // 3. Microdata schema.org/Product
+  const mdRe = /itemtype=["']https?:\/\/schema\.org\/(?:Product|Service)["'][^>]*>([\s\S]{0,2500}?)(?=<[^>]+itemtype=|<\/(?:article|section|li|div)>)/gi;
+  for (const m of html.matchAll(mdRe)) {
+    const block = m[1];
+    const name = block.match(/itemprop=["']name["'][^>]*>([^<]+)</i)?.[1]?.trim()
+      || block.match(/itemprop=["']name["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    if (!name) continue;
+    const desc = block.match(/itemprop=["']description["'][^>]*>([^<]+)</i)?.[1]?.trim();
+    const price = block.match(/itemprop=["']price["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || block.match(/itemprop=["']price["'][^>]*>([^<]+)</i)?.[1];
+    const img = block.match(/itemprop=["']image["'][^>]+(?:src|content)=["']([^"']+)["']/i)?.[1];
+    push({
+      name,
+      description: desc?.slice(0, 400),
+      price_display: price?.trim(),
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: baseUrl,
+      category: "product",
+      source: "microdata",
+    });
+  }
+
+  // 4. HTML product cards: anchors with product-like path + img + price nearby
+  // Scope to body to avoid header nav noise.
+  const body = html.match(/<body[\s\S]*<\/body>/i)?.[0] || html;
+  const anchorRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,2000}?)<\/a>/gi;
+  for (const m of body.matchAll(anchorRe)) {
+    if (out.length >= 20) break; // hard cap to bound work
+    const href = m[1];
+    const inner = m[2];
+    if (!PRODUCT_PATH_RE.test(href)) continue;
+    if (!/<img/i.test(inner)) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    const titleAttr = inner.match(/<img[^>]+alt=["']([^"']+)["']/i)?.[1]
+      || inner.match(/<(?:h[1-6]|span|div)[^>]*>([^<]{3,150})</i)?.[1];
+    const text = stripHtml(inner).replace(/\s+/g, " ").trim();
+    const name = (titleAttr || text.split(/[•|·]|\s{2,}/)[0] || "").trim().slice(0, 150);
+    if (!name || name.length < 3) continue;
+    const img = inner.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
+      || inner.match(/<img[^>]+data-src=["']([^"']+)["']/i)?.[1];
+    const priceMatch = text.match(PRICE_RE);
+    push({
+      name,
+      price_display: priceMatch?.[0],
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: abs,
+      category: "product",
+      source: "html",
+    });
+  }
+
+  return out.slice(0, 15);
+}
+
+// ============================================================
+// Firecrawl map — discover product URLs via sitemap (cheap)
+// ============================================================
+async function firecrawlMap(url: string, search: string, limit = 30): Promise<string[]> {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) return [];
+  try {
+    const resp = await fetch("https://api.firecrawl.dev/v2/map", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const links: any[] = data?.links || data?.data?.links || data?.data || [];
+    return links.map((x) => typeof x === "string" ? x : x?.url).filter(Boolean).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+// ============================================================
+// Merge structured products with AI-extracted ones.
+// Structured wins for: name/price/image/source_url.
+// AI wins for: description/USP/keywords/category enrichment.
+// ============================================================
+function mergeProducts(structured: ProductSuggestion[], ai: ProductSuggestion[]): ProductSuggestion[] {
+  const map = new Map<string, ProductSuggestion>();
+  for (const p of structured) {
+    const key = slugifyName(p.name);
+    if (!key) continue;
+    map.set(key, { ...p });
+  }
+  for (const p of ai) {
+    const key = slugifyName(p.name);
+    if (!key) continue;
+    const existing = map.get(key);
+    if (existing) {
+      existing.description = existing.description || p.description;
+      existing.unique_selling_points = (existing.unique_selling_points?.length ? existing.unique_selling_points : p.unique_selling_points) || [];
+      existing.keywords = (existing.keywords?.length ? existing.keywords : p.keywords) || [];
+      existing.category = existing.category || p.category;
+      existing.image_url = existing.image_url || p.image_url;
+      existing.price_display = existing.price_display || p.price_display;
+    } else {
+      map.set(key, { ...p, source: p.source || "ai" });
+    }
+  }
+  return [...map.values()].slice(0, 12);
 }
 
 async function extractProductSuggestions(
   content: string,
   locale: string,
   organizationId?: string,
+  structuredHints?: ProductSuggestion[],
 ): Promise<{ ok: true; products: ProductSuggestion[]; model?: string } | { ok: false; code: string }> {
   const langInstr = locale === "en"
     ? "Output product names/descriptions in English."
     : "Output product names/descriptions in Vietnamese (tiếng Việt).";
 
+  const hintsBlock = (structuredHints && structuredHints.length > 0)
+    ? `\n\n## STRUCTURED PRODUCTS already detected (ground truth — do NOT remove or rename, only enrich missing description/USP/keywords):\n${
+        structuredHints.map((p, i) => `${i + 1}. ${p.name}${p.price_display ? ` — ${p.price_display}` : ""}${p.source_url ? ` (${p.source_url})` : ""}${p.description ? `\n   ${p.description.slice(0, 160)}` : ""}`).join("\n")
+      }\n`
+    : "";
+
   const messages = [
     {
       role: "system" as const,
-      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence description that highlights what it does for the customer.`,
+      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items.`,
     },
     {
       role: "user" as const,
-      content: `Below is scraped content from a brand's website (homepage + sub pages). Extract up to 10 distinct products or services.\n\n${content.slice(0, 25000)}`,
+      content: `Below is scraped content from a brand's website (homepage + sub pages, each section prefixed with its source URL). Extract up to 10 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
     },
   ];
 
@@ -808,6 +1000,7 @@ async function extractProductSuggestions(
         unique_selling_points: Array.isArray(p.unique_selling_points) ? p.unique_selling_points.slice(0, 5) : [],
         keywords: Array.isArray(p.keywords) ? p.keywords.slice(0, 8) : [],
         source_url: p.source_url || undefined,
+        source: "ai",
       });
       if (products.length >= 10) break;
     }
@@ -882,7 +1075,7 @@ async function runImport(
     if (mergedPathSet.has(abs)) continue;
     mergedPathSet.add(abs);
     mergedPaths.push(abs);
-    if (mergedPaths.length >= 6) break;
+    if (mergedPaths.length >= 8) break;
   }
 
   if (autoDiscovered.length > 0) {
@@ -901,12 +1094,15 @@ async function runImport(
     });
   }
 
-  const subPages: Array<{ url: string; markdown: string }> = [];
+  // Layer 1: structured products from homepage HTML
+  let structuredProducts: ProductSuggestion[] = extractStructuredProducts(home.html, targetUrl);
+
+  const subPages: Array<{ url: string; markdown: string; html?: string }> = [];
   await Promise.all(
     mergedPaths.map(async (sub) => {
-      const r = await firecrawlScrape(sub, ["markdown"]);
+      const r = await firecrawlScrape(sub, ["markdown", "rawHtml"]);
       if (r.success && r.markdown) {
-        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000) });
+        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000), html: r.html });
         await emit?.("subpage_done", { url: sub, success: true });
       } else {
         await emit?.("subpage_done", { url: sub, success: false, error: r.error });
@@ -914,21 +1110,73 @@ async function runImport(
     }),
   );
 
+  // Layer 1 (cont.): structured products from sub-page HTML
+  for (const sp of subPages) {
+    if (!sp.html) continue;
+    const more = extractStructuredProducts(sp.html, sp.url);
+    for (const p of more) {
+      const key = slugifyName(p.name);
+      if (!key) continue;
+      if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+      structuredProducts.push(p);
+    }
+  }
+
+  // Layer 2: sitemap fallback if structured signal is weak
+  let sitemapUsed = false;
+  if (structuredProducts.length < 3) {
+    await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
+    const mapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30);
+    sitemapUsed = mapped.length > 0;
+    const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
+    const seenSub = new Set(subPages.map(s => s.url));
+    seenSub.add(targetUrl);
+    const productLikeUrls = mapped
+      .filter(u => {
+        try {
+          const uo = new URL(u);
+          return uo.origin === baseOrigin && PRODUCT_PATH_RE.test(uo.pathname) && !seenSub.has(u);
+        } catch { return false; }
+      })
+      .slice(0, 3);
+    if (productLikeUrls.length > 0) {
+      await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${productLikeUrls.length} trang sản phẩm tìm được trong sitemap` });
+      await Promise.all(productLikeUrls.map(async (u) => {
+        const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
+        if (r.success && r.markdown) {
+          subPages.push({ url: u, markdown: r.markdown.slice(0, 4000), html: r.html });
+          await emit?.("subpage_done", { url: u, success: true, kind: "product" });
+          if (r.html) {
+            const more = extractStructuredProducts(r.html, u);
+            for (const p of more) {
+              const key = slugifyName(p.name);
+              if (!key) continue;
+              if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+              structuredProducts.push(p);
+            }
+          }
+        }
+      }));
+    }
+  }
+
   const meta = home.metadata || {};
   const combinedContent = [
     `# Page title: ${meta.title || ""}`,
     meta.description ? `# Meta description: ${meta.description}` : "",
     meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
     "",
-    "## Homepage",
+    `## Source: ${targetUrl} (Homepage)`,
     home.markdown || "",
-    ...subPages.map((p, i) => `\n## Sub page ${i + 1}: ${p.url}\n${p.markdown}`),
+    ...subPages.map((p) => `\n## Source: ${p.url}\n${p.markdown}`),
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
     step: "ai_analyzing",
     percent: 50,
-    message: "AI đang phân tích nội dung & sản phẩm",
+    message: structuredProducts.length > 0
+      ? `AI đang làm giàu ${structuredProducts.length} sản phẩm đã nhận từ schema`
+      : "AI đang phân tích nội dung & sản phẩm",
   });
 
   const [extracted, productResult] = await Promise.all([
@@ -945,7 +1193,7 @@ async function runImport(
           }
         : undefined,
     }),
-    extractProductSuggestions(combinedContent, locale, organizationId),
+    extractProductSuggestions(combinedContent, locale, organizationId, structuredProducts),
   ]);
 
   if (!extracted.success) {
@@ -961,12 +1209,15 @@ async function runImport(
     };
   }
 
-  const productSuggestions: ProductSuggestion[] = productResult.ok ? productResult.products : [];
+  const aiProducts: ProductSuggestion[] = productResult.ok
+    ? productResult.products.map(p => ({ ...p, source: p.source || "ai" }))
+    : [];
+  const productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
   const productSuggestionsError = productResult.ok ? undefined : productResult.code;
-  if (!productResult.ok) {
+  if (!productResult.ok && structuredProducts.length === 0) {
     console.warn(`[runImport] product extraction failed: ${productResult.code}`);
   } else {
-    console.log(`[runImport] extracted ${productSuggestions.length} product suggestions`);
+    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} final=${productSuggestions.length} sitemapUsed=${sitemapUsed}`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
@@ -1005,6 +1256,11 @@ async function runImport(
         product_suggestions_meta: {
           source: "import",
           count: productSuggestions.length,
+          structured_count: structuredProducts.length,
+          ai_count: aiProducts.length,
+          final_count: productSuggestions.length,
+          sources: Array.from(new Set(productSuggestions.map(p => p.source).filter(Boolean))),
+          sitemap_used: sitemapUsed,
           error: productSuggestionsError,
           model: productResult.ok ? productResult.model : undefined,
         },
