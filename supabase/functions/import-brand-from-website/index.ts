@@ -1385,9 +1385,6 @@ async function runImport(
       if (enrich.image_url || enrich.description) {
         if (!p.image_url && enrich.image_url) p.image_url = enrich.image_url;
         if (!p.description && enrich.description) p.description = enrich.description;
-        if (!p.source || p.source === "html" || p.source === "html-card") {
-          p.source = p.source; // keep original source label
-        }
         enrichedCount++;
       }
     }));
