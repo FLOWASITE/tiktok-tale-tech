@@ -15,6 +15,7 @@ import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useCarouselCardImages } from '@/hooks/useCarouselCardImages';
 import { useCarouselBrands } from '@/hooks/useCarouselBrands';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
