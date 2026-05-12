@@ -691,7 +691,7 @@ interface ProductSuggestion {
   unique_selling_points?: string[];
   keywords?: string[];
   source_url?: string;
-  source?: "jsonld" | "opengraph" | "microdata" | "html" | "ai";
+  source?: "jsonld" | "opengraph" | "microdata" | "html" | "html-card" | "ai" | "markdown" | "enriched";
 }
 
 // ============================================================
@@ -704,7 +704,21 @@ function slugifyName(s: string): string {
 }
 
 const PRODUCT_PATH_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\//i;
+// Block category-root URLs like "/products/" or "/san-pham/" with no slug
+const PRODUCT_PATH_LEAF_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\/[^\/?#]+/i;
 const PRICE_RE = /(?:[\d.,]+\s*(?:đ|vnd|₫|usd|\$|€|£))|(?:(?:giá|price)[:\s]+[\d.,]+)/i;
+// VN-friendly price patterns: "500k", "2tr5", "1.5 triệu", "Liên hệ", "contact for price"
+const PRICE_RE_VN = /(?:[\d.,]+\s*(?:k|tr|triệu|nghìn|ng|m|million)\b)|(?:liên\s*hệ)|(?:contact\s*for\s*price)|(?:call\s*for\s*price)/i;
+const PRICE_ANY_RE = new RegExp(`(?:${PRICE_RE.source})|(?:${PRICE_RE_VN.source})`, "i");
+
+// Common product container class tokens (WooCommerce, Shopify, Sapo, Haravan, NukeViet, generic)
+const PRODUCT_CONTAINER_RE = /class=["'][^"']*\b(?:product-item|product-card|product-block|product-tile|product-loop|product-thumb|woocommerce-loop-product|grid__item|item-product|sapo-product|haravan-product|nv-product|productitem|product-grid-item|card-product|product-list-item|product--card)\b[^"']*["']/i;
+
+function extractImgFromBlock(block: string): string | undefined {
+  return block.match(/<img[^>]+(?:src|data-src|data-original|data-lazy-src)=["']([^"']+)["']/i)?.[1]
+    || block.match(/<img[^>]+srcset=["']([^"',\s]+)/i)?.[1]
+    || block.match(/background-image\s*:\s*url\(["']?([^"')]+)/i)?.[1];
+}
 
 function extractStructuredProducts(html: string | undefined, baseUrl: string): ProductSuggestion[] {
   if (!html) return [];
@@ -794,15 +808,14 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     });
   }
 
-  // 4. HTML product cards: anchors with product-like path + img + price nearby
-  // Scope to body to avoid header nav noise.
+  // 4a. HTML product cards: anchors with product-like leaf path + img inside
   const body = html.match(/<body[\s\S]*<\/body>/i)?.[0] || html;
   const anchorRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,2000}?)<\/a>/gi;
   for (const m of body.matchAll(anchorRe)) {
-    if (out.length >= 20) break; // hard cap to bound work
+    if (out.length >= 40) break;
     const href = m[1];
     const inner = m[2];
-    if (!PRODUCT_PATH_RE.test(href)) continue;
+    if (!PRODUCT_PATH_LEAF_RE.test(href)) continue;
     if (!/<img/i.test(inner)) continue;
     const abs = resolveUrl(href, baseUrl);
     if (!abs) continue;
@@ -811,9 +824,8 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     const text = stripHtml(inner).replace(/\s+/g, " ").trim();
     const name = (titleAttr || text.split(/[•|·]|\s{2,}/)[0] || "").trim().slice(0, 150);
     if (!name || name.length < 3) continue;
-    const img = inner.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
-      || inner.match(/<img[^>]+data-src=["']([^"']+)["']/i)?.[1];
-    const priceMatch = text.match(PRICE_RE);
+    const img = extractImgFromBlock(inner);
+    const priceMatch = text.match(PRICE_ANY_RE);
     push({
       name,
       price_display: priceMatch?.[0],
@@ -824,20 +836,54 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     });
   }
 
-  return out.slice(0, 15);
+  // 4b. Container-based heuristic: <article|li|div class="product-item|product-card|woocommerce-loop-product|...">
+  // Catches cards where <img> is sibling of <a>, or layout uses background-image, or anchor wraps only the title.
+  const containerRe = /<(article|li|div|section)\b([^>]*)>([\s\S]{0,3500}?)<\/\1>/gi;
+  for (const m of body.matchAll(containerRe)) {
+    if (out.length >= 40) break;
+    const attrs = m[2] || "";
+    if (!PRODUCT_CONTAINER_RE.test(`<x ${attrs}>`)) continue;
+    const block = m[3];
+    // Find first product-leaf anchor in block
+    const linkMatch = block.match(/<a[^>]+href=["']([^"']+)["']/i);
+    const href = linkMatch?.[1];
+    if (!href || !PRODUCT_PATH_LEAF_RE.test(href)) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    // Title: prefer <h1-h6>, then anchor text, then img alt
+    const titleH = block.match(/<h[1-6][^>]*>([\s\S]{3,200}?)<\/h[1-6]>/i)?.[1];
+    const titleAnchor = block.match(/<a[^>]*>([\s\S]{3,200}?)<\/a>/i)?.[1];
+    const titleAlt = block.match(/<img[^>]+alt=["']([^"']{3,200})["']/i)?.[1];
+    const rawTitle = titleH || titleAnchor || titleAlt || "";
+    const name = stripHtml(rawTitle).replace(/\s+/g, " ").trim().slice(0, 150);
+    if (!name || name.length < 3) continue;
+    const img = extractImgFromBlock(block);
+    const text = stripHtml(block).replace(/\s+/g, " ").trim();
+    const priceMatch = text.match(PRICE_ANY_RE);
+    push({
+      name,
+      price_display: priceMatch?.[0],
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: abs,
+      category: "product",
+      source: "html-card",
+    });
+  }
+
+  return out.slice(0, 25);
 }
 
 // ============================================================
 // Firecrawl map — discover product URLs via sitemap (cheap)
 // ============================================================
-async function firecrawlMap(url: string, search: string, limit = 30): Promise<string[]> {
+async function firecrawlMap(url: string, search: string, limit = 30, includeSubdomains = false): Promise<string[]> {
   const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
   if (!apiKey) return [];
   try {
     const resp = await fetch("https://api.firecrawl.dev/v2/map", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
+      body: JSON.stringify({ url, search, limit, includeSubdomains }),
     });
     if (!resp.ok) return [];
     const data = await resp.json();
@@ -846,6 +892,111 @@ async function firecrawlMap(url: string, search: string, limit = 30): Promise<st
   } catch {
     return [];
   }
+}
+
+// Direct sitemap.xml fetch — free, fast, no Firecrawl quota.
+async function fetchSitemapUrls(origin: string, paths: string[], timeoutMs = 1500): Promise<{ urls: string[]; sources: string[] }> {
+  const urls: string[] = [];
+  const sources: string[] = [];
+  await Promise.all(paths.map(async (p) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      const resp = await fetch(`${origin}${p}`, { signal: ctrl.signal, redirect: "follow" });
+      clearTimeout(t);
+      if (!resp.ok) return;
+      const ct = resp.headers.get("content-type") || "";
+      if (!/xml|text/i.test(ct)) return;
+      const text = await resp.text();
+      const locs = [...text.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+      // sitemap_index → recurse 1 level for child sitemaps that look product-related
+      if (/<sitemapindex/i.test(text)) {
+        const childProductSitemaps = locs.filter(u => /product|san-pham|sanpham|dich-vu|dichvu/i.test(u)).slice(0, 3);
+        await Promise.all(childProductSitemaps.map(async (childUrl) => {
+          try {
+            const ctrl2 = new AbortController();
+            const t2 = setTimeout(() => ctrl2.abort(), timeoutMs);
+            const r2 = await fetch(childUrl, { signal: ctrl2.signal, redirect: "follow" });
+            clearTimeout(t2);
+            if (!r2.ok) return;
+            const txt2 = await r2.text();
+            const locs2 = [...txt2.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+            if (locs2.length > 0) {
+              urls.push(...locs2);
+              sources.push(`child:${new URL(childUrl).pathname}`);
+            }
+          } catch { /* ignore */ }
+        }));
+      } else if (locs.length > 0) {
+        urls.push(...locs);
+        sources.push(p);
+      }
+    } catch { /* ignore */ }
+  }));
+  return { urls: [...new Set(urls)], sources: [...new Set(sources)] };
+}
+
+// Enrich a structured product (missing image/desc) by scraping its source_url
+async function enrichProductFromUrl(url: string): Promise<{ image_url?: string; description?: string }> {
+  try {
+    const r = await firecrawlScrape(url, ["rawHtml"]);
+    if (!r.success || !r.html) return {};
+    const html = r.html;
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1];
+    const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const productImg = html.match(/<img[^>]+class=["'][^"']*product[^"']*["'][^>]+src=["']([^"']+)["']/i)?.[1]
+      || html.match(/<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*product[^"']*["']/i)?.[1];
+    return {
+      image_url: ogImg ? resolveUrl(ogImg, url) || ogImg : (productImg ? resolveUrl(productImg, url) || productImg : undefined),
+      description: ogDesc?.slice(0, 300),
+    };
+  } catch {
+    return {};
+  }
+}
+
+// Markdown-pattern fallback: extract product candidates from combined markdown when AI/structured signal is weak.
+function extractProductsFromMarkdown(content: string, baseUrl: string): ProductSuggestion[] {
+  const out: ProductSuggestion[] = [];
+  const seen = new Set<string>();
+  const push = (p: ProductSuggestion) => {
+    const key = slugifyName(p.name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(p);
+  };
+
+  // Pattern A: heading or bold title immediately followed (within 2 lines) by a price line
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length && out.length < 8; i++) {
+    const line = lines[i];
+    const headMatch = line.match(/^(?:#{1,4}\s+|[*_]{2})(.{4,120}?)(?:[*_]{2})?\s*$/);
+    const name = headMatch?.[1]?.trim();
+    if (!name) continue;
+    if (/^(?:about|introduction|contact|liên\s*hệ|về\s+chúng|footer|menu|trang\s+chủ|home|categor)/i.test(name)) continue;
+    // Look ahead 3 lines for a price
+    const lookahead = lines.slice(i + 1, i + 4).join(" ");
+    if (!PRICE_ANY_RE.test(lookahead)) continue;
+    const priceMatch = lookahead.match(PRICE_ANY_RE);
+    push({ name, price_display: priceMatch?.[0], source_url: baseUrl, category: "product", source: "markdown" });
+  }
+
+  // Pattern B: bullet "- Name: 500k" or "- Name — 500k"
+  for (const line of lines) {
+    if (out.length >= 8) break;
+    const m = line.match(/^\s*[-*+]\s+([^:—–\-]{4,100})\s*[:—–\-]\s*(.{2,80})$/);
+    if (!m) continue;
+    const tail = m[2];
+    if (!PRICE_ANY_RE.test(tail)) continue;
+    const name = m[1].trim();
+    if (name.length < 3) continue;
+    const priceMatch = tail.match(PRICE_ANY_RE);
+    push({ name, price_display: priceMatch?.[0], source_url: baseUrl, category: "product", source: "markdown" });
+  }
+
+  return out;
 }
 
 // ============================================================
@@ -875,7 +1026,7 @@ function mergeProducts(structured: ProductSuggestion[], ai: ProductSuggestion[])
       map.set(key, { ...p, source: p.source || "ai" });
     }
   }
-  return [...map.values()].slice(0, 12);
+  return [...map.values()].slice(0, 15);
 }
 
 async function extractProductSuggestions(
@@ -897,11 +1048,11 @@ async function extractProductSuggestions(
   const messages = [
     {
       role: "system" as const,
-      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items.`,
+      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items. If a STRUCTURED PRODUCTS list is provided, you MUST keep ALL of those names verbatim and only ADD new items when you find clear product names with price, CTA, or "add to cart" signals in the content. When in doubt, omit. Mark each product with confidence: "high" (price+image+clear name), "medium" (clear name+context), "low" (only mentioned).`,
     },
     {
       role: "user" as const,
-      content: `Below is scraped content from a brand's website (homepage + sub pages, each section prefixed with its source URL). Extract up to 10 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
+      content: `Below is scraped content from a brand's website (sub pages first, homepage last; each section prefixed with its source URL). Extract up to 15 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
     },
   ];
 
@@ -926,6 +1077,7 @@ async function extractProductSuggestions(
                 unique_selling_points: { type: "array", items: { type: "string" } },
                 keywords: { type: "array", items: { type: "string" } },
                 source_url: { type: "string" },
+                confidence: { type: "string", enum: ["high", "medium", "low"] },
               },
               required: ["name"],
             },
@@ -985,11 +1137,15 @@ async function extractProductSuggestions(
 
     const seen = new Set<string>();
     const products: ProductSuggestion[] = [];
+    const hasStructured = (structuredHints?.length || 0) > 0;
     for (const p of raw) {
       const name = (p.name || "").trim();
       if (!name) continue;
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
+      // Drop low-confidence AI guesses unless we already have structured ground truth backing them up
+      const conf = (p as any).confidence as string | undefined;
+      if (!hasStructured && conf === "low") continue;
       seen.add(key);
       products.push({
         name,
@@ -1002,7 +1158,7 @@ async function extractProductSuggestions(
         source_url: p.source_url || undefined,
         source: "ai",
       });
-      if (products.length >= 10) break;
+      if (products.length >= 15) break;
     }
     return { ok: true, products, model: usedModel };
   } catch (e) {
@@ -1122,53 +1278,128 @@ async function runImport(
     }
   }
 
-  // Layer 2: sitemap fallback if structured signal is weak
-  let sitemapUsed = false;
-  if (structuredProducts.length < 3) {
-    await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
-    const mapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30);
-    sitemapUsed = mapped.length > 0;
-    const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
-    const seenSub = new Set(subPages.map(s => s.url));
-    seenSub.add(targetUrl);
-    const productLikeUrls = mapped
-      .filter(u => {
-        try {
-          const uo = new URL(u);
-          return uo.origin === baseOrigin && PRODUCT_PATH_RE.test(uo.pathname) && !seenSub.has(u);
-        } catch { return false; }
-      })
-      .slice(0, 3);
-    if (productLikeUrls.length > 0) {
-      await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${productLikeUrls.length} trang sản phẩm tìm được trong sitemap` });
-      await Promise.all(productLikeUrls.map(async (u) => {
-        const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
-        if (r.success && r.markdown) {
-          subPages.push({ url: u, markdown: r.markdown.slice(0, 4000), html: r.html });
-          await emit?.("subpage_done", { url: u, success: true, kind: "product" });
-          if (r.html) {
-            const more = extractStructuredProducts(r.html, u);
-            for (const p of more) {
-              const key = slugifyName(p.name);
-              if (!key) continue;
-              if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
-              structuredProducts.push(p);
-            }
+  // Layer 2: multi-source sitemap discovery (always runs in parallel — cheap)
+  const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
+  const seenSub = new Set(subPages.map(s => s.url));
+  seenSub.add(targetUrl);
+
+  const sitemapSources: string[] = [];
+  let subdomainUsed = false;
+  const productSitemapPaths = [
+    "/sitemap.xml",
+    "/sitemap_index.xml",
+    "/product-sitemap.xml",
+    "/product_sitemap.xml",
+    "/sitemap-products.xml",
+    "/sitemap_products.xml",
+  ];
+
+  await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
+
+  const [firecrawlMapped, directSitemap] = await Promise.all([
+    baseOrigin ? firecrawlMap(targetUrl, "product san-pham dich-vu service shop course", 30) : Promise.resolve([] as string[]),
+    baseOrigin ? fetchSitemapUrls(baseOrigin, productSitemapPaths) : Promise.resolve({ urls: [] as string[], sources: [] as string[] }),
+  ]);
+
+  if (firecrawlMapped.length > 0) sitemapSources.push("firecrawl_map");
+  sitemapSources.push(...directSitemap.sources);
+
+  let candidatePool = [...new Set([...firecrawlMapped, ...directSitemap.urls])];
+
+  // Subdomain fallback: if the homepage points to a different subdomain (e.g. shop.brand.vn), retry with includeSubdomains
+  if (candidatePool.length < 3 && home.html && baseOrigin) {
+    try {
+      const baseHost = new URL(baseOrigin).hostname;
+      const baseRoot = baseHost.split(".").slice(-2).join(".");
+      const otherSubdomains = new Set<string>();
+      for (const m of home.html.matchAll(/href=["']https?:\/\/([^/"'?#]+)/gi)) {
+        const h = m[1].toLowerCase();
+        if (h !== baseHost && h.endsWith(`.${baseRoot}`)) otherSubdomains.add(h);
+      }
+      if (otherSubdomains.size > 0) {
+        subdomainUsed = true;
+        const subMapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30, true);
+        if (subMapped.length > 0) {
+          sitemapSources.push("firecrawl_map_subdomains");
+          candidatePool = [...new Set([...candidatePool, ...subMapped])];
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const productLikeUrls = candidatePool
+    .filter(u => {
+      try {
+        const uo = new URL(u);
+        const sameOrigin = uo.origin === baseOrigin;
+        const sameRoot = (() => {
+          try {
+            const baseHost = new URL(baseOrigin).hostname;
+            const baseRoot = baseHost.split(".").slice(-2).join(".");
+            return uo.hostname.endsWith(baseRoot);
+          } catch { return false; }
+        })();
+        return (sameOrigin || sameRoot) && PRODUCT_PATH_LEAF_RE.test(uo.pathname) && !seenSub.has(u);
+      } catch { return false; }
+    });
+
+  // If structured already strong (≥5), skip extra scraping; otherwise scrape up to 5 product pages
+  const sitemapUsed = sitemapSources.length > 0;
+  const scrapeBudget = structuredProducts.length >= 5 ? 0 : 5;
+  const toScrape = productLikeUrls.slice(0, scrapeBudget);
+
+  if (toScrape.length > 0) {
+    await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${toScrape.length} trang sản phẩm tìm được trong sitemap` });
+    await Promise.all(toScrape.map(async (u) => {
+      const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
+      if (r.success && r.markdown) {
+        subPages.push({ url: u, markdown: r.markdown.slice(0, 5000), html: r.html });
+        await emit?.("subpage_done", { url: u, success: true, kind: "product" });
+        if (r.html) {
+          const more = extractStructuredProducts(r.html, u);
+          for (const p of more) {
+            const key = slugifyName(p.name);
+            if (!key) continue;
+            if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+            structuredProducts.push(p);
           }
         }
-      }));
-    }
+      }
+    }));
+  }
+
+  // Layer 3: Enrichment — for structured products that have source_url but missing image/description,
+  // scrape that URL once to grab og:image + meta description (free relative to the sitemap budget).
+  let enrichedCount = 0;
+  const enrichCandidates = structuredProducts.filter(p => {
+    if (!p.source_url) return false;
+    if (p.source_url === targetUrl) return false;
+    if (subPages.some(s => s.url === p.source_url)) return false;
+    return !p.image_url || !p.description;
+  }).slice(0, 4);
+
+  if (enrichCandidates.length > 0) {
+    await emit?.("progress", { step: "enrich_products", percent: 45, message: `Đang lấy ảnh & mô tả cho ${enrichCandidates.length} sản phẩm` });
+    await Promise.all(enrichCandidates.map(async (p) => {
+      const enrich = await enrichProductFromUrl(p.source_url!);
+      if (enrich.image_url || enrich.description) {
+        if (!p.image_url && enrich.image_url) p.image_url = enrich.image_url;
+        if (!p.description && enrich.description) p.description = enrich.description;
+        enrichedCount++;
+      }
+    }));
   }
 
   const meta = home.metadata || {};
+  // Sub-pages first (they hold richer per-product info), homepage last so 40k slice is less likely to truncate the products
   const combinedContent = [
     `# Page title: ${meta.title || ""}`,
     meta.description ? `# Meta description: ${meta.description}` : "",
     meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
     "",
-    `## Source: ${targetUrl} (Homepage)`,
-    home.markdown || "",
     ...subPages.map((p) => `\n## Source: ${p.url}\n${p.markdown}`),
+    `\n## Source: ${targetUrl} (Homepage)`,
+    home.markdown || "",
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
@@ -1212,12 +1443,24 @@ async function runImport(
   const aiProducts: ProductSuggestion[] = productResult.ok
     ? productResult.products.map(p => ({ ...p, source: p.source || "ai" }))
     : [];
-  const productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
+  let productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
+
+  // Layer 5: markdown regex fallback when both structured and AI come up short
+  let markdownFallbackCount = 0;
+  if (productSuggestions.length < 3) {
+    const mdProducts = extractProductsFromMarkdown(combinedContent, targetUrl);
+    if (mdProducts.length > 0) {
+      const before = productSuggestions.length;
+      productSuggestions = mergeProducts(productSuggestions, mdProducts);
+      markdownFallbackCount = productSuggestions.length - before;
+    }
+  }
+
   const productSuggestionsError = productResult.ok ? undefined : productResult.code;
-  if (!productResult.ok && structuredProducts.length === 0) {
+  if (!productResult.ok && structuredProducts.length === 0 && markdownFallbackCount === 0) {
     console.warn(`[runImport] product extraction failed: ${productResult.code}`);
   } else {
-    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} final=${productSuggestions.length} sitemapUsed=${sitemapUsed}`);
+    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} enriched=${enrichedCount} markdown=${markdownFallbackCount} final=${productSuggestions.length} sitemapUsed=${sitemapUsed} subdomain=${subdomainUsed}`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
@@ -1258,9 +1501,13 @@ async function runImport(
           count: productSuggestions.length,
           structured_count: structuredProducts.length,
           ai_count: aiProducts.length,
+          enriched_count: enrichedCount,
+          markdown_fallback_count: markdownFallbackCount,
           final_count: productSuggestions.length,
           sources: Array.from(new Set(productSuggestions.map(p => p.source).filter(Boolean))),
           sitemap_used: sitemapUsed,
+          sitemap_sources: sitemapSources,
+          subdomain_used: subdomainUsed,
           error: productSuggestionsError,
           model: productResult.ok ? productResult.model : undefined,
         },

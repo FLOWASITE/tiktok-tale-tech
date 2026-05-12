@@ -478,20 +478,31 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                 if (!pmeta) return null;
                 if (psList.length > 0) {
                   const structuredCount = pmeta.structured_count || 0;
+                  const enrichedCount = pmeta.enriched_count || 0;
+                  const mdFallbackCount = pmeta.markdown_fallback_count || 0;
                   const sources: string[] = Array.isArray(pmeta.sources) ? pmeta.sources : [];
                   const hasSchema = sources.includes('jsonld') || sources.includes('opengraph') || sources.includes('microdata');
+                  const hasHtmlCard = sources.includes('html-card') || sources.includes('html');
                   return (
                     <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-2">
                       <span>
                         Đã phát hiện <b>{psList.length} sản phẩm/dịch vụ</b> từ website
-                        {structuredCount > 0 ? <> (trong đó <b>{structuredCount}</b> nhận từ schema, chính xác cao)</> : null}
+                        {structuredCount > 0 ? <> (trong đó <b>{structuredCount}</b> nhận từ schema/HTML, chính xác cao)</> : null}
+                        {enrichedCount > 0 ? <>, <b>{enrichedCount}</b> đã bổ sung ảnh/mô tả</> : null}
+                        {mdFallbackCount > 0 ? <>, <b>{mdFallbackCount}</b> phát hiện qua heuristic</> : null}
                         . Sẽ tự nạp vào bước "Sản phẩm".
                       </span>
-                      {hasSchema && (
-                        <span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-                          schema.org
-                        </span>
-                      )}
+                      <span className="shrink-0 flex items-center gap-1">
+                        {hasSchema && (
+                          <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">schema.org</span>
+                        )}
+                        {!hasSchema && hasHtmlCard && (
+                          <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">HTML card</span>
+                        )}
+                        {mdFallbackCount > 0 && (
+                          <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">heuristic</span>
+                        )}
+                      </span>
                     </div>
                   );
                 }
