@@ -1255,6 +1255,11 @@ async function runImport(
         product_suggestions_meta: {
           source: "import",
           count: productSuggestions.length,
+          structured_count: structuredProducts.length,
+          ai_count: aiProducts.length,
+          final_count: productSuggestions.length,
+          sources: Array.from(new Set(productSuggestions.map(p => p.source).filter(Boolean))),
+          sitemap_used: sitemapUsed,
           error: productSuggestionsError,
           model: productResult.ok ? productResult.model : undefined,
         },
