@@ -32,17 +32,26 @@ const TASK_LABELS: Record<string, string> = {
   core_content: 'Core Content',
   multichannel: 'Đa kênh',
   carousel_image: 'Tạo ảnh Carousel',
+  image_generation: 'Tạo ảnh kênh',
 };
 
-function getTaskLabel(taskType: string): string {
-  return TASK_LABELS[taskType] || taskType;
+function getTaskLabel(task: GenerationTask): string {
+  const base = TASK_LABELS[task.task_type] || task.task_type;
+  if (task.task_type === 'image_generation') {
+    const channel = (task.input_params as Record<string, unknown> | null)?.channel as string | undefined;
+    if (channel) {
+      const info = CHANNELS.find(c => c.value === channel);
+      return `Ảnh · ${info?.label || channel}`;
+    }
+  }
+  return base;
 }
 
 const TaskIcon = memo(function TaskIcon({ taskType }: { taskType: string }) {
   if (taskType === 'core_content') {
     return <BookOpen className="w-4 h-4 text-primary" />;
   }
-  if (taskType === 'carousel_image') {
+  if (taskType === 'carousel_image' || taskType === 'image_generation') {
     return <Images className="w-4 h-4 text-primary" />;
   }
   return <Layers className="w-4 h-4 text-primary" />;
