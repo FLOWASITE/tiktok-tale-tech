@@ -691,7 +691,7 @@ interface ProductSuggestion {
   unique_selling_points?: string[];
   keywords?: string[];
   source_url?: string;
-  source?: "jsonld" | "opengraph" | "microdata" | "html" | "ai";
+  source?: "jsonld" | "opengraph" | "microdata" | "html" | "html-card" | "ai" | "markdown" | "enriched";
 }
 
 // ============================================================
@@ -704,7 +704,21 @@ function slugifyName(s: string): string {
 }
 
 const PRODUCT_PATH_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\//i;
+// Block category-root URLs like "/products/" or "/san-pham/" with no slug
+const PRODUCT_PATH_LEAF_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\/[^\/?#]+/i;
 const PRICE_RE = /(?:[\d.,]+\s*(?:đ|vnd|₫|usd|\$|€|£))|(?:(?:giá|price)[:\s]+[\d.,]+)/i;
+// VN-friendly price patterns: "500k", "2tr5", "1.5 triệu", "Liên hệ", "contact for price"
+const PRICE_RE_VN = /(?:[\d.,]+\s*(?:k|tr|triệu|nghìn|ng|m|million)\b)|(?:liên\s*hệ)|(?:contact\s*for\s*price)|(?:call\s*for\s*price)/i;
+const PRICE_ANY_RE = new RegExp(`(?:${PRICE_RE.source})|(?:${PRICE_RE_VN.source})`, "i");
+
+// Common product container class tokens (WooCommerce, Shopify, Sapo, Haravan, NukeViet, generic)
+const PRODUCT_CONTAINER_RE = /class=["'][^"']*\b(?:product-item|product-card|product-block|product-tile|product-loop|product-thumb|woocommerce-loop-product|grid__item|item-product|sapo-product|haravan-product|nv-product|productitem|product-grid-item|card-product|product-list-item|product--card)\b[^"']*["']/i;
+
+function extractImgFromBlock(block: string): string | undefined {
+  return block.match(/<img[^>]+(?:src|data-src|data-original|data-lazy-src)=["']([^"']+)["']/i)?.[1]
+    || block.match(/<img[^>]+srcset=["']([^"',\s]+)/i)?.[1]
+    || block.match(/background-image\s*:\s*url\(["']?([^"')]+)/i)?.[1];
+}
 
 function extractStructuredProducts(html: string | undefined, baseUrl: string): ProductSuggestion[] {
   if (!html) return [];
