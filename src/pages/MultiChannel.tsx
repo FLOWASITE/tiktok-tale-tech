@@ -131,7 +131,13 @@ export default function MultiChannel() {
   const [goalFilter, setGoalFilter] = useState<ContentGoal | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'all'>('all');
-  const [brandFilter, setBrandFilter] = useState<string | 'all'>('all');
+  const { currentBrand } = useCurrentBrand();
+  const [brandFilter, setBrandFilter] = useState<string | 'all'>(currentBrand?.id ?? 'all');
+
+  // Sync brandFilter when user switches brand in header
+  useEffect(() => {
+    setBrandFilter(currentBrand?.id ?? 'all');
+  }, [currentBrand?.id]);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [tagFilter, setTagFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
