@@ -876,14 +876,14 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
 // ============================================================
 // Firecrawl map — discover product URLs via sitemap (cheap)
 // ============================================================
-async function firecrawlMap(url: string, search: string, limit = 30): Promise<string[]> {
+async function firecrawlMap(url: string, search: string, limit = 30, includeSubdomains = false): Promise<string[]> {
   const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
   if (!apiKey) return [];
   try {
     const resp = await fetch("https://api.firecrawl.dev/v2/map", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
+      body: JSON.stringify({ url, search, limit, includeSubdomains }),
     });
     if (!resp.ok) return [];
     const data = await resp.json();
@@ -892,6 +892,111 @@ async function firecrawlMap(url: string, search: string, limit = 30): Promise<st
   } catch {
     return [];
   }
+}
+
+// Direct sitemap.xml fetch — free, fast, no Firecrawl quota.
+async function fetchSitemapUrls(origin: string, paths: string[], timeoutMs = 1500): Promise<{ urls: string[]; sources: string[] }> {
+  const urls: string[] = [];
+  const sources: string[] = [];
+  await Promise.all(paths.map(async (p) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      const resp = await fetch(`${origin}${p}`, { signal: ctrl.signal, redirect: "follow" });
+      clearTimeout(t);
+      if (!resp.ok) return;
+      const ct = resp.headers.get("content-type") || "";
+      if (!/xml|text/i.test(ct)) return;
+      const text = await resp.text();
+      const locs = [...text.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+      // sitemap_index → recurse 1 level for child sitemaps that look product-related
+      if (/<sitemapindex/i.test(text)) {
+        const childProductSitemaps = locs.filter(u => /product|san-pham|sanpham|dich-vu|dichvu/i.test(u)).slice(0, 3);
+        await Promise.all(childProductSitemaps.map(async (childUrl) => {
+          try {
+            const ctrl2 = new AbortController();
+            const t2 = setTimeout(() => ctrl2.abort(), timeoutMs);
+            const r2 = await fetch(childUrl, { signal: ctrl2.signal, redirect: "follow" });
+            clearTimeout(t2);
+            if (!r2.ok) return;
+            const txt2 = await r2.text();
+            const locs2 = [...txt2.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]);
+            if (locs2.length > 0) {
+              urls.push(...locs2);
+              sources.push(`child:${new URL(childUrl).pathname}`);
+            }
+          } catch { /* ignore */ }
+        }));
+      } else if (locs.length > 0) {
+        urls.push(...locs);
+        sources.push(p);
+      }
+    } catch { /* ignore */ }
+  }));
+  return { urls: [...new Set(urls)], sources: [...new Set(sources)] };
+}
+
+// Enrich a structured product (missing image/desc) by scraping its source_url
+async function enrichProductFromUrl(url: string): Promise<{ image_url?: string; description?: string }> {
+  try {
+    const r = await firecrawlScrape(url, ["rawHtml"]);
+    if (!r.success || !r.html) return {};
+    const html = r.html;
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1];
+    const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const productImg = html.match(/<img[^>]+class=["'][^"']*product[^"']*["'][^>]+src=["']([^"']+)["']/i)?.[1]
+      || html.match(/<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*product[^"']*["']/i)?.[1];
+    return {
+      image_url: ogImg ? resolveUrl(ogImg, url) || ogImg : (productImg ? resolveUrl(productImg, url) || productImg : undefined),
+      description: ogDesc?.slice(0, 300),
+    };
+  } catch {
+    return {};
+  }
+}
+
+// Markdown-pattern fallback: extract product candidates from combined markdown when AI/structured signal is weak.
+function extractProductsFromMarkdown(content: string, baseUrl: string): ProductSuggestion[] {
+  const out: ProductSuggestion[] = [];
+  const seen = new Set<string>();
+  const push = (p: ProductSuggestion) => {
+    const key = slugifyName(p.name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(p);
+  };
+
+  // Pattern A: heading or bold title immediately followed (within 2 lines) by a price line
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length && out.length < 8; i++) {
+    const line = lines[i];
+    const headMatch = line.match(/^(?:#{1,4}\s+|[*_]{2})(.{4,120}?)(?:[*_]{2})?\s*$/);
+    const name = headMatch?.[1]?.trim();
+    if (!name) continue;
+    if (/^(?:about|introduction|contact|liên\s*hệ|về\s+chúng|footer|menu|trang\s+chủ|home|categor)/i.test(name)) continue;
+    // Look ahead 3 lines for a price
+    const lookahead = lines.slice(i + 1, i + 4).join(" ");
+    if (!PRICE_ANY_RE.test(lookahead)) continue;
+    const priceMatch = lookahead.match(PRICE_ANY_RE);
+    push({ name, price_display: priceMatch?.[0], source_url: baseUrl, category: "product", source: "markdown" });
+  }
+
+  // Pattern B: bullet "- Name: 500k" or "- Name — 500k"
+  for (const line of lines) {
+    if (out.length >= 8) break;
+    const m = line.match(/^\s*[-*+]\s+([^:—–\-]{4,100})\s*[:—–\-]\s*(.{2,80})$/);
+    if (!m) continue;
+    const tail = m[2];
+    if (!PRICE_ANY_RE.test(tail)) continue;
+    const name = m[1].trim();
+    if (name.length < 3) continue;
+    const priceMatch = tail.match(PRICE_ANY_RE);
+    push({ name, price_display: priceMatch?.[0], source_url: baseUrl, category: "product", source: "markdown" });
+  }
+
+  return out;
 }
 
 // ============================================================
