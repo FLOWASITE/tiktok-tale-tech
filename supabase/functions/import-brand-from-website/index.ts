@@ -1000,6 +1000,7 @@ async function extractProductSuggestions(
         unique_selling_points: Array.isArray(p.unique_selling_points) ? p.unique_selling_points.slice(0, 5) : [],
         keywords: Array.isArray(p.keywords) ? p.keywords.slice(0, 8) : [],
         source_url: p.source_url || undefined,
+        source: "ai",
       });
       if (products.length >= 10) break;
     }
