@@ -1036,6 +1036,18 @@ export function MultiChannelFormWizard({
       return;
     }
 
+    // Layer 0: Active background image task cho contentId này → skip để tránh duplicate (user F5 giữa pipeline)
+    const hasActiveImageTask = activeTasks.some(t => {
+      if (t.task_type !== 'image_generation') return false;
+      const params = t.input_params as Record<string, unknown> | null;
+      return params?.contentId === generatedContentIdProp;
+    });
+    if (hasActiveImageTask) {
+      console.log('[AutoImageTrigger] ⏸ Active background image task tồn tại — skip auto-trigger');
+      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+      return;
+    }
+
     let cancelled = false;
     // NOTE: KHÔNG add vào AUTO_IMAGE_TRIGGERED_CONTENT_IDS ở đây nữa.
     // Chỉ add SAU KHI pipeline thật sự được gọi (sau DB pre-check pass).
@@ -1103,7 +1115,7 @@ export function MultiChannelFormWizard({
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp, formData.channels, promptMode, brandTemplate?.country_code]);
+  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp, formData.channels, promptMode, brandTemplate?.country_code, activeTasks]);
 
   // Resume from background tasks on mount
   useEffect(() => {
@@ -1133,6 +1145,18 @@ export function MultiChannelFormWizard({
       setIsResumedFromBackground(true);
       toast.info('Đang tiếp tục tạo nội dung đa kênh...', {
         description: `Tiến độ: ${multiChannelTask.progress}%`,
+      });
+    }
+
+    // NEW: Resume image generation tasks (mỗi kênh 1 task)
+    const imageTasks = activeTasks.filter(
+      t => t.task_type === 'image_generation' &&
+      (t.status === 'pending' || t.status === 'generating')
+    );
+    if (imageTasks.length > 0 && !isResumedFromBackground) {
+      setIsResumedFromBackground(true);
+      toast.info(`Đang tiếp tục tạo ảnh cho ${imageTasks.length} kênh...`, {
+        description: 'Bạn có thể đóng tab — pipeline vẫn chạy nền.',
       });
     }
   }, [activeTasks, isCheckingTasks, isResumedFromBackground]);

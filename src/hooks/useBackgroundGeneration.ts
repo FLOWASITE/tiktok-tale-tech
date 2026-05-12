@@ -8,7 +8,7 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 // Uses Realtime subscription for instant updates
 // ============================================
 
-export type TaskType = 'core_content' | 'multichannel' | 'carousel_image';
+export type TaskType = 'core_content' | 'multichannel' | 'carousel_image' | 'image_generation';
 export type TaskStatus = 'pending' | 'generating' | 'completed' | 'failed';
 
 export interface GenerationTask {
@@ -39,7 +39,14 @@ interface UseBackgroundGenerationOptions {
 }
 
 const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback
-const STALE_TASK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes — auto-dismiss zombies
+// Stale threshold per task_type — image gen có thể chạy lâu hơn (Nano Banana Pro / PoYo fallback)
+const STALE_THRESHOLD_BY_TYPE: Record<string, number> = {
+  image_generation: 25 * 60 * 1000, // 25 phút
+  carousel_image: 25 * 60 * 1000,
+  multichannel: 15 * 60 * 1000,     // 15 phút (streaming nhiều kênh)
+  core_content: 10 * 60 * 1000,
+};
+const DEFAULT_STALE_THRESHOLD_MS = 10 * 60 * 1000;
 
 export function useBackgroundGeneration(options: UseBackgroundGenerationOptions = {}) {
   const { user } = useAuth();
@@ -79,7 +86,8 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
       const fresh: GenerationTask[] = [];
       for (const t of allTasks) {
         const updatedMs = new Date(t.updated_at).getTime();
-        if (now - updatedMs > STALE_TASK_THRESHOLD_MS) {
+        const threshold = STALE_THRESHOLD_BY_TYPE[t.task_type] ?? DEFAULT_STALE_THRESHOLD_MS;
+        if (now - updatedMs > threshold) {
           stale.push(t);
         } else {
           fresh.push(t);
@@ -240,6 +248,15 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
           .eq('is_selected', true)
           .order('slide_number', { ascending: true });
         return { type: 'carousel_image' as const, data, task: typedTask };
+      } else if (typedTask.task_type === 'image_generation' || typedTask.result_type === 'multi_channel_image') {
+        // Background image gen: result_id = multi_channel_contents.id, channel ở input_params
+        const channel = (typedTask.input_params as Record<string, unknown>)?.channel as string | undefined;
+        const { data } = await supabase
+          .from('multi_channel_contents')
+          .select('id, channel_images')
+          .eq('id', typedTask.result_id)
+          .maybeSingle();
+        return { type: 'image_generation' as const, data, channel, task: typedTask };
       }
 
       return null;
