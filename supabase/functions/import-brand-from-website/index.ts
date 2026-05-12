@@ -1074,7 +1074,7 @@ async function runImport(
     if (mergedPathSet.has(abs)) continue;
     mergedPathSet.add(abs);
     mergedPaths.push(abs);
-    if (mergedPaths.length >= 6) break;
+    if (mergedPaths.length >= 8) break;
   }
 
   if (autoDiscovered.length > 0) {
@@ -1093,12 +1093,15 @@ async function runImport(
     });
   }
 
-  const subPages: Array<{ url: string; markdown: string }> = [];
+  // Layer 1: structured products from homepage HTML
+  let structuredProducts: ProductSuggestion[] = extractStructuredProducts(home.html, targetUrl);
+
+  const subPages: Array<{ url: string; markdown: string; html?: string }> = [];
   await Promise.all(
     mergedPaths.map(async (sub) => {
-      const r = await firecrawlScrape(sub, ["markdown"]);
+      const r = await firecrawlScrape(sub, ["markdown", "rawHtml"]);
       if (r.success && r.markdown) {
-        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000) });
+        subPages.push({ url: sub, markdown: r.markdown.slice(0, 4000), html: r.html });
         await emit?.("subpage_done", { url: sub, success: true });
       } else {
         await emit?.("subpage_done", { url: sub, success: false, error: r.error });
@@ -1106,21 +1109,73 @@ async function runImport(
     }),
   );
 
+  // Layer 1 (cont.): structured products from sub-page HTML
+  for (const sp of subPages) {
+    if (!sp.html) continue;
+    const more = extractStructuredProducts(sp.html, sp.url);
+    for (const p of more) {
+      const key = slugifyName(p.name);
+      if (!key) continue;
+      if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+      structuredProducts.push(p);
+    }
+  }
+
+  // Layer 2: sitemap fallback if structured signal is weak
+  let sitemapUsed = false;
+  if (structuredProducts.length < 3) {
+    await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
+    const mapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30);
+    sitemapUsed = mapped.length > 0;
+    const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
+    const seenSub = new Set(subPages.map(s => s.url));
+    seenSub.add(targetUrl);
+    const productLikeUrls = mapped
+      .filter(u => {
+        try {
+          const uo = new URL(u);
+          return uo.origin === baseOrigin && PRODUCT_PATH_RE.test(uo.pathname) && !seenSub.has(u);
+        } catch { return false; }
+      })
+      .slice(0, 3);
+    if (productLikeUrls.length > 0) {
+      await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${productLikeUrls.length} trang sản phẩm tìm được trong sitemap` });
+      await Promise.all(productLikeUrls.map(async (u) => {
+        const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
+        if (r.success && r.markdown) {
+          subPages.push({ url: u, markdown: r.markdown.slice(0, 4000), html: r.html });
+          await emit?.("subpage_done", { url: u, success: true, kind: "product" });
+          if (r.html) {
+            const more = extractStructuredProducts(r.html, u);
+            for (const p of more) {
+              const key = slugifyName(p.name);
+              if (!key) continue;
+              if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+              structuredProducts.push(p);
+            }
+          }
+        }
+      }));
+    }
+  }
+
   const meta = home.metadata || {};
   const combinedContent = [
     `# Page title: ${meta.title || ""}`,
     meta.description ? `# Meta description: ${meta.description}` : "",
     meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
     "",
-    "## Homepage",
+    `## Source: ${targetUrl} (Homepage)`,
     home.markdown || "",
-    ...subPages.map((p, i) => `\n## Sub page ${i + 1}: ${p.url}\n${p.markdown}`),
+    ...subPages.map((p) => `\n## Source: ${p.url}\n${p.markdown}`),
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
     step: "ai_analyzing",
     percent: 50,
-    message: "AI đang phân tích nội dung & sản phẩm",
+    message: structuredProducts.length > 0
+      ? `AI đang làm giàu ${structuredProducts.length} sản phẩm đã nhận từ schema`
+      : "AI đang phân tích nội dung & sản phẩm",
   });
 
   const [extracted, productResult] = await Promise.all([
@@ -1137,7 +1192,7 @@ async function runImport(
           }
         : undefined,
     }),
-    extractProductSuggestions(combinedContent, locale, organizationId),
+    extractProductSuggestions(combinedContent, locale, organizationId, structuredProducts),
   ]);
 
   if (!extracted.success) {
@@ -1153,12 +1208,15 @@ async function runImport(
     };
   }
 
-  const productSuggestions: ProductSuggestion[] = productResult.ok ? productResult.products : [];
+  const aiProducts: ProductSuggestion[] = productResult.ok
+    ? productResult.products.map(p => ({ ...p, source: p.source || "ai" }))
+    : [];
+  const productSuggestions: ProductSuggestion[] = mergeProducts(structuredProducts, aiProducts);
   const productSuggestionsError = productResult.ok ? undefined : productResult.code;
-  if (!productResult.ok) {
+  if (!productResult.ok && structuredProducts.length === 0) {
     console.warn(`[runImport] product extraction failed: ${productResult.code}`);
   } else {
-    console.log(`[runImport] extracted ${productSuggestions.length} product suggestions`);
+    console.log(`[runImport] products: structured=${structuredProducts.length} ai=${aiProducts.length} final=${productSuggestions.length} sitemapUsed=${sitemapUsed}`);
   }
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
