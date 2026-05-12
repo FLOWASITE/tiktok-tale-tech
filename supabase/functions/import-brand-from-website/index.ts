@@ -691,12 +691,198 @@ interface ProductSuggestion {
   unique_selling_points?: string[];
   keywords?: string[];
   source_url?: string;
+  source?: "jsonld" | "opengraph" | "microdata" | "html" | "ai";
+}
+
+// ============================================================
+// Layer 1 — Structured product extraction (JSON-LD / OG / microdata / HTML cards)
+// Free, deterministic, runs before AI; treated as ground truth.
+// ============================================================
+function slugifyName(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+const PRODUCT_PATH_RE = /\/(?:product|products|san-pham|sanpham|dich-vu|dichvu|service|services|shop|store|p|item|collection|collections|course|courses|khoa-hoc)\//i;
+const PRICE_RE = /(?:[\d.,]+\s*(?:đ|vnd|₫|usd|\$|€|£))|(?:(?:giá|price)[:\s]+[\d.,]+)/i;
+
+function extractStructuredProducts(html: string | undefined, baseUrl: string): ProductSuggestion[] {
+  if (!html) return [];
+  const out: ProductSuggestion[] = [];
+  const seen = new Set<string>();
+  const push = (p: ProductSuggestion) => {
+    const name = (p.name || "").trim();
+    if (!name || name.length < 2 || name.length > 200) return;
+    const key = slugifyName(name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ ...p, name });
+  };
+
+  // 1. JSON-LD Product / Service / ItemList / Offer
+  const walkLd = (node: any) => {
+    if (!node || typeof node !== "object") return;
+    const types = ([] as string[]).concat(node["@type"] || []).map(String);
+    const isProductLike = types.some((t) => /^(Product|Service|IndividualProduct|ProductModel|Offer)$/i.test(t));
+    if (isProductLike && typeof node.name === "string") {
+      const offer = node.offers && (Array.isArray(node.offers) ? node.offers[0] : node.offers);
+      const price = offer?.price ?? offer?.priceSpecification?.price;
+      const currency = offer?.priceCurrency ?? offer?.priceSpecification?.priceCurrency;
+      let priceDisplay: string | undefined;
+      if (price) priceDisplay = currency ? `${price} ${currency}` : String(price);
+      const imgRaw = node.image;
+      const imgUrl = Array.isArray(imgRaw) ? imgRaw[0] : (typeof imgRaw === "string" ? imgRaw : (imgRaw?.url));
+      const urlRaw = node.url || node["@id"] || offer?.url;
+      push({
+        name: node.name,
+        description: typeof node.description === "string" ? node.description.slice(0, 400) : undefined,
+        price_display: priceDisplay,
+        image_url: typeof imgUrl === "string" ? resolveUrl(imgUrl, baseUrl) || imgUrl : undefined,
+        source_url: typeof urlRaw === "string" ? resolveUrl(urlRaw, baseUrl) || urlRaw : undefined,
+        category: types.find(t => /Service/i.test(t)) ? "service" : "product",
+        source: "jsonld",
+      });
+    }
+    // ItemList → walk itemListElement
+    if (types.some(t => /ItemList|OfferCatalog/i.test(t))) {
+      const items = ([] as any[]).concat(node.itemListElement || node.itemListElements || []);
+      for (const it of items) walkLd(it?.item || it);
+    }
+  };
+  for (const node of parseJsonLdBlocks(html)) walkLd(node);
+
+  // 2. OpenGraph product
+  const ogType = html.match(/<meta[^>]+property=["']og:type["'][^>]+content=["']([^"']+)["']/i)?.[1];
+  if (ogType && /product/i.test(ogType)) {
+    const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const priceAmt = html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    const priceCur = html.match(/<meta[^>]+property=["']product:price:currency["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    if (ogTitle) {
+      push({
+        name: ogTitle,
+        description: ogDesc,
+        price_display: priceAmt ? (priceCur ? `${priceAmt} ${priceCur}` : priceAmt) : undefined,
+        image_url: ogImg ? resolveUrl(ogImg, baseUrl) || ogImg : undefined,
+        source_url: baseUrl,
+        category: "product",
+        source: "opengraph",
+      });
+    }
+  }
+
+  // 3. Microdata schema.org/Product
+  const mdRe = /itemtype=["']https?:\/\/schema\.org\/(?:Product|Service)["'][^>]*>([\s\S]{0,2500}?)(?=<[^>]+itemtype=|<\/(?:article|section|li|div)>)/gi;
+  for (const m of html.matchAll(mdRe)) {
+    const block = m[1];
+    const name = block.match(/itemprop=["']name["'][^>]*>([^<]+)</i)?.[1]?.trim()
+      || block.match(/itemprop=["']name["'][^>]+content=["']([^"']+)["']/i)?.[1];
+    if (!name) continue;
+    const desc = block.match(/itemprop=["']description["'][^>]*>([^<]+)</i)?.[1]?.trim();
+    const price = block.match(/itemprop=["']price["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || block.match(/itemprop=["']price["'][^>]*>([^<]+)</i)?.[1];
+    const img = block.match(/itemprop=["']image["'][^>]+(?:src|content)=["']([^"']+)["']/i)?.[1];
+    push({
+      name,
+      description: desc?.slice(0, 400),
+      price_display: price?.trim(),
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: baseUrl,
+      category: "product",
+      source: "microdata",
+    });
+  }
+
+  // 4. HTML product cards: anchors with product-like path + img + price nearby
+  // Scope to body to avoid header nav noise.
+  const body = html.match(/<body[\s\S]*<\/body>/i)?.[0] || html;
+  const anchorRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,2000}?)<\/a>/gi;
+  for (const m of body.matchAll(anchorRe)) {
+    if (out.length >= 20) break; // hard cap to bound work
+    const href = m[1];
+    const inner = m[2];
+    if (!PRODUCT_PATH_RE.test(href)) continue;
+    if (!/<img/i.test(inner)) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    const titleAttr = inner.match(/<img[^>]+alt=["']([^"']+)["']/i)?.[1]
+      || inner.match(/<(?:h[1-6]|span|div)[^>]*>([^<]{3,150})</i)?.[1];
+    const text = stripHtml(inner).replace(/\s+/g, " ").trim();
+    const name = (titleAttr || text.split(/[•|·]|\s{2,}/)[0] || "").trim().slice(0, 150);
+    if (!name || name.length < 3) continue;
+    const img = inner.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
+      || inner.match(/<img[^>]+data-src=["']([^"']+)["']/i)?.[1];
+    const priceMatch = text.match(PRICE_RE);
+    push({
+      name,
+      price_display: priceMatch?.[0],
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: abs,
+      category: "product",
+      source: "html",
+    });
+  }
+
+  return out.slice(0, 15);
+}
+
+// ============================================================
+// Firecrawl map — discover product URLs via sitemap (cheap)
+// ============================================================
+async function firecrawlMap(url: string, search: string, limit = 30): Promise<string[]> {
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) return [];
+  try {
+    const resp = await fetch("https://api.firecrawl.dev/v2/map", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const links: any[] = data?.links || data?.data?.links || data?.data || [];
+    return links.map((x) => typeof x === "string" ? x : x?.url).filter(Boolean).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+// ============================================================
+// Merge structured products with AI-extracted ones.
+// Structured wins for: name/price/image/source_url.
+// AI wins for: description/USP/keywords/category enrichment.
+// ============================================================
+function mergeProducts(structured: ProductSuggestion[], ai: ProductSuggestion[]): ProductSuggestion[] {
+  const map = new Map<string, ProductSuggestion>();
+  for (const p of structured) {
+    const key = slugifyName(p.name);
+    if (!key) continue;
+    map.set(key, { ...p });
+  }
+  for (const p of ai) {
+    const key = slugifyName(p.name);
+    if (!key) continue;
+    const existing = map.get(key);
+    if (existing) {
+      existing.description = existing.description || p.description;
+      existing.unique_selling_points = (existing.unique_selling_points?.length ? existing.unique_selling_points : p.unique_selling_points) || [];
+      existing.keywords = (existing.keywords?.length ? existing.keywords : p.keywords) || [];
+      existing.category = existing.category || p.category;
+      existing.image_url = existing.image_url || p.image_url;
+      existing.price_display = existing.price_display || p.price_display;
+    } else {
+      map.set(key, { ...p, source: p.source || "ai" });
+    }
+  }
+  return [...map.values()].slice(0, 12);
 }
 
 async function extractProductSuggestions(
   content: string,
   locale: string,
   organizationId?: string,
+  structuredHints?: ProductSuggestion[],
 ): Promise<{ ok: true; products: ProductSuggestion[]; model?: string } | { ok: false; code: string }> {
   const langInstr = locale === "en"
     ? "Output product names/descriptions in English."
