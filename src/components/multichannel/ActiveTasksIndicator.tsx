@@ -113,7 +113,7 @@ const TaskCard = memo(function TaskCard({
   const isActive = task.status === 'pending' || task.status === 'generating';
   const isFailed = task.status === 'failed';
   const isCompleted = task.status === 'completed';
-  const taskLabel = getTaskLabel(task.task_type);
+  const taskLabel = getTaskLabel(task);
 
   return (
     <motion.div
