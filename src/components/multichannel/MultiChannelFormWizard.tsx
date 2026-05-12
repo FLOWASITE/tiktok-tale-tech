@@ -1115,7 +1115,7 @@ export function MultiChannelFormWizard({
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp, formData.channels, promptMode, brandTemplate?.country_code]);
+  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp, formData.channels, promptMode, brandTemplate?.country_code, activeTasks]);
 
   // Resume from background tasks on mount
   useEffect(() => {
