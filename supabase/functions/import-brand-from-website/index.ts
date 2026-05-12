@@ -1026,7 +1026,7 @@ function mergeProducts(structured: ProductSuggestion[], ai: ProductSuggestion[])
       map.set(key, { ...p, source: p.source || "ai" });
     }
   }
-  return [...map.values()].slice(0, 12);
+  return [...map.values()].slice(0, 15);
 }
 
 async function extractProductSuggestions(
