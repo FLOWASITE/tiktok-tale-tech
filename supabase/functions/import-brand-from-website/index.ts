@@ -1278,53 +1278,131 @@ async function runImport(
     }
   }
 
-  // Layer 2: sitemap fallback if structured signal is weak
-  let sitemapUsed = false;
-  if (structuredProducts.length < 3) {
-    await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
-    const mapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30);
-    sitemapUsed = mapped.length > 0;
-    const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
-    const seenSub = new Set(subPages.map(s => s.url));
-    seenSub.add(targetUrl);
-    const productLikeUrls = mapped
-      .filter(u => {
-        try {
-          const uo = new URL(u);
-          return uo.origin === baseOrigin && PRODUCT_PATH_RE.test(uo.pathname) && !seenSub.has(u);
-        } catch { return false; }
-      })
-      .slice(0, 3);
-    if (productLikeUrls.length > 0) {
-      await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${productLikeUrls.length} trang sản phẩm tìm được trong sitemap` });
-      await Promise.all(productLikeUrls.map(async (u) => {
-        const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
-        if (r.success && r.markdown) {
-          subPages.push({ url: u, markdown: r.markdown.slice(0, 4000), html: r.html });
-          await emit?.("subpage_done", { url: u, success: true, kind: "product" });
-          if (r.html) {
-            const more = extractStructuredProducts(r.html, u);
-            for (const p of more) {
-              const key = slugifyName(p.name);
-              if (!key) continue;
-              if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
-              structuredProducts.push(p);
-            }
+  // Layer 2: multi-source sitemap discovery (always runs in parallel — cheap)
+  const baseOrigin = (() => { try { return new URL(targetUrl).origin; } catch { return ""; } })();
+  const seenSub = new Set(subPages.map(s => s.url));
+  seenSub.add(targetUrl);
+
+  const sitemapSources: string[] = [];
+  let subdomainUsed = false;
+  const productSitemapPaths = [
+    "/sitemap.xml",
+    "/sitemap_index.xml",
+    "/product-sitemap.xml",
+    "/product_sitemap.xml",
+    "/sitemap-products.xml",
+    "/sitemap_products.xml",
+  ];
+
+  await emit?.("progress", { step: "map_sitemap", percent: 35, message: "Đang quét sitemap để tìm trang sản phẩm" });
+
+  const [firecrawlMapped, directSitemap] = await Promise.all([
+    baseOrigin ? firecrawlMap(targetUrl, "product san-pham dich-vu service shop course", 30) : Promise.resolve([] as string[]),
+    baseOrigin ? fetchSitemapUrls(baseOrigin, productSitemapPaths) : Promise.resolve({ urls: [] as string[], sources: [] as string[] }),
+  ]);
+
+  if (firecrawlMapped.length > 0) sitemapSources.push("firecrawl_map");
+  sitemapSources.push(...directSitemap.sources);
+
+  let candidatePool = [...new Set([...firecrawlMapped, ...directSitemap.urls])];
+
+  // Subdomain fallback: if the homepage points to a different subdomain (e.g. shop.brand.vn), retry with includeSubdomains
+  if (candidatePool.length < 3 && home.html && baseOrigin) {
+    try {
+      const baseHost = new URL(baseOrigin).hostname;
+      const baseRoot = baseHost.split(".").slice(-2).join(".");
+      const otherSubdomains = new Set<string>();
+      for (const m of home.html.matchAll(/href=["']https?:\/\/([^/"'?#]+)/gi)) {
+        const h = m[1].toLowerCase();
+        if (h !== baseHost && h.endsWith(`.${baseRoot}`)) otherSubdomains.add(h);
+      }
+      if (otherSubdomains.size > 0) {
+        subdomainUsed = true;
+        const subMapped = await firecrawlMap(targetUrl, "product san-pham dich-vu service shop", 30, true);
+        if (subMapped.length > 0) {
+          sitemapSources.push("firecrawl_map_subdomains");
+          candidatePool = [...new Set([...candidatePool, ...subMapped])];
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const productLikeUrls = candidatePool
+    .filter(u => {
+      try {
+        const uo = new URL(u);
+        const sameOrigin = uo.origin === baseOrigin;
+        const sameRoot = (() => {
+          try {
+            const baseHost = new URL(baseOrigin).hostname;
+            const baseRoot = baseHost.split(".").slice(-2).join(".");
+            return uo.hostname.endsWith(baseRoot);
+          } catch { return false; }
+        })();
+        return (sameOrigin || sameRoot) && PRODUCT_PATH_LEAF_RE.test(uo.pathname) && !seenSub.has(u);
+      } catch { return false; }
+    });
+
+  // If structured already strong (≥5), skip extra scraping; otherwise scrape up to 5 product pages
+  const sitemapUsed = sitemapSources.length > 0;
+  const scrapeBudget = structuredProducts.length >= 5 ? 0 : 5;
+  const toScrape = productLikeUrls.slice(0, scrapeBudget);
+
+  if (toScrape.length > 0) {
+    await emit?.("progress", { step: "scrape_product_pages", percent: 40, message: `Đọc ${toScrape.length} trang sản phẩm tìm được trong sitemap` });
+    await Promise.all(toScrape.map(async (u) => {
+      const r = await firecrawlScrape(u, ["markdown", "rawHtml"]);
+      if (r.success && r.markdown) {
+        subPages.push({ url: u, markdown: r.markdown.slice(0, 5000), html: r.html });
+        await emit?.("subpage_done", { url: u, success: true, kind: "product" });
+        if (r.html) {
+          const more = extractStructuredProducts(r.html, u);
+          for (const p of more) {
+            const key = slugifyName(p.name);
+            if (!key) continue;
+            if (structuredProducts.some(x => slugifyName(x.name) === key)) continue;
+            structuredProducts.push(p);
           }
         }
-      }));
-    }
+      }
+    }));
+  }
+
+  // Layer 3: Enrichment — for structured products that have source_url but missing image/description,
+  // scrape that URL once to grab og:image + meta description (free relative to the sitemap budget).
+  let enrichedCount = 0;
+  const enrichCandidates = structuredProducts.filter(p => {
+    if (!p.source_url) return false;
+    if (p.source_url === targetUrl) return false;
+    if (subPages.some(s => s.url === p.source_url)) return false;
+    return !p.image_url || !p.description;
+  }).slice(0, 4);
+
+  if (enrichCandidates.length > 0) {
+    await emit?.("progress", { step: "enrich_products", percent: 45, message: `Đang lấy ảnh & mô tả cho ${enrichCandidates.length} sản phẩm` });
+    await Promise.all(enrichCandidates.map(async (p) => {
+      const enrich = await enrichProductFromUrl(p.source_url!);
+      if (enrich.image_url || enrich.description) {
+        if (!p.image_url && enrich.image_url) p.image_url = enrich.image_url;
+        if (!p.description && enrich.description) p.description = enrich.description;
+        if (!p.source || p.source === "html" || p.source === "html-card") {
+          p.source = p.source; // keep original source label
+        }
+        enrichedCount++;
+      }
+    }));
   }
 
   const meta = home.metadata || {};
+  // Sub-pages first (they hold richer per-product info), homepage last so 40k slice is less likely to truncate the products
   const combinedContent = [
     `# Page title: ${meta.title || ""}`,
     meta.description ? `# Meta description: ${meta.description}` : "",
     meta.ogSiteName ? `# Site name: ${meta.ogSiteName}` : "",
     "",
-    `## Source: ${targetUrl} (Homepage)`,
-    home.markdown || "",
     ...subPages.map((p) => `\n## Source: ${p.url}\n${p.markdown}`),
+    `\n## Source: ${targetUrl} (Homepage)`,
+    home.markdown || "",
   ].filter(Boolean).join("\n");
 
   await emit?.("progress", {
