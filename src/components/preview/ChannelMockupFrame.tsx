@@ -524,6 +524,11 @@ function InstagramCaption({ content, username }: { content: string; username: st
   );
 }
 
+// Instagram allowed aspect ratio range: 1.91:1 (landscape) → 4:5 (portrait)
+const IG_MIN_RATIO = 1 / 1.91; // ~0.524 (widest landscape)
+const IG_MAX_RATIO = 4 / 5;    // 0.8 (tallest portrait)
+const clampIgRatio = (r: number) => Math.min(IG_MAX_RATIO, Math.max(IG_MIN_RATIO, r));
+
 // Instagram Carousel Slider - with IG-style dots
 function InstagramCarouselSlider({
   images,
@@ -533,20 +538,52 @@ function InstagramCarouselSlider({
   totalSlides: number;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Lock aspect ratio to the FIRST image (IG behavior); null = loading → use 1:1 placeholder
+  const [firstRatio, setFirstRatio] = useState<number | null>(null);
   const slideCount = Math.max(totalSlides, images.length, 1);
-  
+
   const goNext = useCallback(() => setCurrentIndex(i => Math.min(slideCount - 1, i + 1)), [slideCount]);
   const goPrev = useCallback(() => setCurrentIndex(i => Math.max(0, i - 1)), []);
 
+  const displayRatio = firstRatio ?? 1; // square fallback while loading
+  const clamped = clampIgRatio(displayRatio);
+  // If natural ratio is outside IG range, we letterbox via object-contain + blur bg
+  const needsLetterbox = firstRatio !== null && (displayRatio < IG_MIN_RATIO - 0.01 || displayRatio > IG_MAX_RATIO + 0.01);
+  const currentSrc = images[currentIndex];
+
   return (
     <div className="relative">
-      <div className="aspect-[4/5] w-full overflow-hidden relative bg-[#efefef] dark:bg-[#1a1a1a]">
-        {images[currentIndex] ? (
-          <img 
-            src={images[currentIndex]} 
-            alt={`Slide ${currentIndex + 1}`} 
-            className="w-full h-full object-cover transition-opacity duration-300"
-          />
+      <div
+        className="w-full overflow-hidden relative bg-[#efefef] dark:bg-[#1a1a1a]"
+        style={{ aspectRatio: `${1} / ${clamped}` }}
+      >
+        {currentSrc ? (
+          <>
+            {needsLetterbox && (
+              <img
+                src={currentSrc}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+              />
+            )}
+            <img
+              src={currentSrc}
+              alt={`Slide ${currentIndex + 1}`}
+              onLoad={(e) => {
+                if (currentIndex === 0 && firstRatio === null) {
+                  const img = e.currentTarget;
+                  if (img.naturalWidth && img.naturalHeight) {
+                    setFirstRatio(img.naturalHeight / img.naturalWidth);
+                  }
+                }
+              }}
+              className={cn(
+                "relative w-full h-full transition-opacity duration-300",
+                needsLetterbox ? "object-contain" : "object-cover"
+              )}
+            />
+          </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#833ab4]/10 via-[#fd1d1d]/10 to-[#fcb045]/10">
             <ImageIcon className="w-10 h-10 text-[#262626]/20 dark:text-white/20" />
@@ -596,6 +633,71 @@ function InstagramCarouselSlider({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Single IG image with dynamic aspect ratio (clamp to IG range, letterbox if outside)
+function SingleInstagramImage({
+  src,
+  onDoubleClick,
+  showHeart,
+}: {
+  src?: string;
+  onDoubleClick: () => void;
+  showHeart: boolean;
+}) {
+  const [ratio, setRatio] = useState<number | null>(null);
+  const display = ratio ?? 1;
+  const clamped = clampIgRatio(display);
+  const needsLetterbox = ratio !== null && (display < IG_MIN_RATIO - 0.01 || display > IG_MAX_RATIO + 0.01);
+
+  return (
+    <div
+      className="relative cursor-pointer select-none overflow-hidden bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30"
+      style={{ aspectRatio: `${1} / ${clamped}` }}
+      onDoubleClick={onDoubleClick}
+    >
+      {src ? (
+        <>
+          {needsLetterbox && (
+            <img
+              src={src}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+            />
+          )}
+          <img
+            src={src}
+            alt="Post"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight && ratio === null) {
+                setRatio(img.naturalHeight / img.naturalWidth);
+              }
+            }}
+            className={cn(
+              "relative w-full h-full",
+              needsLetterbox ? "object-contain" : "object-cover"
+            )}
+          />
+        </>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="text-center">
+            <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
+            <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
+          </div>
+        </div>
+      )}
+      {/* Heart animation */}
+      <div className={cn(
+        "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
+        showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
+      )}>
+        <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
+      </div>
     </div>
   );
 }
@@ -655,26 +757,11 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
           </div>
         </div>
       ) : (
-        <div 
-          className="aspect-[4/5] bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none overflow-hidden"
+        <SingleInstagramImage
+          src={allImages[0]}
           onDoubleClick={handleDoubleClick}
-        >
-          {allImages[0] ? (
-            <img src={allImages[0]} alt="Post" className="w-full h-full object-cover" />
-          ) : (
-            <div className="text-center">
-              <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
-              <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
-            </div>
-          )}
-          {/* Heart animation */}
-          <div className={cn(
-            "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
-            showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
-          )}>
-            <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
-          </div>
-        </div>
+          showHeart={showHeart}
+        />
       )}
 
       {/* Action icons */}
