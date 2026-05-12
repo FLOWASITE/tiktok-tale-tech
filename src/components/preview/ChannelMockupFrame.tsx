@@ -637,6 +637,71 @@ function InstagramCarouselSlider({
   );
 }
 
+// Single IG image with dynamic aspect ratio (clamp to IG range, letterbox if outside)
+function SingleInstagramImage({
+  src,
+  onDoubleClick,
+  showHeart,
+}: {
+  src?: string;
+  onDoubleClick: () => void;
+  showHeart: boolean;
+}) {
+  const [ratio, setRatio] = useState<number | null>(null);
+  const display = ratio ?? 1;
+  const clamped = clampIgRatio(display);
+  const needsLetterbox = ratio !== null && (display < IG_MIN_RATIO - 0.01 || display > IG_MAX_RATIO + 0.01);
+
+  return (
+    <div
+      className="relative cursor-pointer select-none overflow-hidden bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30"
+      style={{ aspectRatio: `${1} / ${clamped}` }}
+      onDoubleClick={onDoubleClick}
+    >
+      {src ? (
+        <>
+          {needsLetterbox && (
+            <img
+              src={src}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60"
+            />
+          )}
+          <img
+            src={src}
+            alt="Post"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight && ratio === null) {
+                setRatio(img.naturalHeight / img.naturalWidth);
+              }
+            }}
+            className={cn(
+              "relative w-full h-full",
+              needsLetterbox ? "object-contain" : "object-cover"
+            )}
+          />
+        </>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="text-center">
+            <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
+            <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
+          </div>
+        </div>
+      )}
+      {/* Heart animation */}
+      <div className={cn(
+        "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
+        showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
+      )}>
+        <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
+      </div>
+    </div>
+  );
+}
+
 // Instagram Post Mockup - Match official IG design with carousel support
 function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, slideTitles }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
