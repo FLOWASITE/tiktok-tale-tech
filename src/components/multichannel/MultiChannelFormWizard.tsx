@@ -1036,6 +1036,18 @@ export function MultiChannelFormWizard({
       return;
     }
 
+    // Layer 0: Active background image task cho contentId này → skip để tránh duplicate (user F5 giữa pipeline)
+    const hasActiveImageTask = activeTasks.some(t => {
+      if (t.task_type !== 'image_generation') return false;
+      const params = t.input_params as Record<string, unknown> | null;
+      return params?.contentId === generatedContentIdProp;
+    });
+    if (hasActiveImageTask) {
+      console.log('[AutoImageTrigger] ⏸ Active background image task tồn tại — skip auto-trigger');
+      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+      return;
+    }
+
     let cancelled = false;
     // NOTE: KHÔNG add vào AUTO_IMAGE_TRIGGERED_CONTENT_IDS ở đây nữa.
     // Chỉ add SAU KHI pipeline thật sự được gọi (sau DB pre-check pass).
