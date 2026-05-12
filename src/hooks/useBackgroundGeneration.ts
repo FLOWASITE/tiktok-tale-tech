@@ -8,7 +8,7 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 // Uses Realtime subscription for instant updates
 // ============================================
 
-export type TaskType = 'core_content' | 'multichannel' | 'carousel_image';
+export type TaskType = 'core_content' | 'multichannel' | 'carousel_image' | 'image_generation';
 export type TaskStatus = 'pending' | 'generating' | 'completed' | 'failed';
 
 export interface GenerationTask {
