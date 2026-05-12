@@ -248,6 +248,15 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
           .eq('is_selected', true)
           .order('slide_number', { ascending: true });
         return { type: 'carousel_image' as const, data, task: typedTask };
+      } else if (typedTask.task_type === 'image_generation' || typedTask.result_type === 'multi_channel_image') {
+        // Background image gen: result_id = multi_channel_contents.id, channel ở input_params
+        const channel = (typedTask.input_params as Record<string, unknown>)?.channel as string | undefined;
+        const { data } = await supabase
+          .from('multi_channel_contents')
+          .select('id, channel_images')
+          .eq('id', typedTask.result_id)
+          .maybeSingle();
+        return { type: 'image_generation' as const, data, channel, task: typedTask };
       }
 
       return null;
