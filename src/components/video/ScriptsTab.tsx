@@ -46,10 +46,10 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   const { currentBrand } = useCurrentBrand();
   const { createLink } = useTopicContentLinks({ enabled: false });
 
-  // Filter by current brand (UI-level isolation); legacy scripts without brand_template_id stay visible
+  // Filter strictly by current brand (UI-level isolation)
   const scripts = useMemo(() => {
     if (!currentBrand) return allScripts;
-    return allScripts.filter((s) => !s.brand_template_id || s.brand_template_id === currentBrand.id);
+    return allScripts.filter((s) => s.brand_template_id === currentBrand.id);
   }, [allScripts, currentBrand]);
 
   // Create brand template lookup map
