@@ -1137,11 +1137,15 @@ async function extractProductSuggestions(
 
     const seen = new Set<string>();
     const products: ProductSuggestion[] = [];
+    const hasStructured = (structuredHints?.length || 0) > 0;
     for (const p of raw) {
       const name = (p.name || "").trim();
       if (!name) continue;
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
+      // Drop low-confidence AI guesses unless we already have structured ground truth backing them up
+      const conf = (p as any).confidence as string | undefined;
+      if (!hasStructured && conf === "low") continue;
       seen.add(key);
       products.push({
         name,
@@ -1154,7 +1158,7 @@ async function extractProductSuggestions(
         source_url: p.source_url || undefined,
         source: "ai",
       });
-      if (products.length >= 10) break;
+      if (products.length >= 15) break;
     }
     return { ok: true, products, model: usedModel };
   } catch (e) {
