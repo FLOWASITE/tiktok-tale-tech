@@ -692,26 +692,11 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
           </div>
         </div>
       ) : (
-        <div 
-          className="aspect-[4/5] bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none overflow-hidden"
+        <SingleInstagramImage
+          src={allImages[0]}
           onDoubleClick={handleDoubleClick}
-        >
-          {allImages[0] ? (
-            <img src={allImages[0]} alt="Post" className="w-full h-full object-cover" />
-          ) : (
-            <div className="text-center">
-              <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
-              <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
-            </div>
-          )}
-          {/* Heart animation */}
-          <div className={cn(
-            "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
-            showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
-          )}>
-            <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
-          </div>
-        </div>
+          showHeart={showHeart}
+        />
       )}
 
       {/* Action icons */}
