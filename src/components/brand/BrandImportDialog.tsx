@@ -477,17 +477,32 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                 const psList: any[] = (result as any)?.raw_meta?.product_suggestions || [];
                 if (!pmeta) return null;
                 if (psList.length > 0) {
+                  const structuredCount = pmeta.structured_count || 0;
+                  const sources: string[] = Array.isArray(pmeta.sources) ? pmeta.sources : [];
+                  const hasSchema = sources.includes('jsonld') || sources.includes('opengraph') || sources.includes('microdata');
                   return (
-                    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
-                      Đã phát hiện <b>{psList.length} sản phẩm/dịch vụ</b> từ website. Sẽ tự nạp vào bước "Sản phẩm".
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-2">
+                      <span>
+                        Đã phát hiện <b>{psList.length} sản phẩm/dịch vụ</b> từ website
+                        {structuredCount > 0 ? <> (trong đó <b>{structuredCount}</b> nhận từ schema, chính xác cao)</> : null}
+                        . Sẽ tự nạp vào bước "Sản phẩm".
+                      </span>
+                      {hasSchema && (
+                        <span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                          schema.org
+                        </span>
+                      )}
                     </div>
                   );
                 }
-                if (pmeta.error) {
+                if (pmeta.error || pmeta.final_count === 0) {
                   const isQuota = pmeta.error === 'CREDITS_EXHAUSTED' || pmeta.error === 'RATE_LIMIT';
+                  const msg = pmeta.error
+                    ? `Không trích được sản phẩm tự động ${isQuota ? '(AI tạm hết quota)' : `(${pmeta.error})`}.`
+                    : 'Không tự nhận được sản phẩm — site này có thể không công khai catalog.';
                   return (
                     <div className="rounded-md border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                      Không trích được sản phẩm tự động {isQuota ? '(AI tạm hết quota)' : `(${pmeta.error})`}. Bạn có thể thêm tay ở bước "Sản phẩm".
+                      {msg} Bạn có thể thêm tay ở bước "Sản phẩm".
                     </div>
                   );
                 }
