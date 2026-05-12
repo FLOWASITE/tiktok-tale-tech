@@ -1147,6 +1147,18 @@ export function MultiChannelFormWizard({
         description: `Tiến độ: ${multiChannelTask.progress}%`,
       });
     }
+
+    // NEW: Resume image generation tasks (mỗi kênh 1 task)
+    const imageTasks = activeTasks.filter(
+      t => t.task_type === 'image_generation' &&
+      (t.status === 'pending' || t.status === 'generating')
+    );
+    if (imageTasks.length > 0 && !isResumedFromBackground) {
+      setIsResumedFromBackground(true);
+      toast.info(`Đang tiếp tục tạo ảnh cho ${imageTasks.length} kênh...`, {
+        description: 'Bạn có thể đóng tab — pipeline vẫn chạy nền.',
+      });
+    }
   }, [activeTasks, isCheckingTasks, isResumedFromBackground]);
 
   // Handle clicking on a background task
