@@ -15,6 +15,7 @@ import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useCarouselCardImages } from '@/hooks/useCarouselCardImages';
 import { useCarouselBrands } from '@/hooks/useCarouselBrands';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,14 @@ const CarouselPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
-  const { carousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel, refetch } = useCarousels();
+  const { carousels: allCarousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel, refetch } = useCarousels();
+  const { currentBrand } = useCurrentBrand();
+
+  // Filter by current brand (UI-level isolation); legacy rows without brand_template_id stay visible
+  const carousels = useMemo(() => {
+    if (!currentBrand) return allCarousels;
+    return allCarousels.filter((c) => !c.brand_template_id || c.brand_template_id === currentBrand.id);
+  }, [allCarousels, currentBrand]);
   
   // Fetch creator profiles for all carousels
   const userIds = useMemo(() => carousels.map(c => c.user_id), [carousels]);
