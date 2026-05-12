@@ -10,6 +10,7 @@ import { ScriptForm } from '@/components/ScriptForm';
 import { useScripts } from '@/hooks/useScripts';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { useScriptsMediaStatus } from '@/hooks/useScriptsMediaStatus';
 import { Script } from '@/types/script';
