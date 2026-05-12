@@ -86,7 +86,8 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
       const fresh: GenerationTask[] = [];
       for (const t of allTasks) {
         const updatedMs = new Date(t.updated_at).getTime();
-        if (now - updatedMs > STALE_TASK_THRESHOLD_MS) {
+        const threshold = STALE_THRESHOLD_BY_TYPE[t.task_type] ?? DEFAULT_STALE_THRESHOLD_MS;
+        if (now - updatedMs > threshold) {
           stale.push(t);
         } else {
           fresh.push(t);
