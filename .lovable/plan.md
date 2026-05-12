@@ -1,67 +1,38 @@
-## Audit luồng background — Nội dung đa kênh (text + ảnh)
+# Làm lại Instagram Mockup — hiển thị ảnh đẹp
 
-### Kiến trúc hiện tại
+## Vấn đề hiện tại
 
-```
-Wizard ──► useStreamingGeneration ──► insert generation_tasks (multichannel)
-                                  └─► fetch generate-multichannel (stream:true, taskId)
-                                          └─► updateTaskProgress / completeTask / failTask
-                                          └─► EdgeRuntime.waitUntil giữ persist khi client disconnect
+`InstagramMockup` + `InstagramCarouselSlider` (file `src/components/preview/ChannelMockupFrame.tsx`) đang **ép cứng `aspect-[4/5]` + `object-cover`**:
+- Ảnh vuông (1:1) bị cắt mất 20% chiều cao
+- Ảnh ngang (16:9, 1.91:1) bị crop nặng 2 bên hoặc co vào khung dọc
+- Ảnh dọc 9:16 (Reels-style) cũng bị cắt vì IG post chỉ tối đa 4:5
+- Trên viewport hẹp (707px hiện tại), khung 4:5 quá cao → user phải scroll mới thấy action bar
 
-Wizard (auto) ──► useAutoImageGeneration ──► createImageGenerationTask (task_type='image_generation')
-                                          └─► invoke generate-brand-image (taskId)
-                                                  └─► updateImageTaskStatus + waitUntil persistence
+Kết quả: preview không phản ánh đúng ảnh AI đã tạo, user khó đánh giá visual.
 
-useBackgroundGeneration (Realtime + polling 30s) ──► ActiveTasksIndicator (Wizard) + GlobalCarouselGenTracker
-```
+## Mục tiêu
 
-### Những gì hoạt động tốt
-- `generate-multichannel` và `generate-brand-image` đều **xử lý disconnect đúng**: tiếp tục lưu DB, dùng `EdgeRuntime.waitUntil`, có recovery qua `recoverGeneratedMultichannel` / `recoverGeneratedBrandImage`.
-- Realtime subscription cho `generation_tasks` lọc theo `user_id`, có fallback polling 30s, có auto-recover task "zombie" sau 10 phút.
-- Watchdog streaming: 30s first-byte, sliding window cho chunk tiếp theo.
-- Stream progress 10–90% chuẩn theo memory `Streaming Resilience`.
+Mockup giống Instagram thật: **tự động chọn aspect ratio** theo ảnh trong khoảng IG cho phép (1.91:1 → 4:5), **không crop** ảnh nằm trong dải đó, fallback `object-cover` chỉ khi ảnh nằm ngoài dải.
 
-### 5 vấn đề phát hiện (ưu tiên giảm dần)
+## Thay đổi (chỉ frontend, 1 file)
 
-**1. Image tasks không lên UI tracker (NGHIÊM TRỌNG)**
-- `useBackgroundGeneration.TaskType = 'core_content' | 'multichannel' | 'carousel_image'` — **thiếu `'image_generation'`**.
-- Hậu quả: user đóng tab khi ảnh đang render → quay lại KHÔNG thấy task nào trong `ActiveTasksIndicator`, không biết ảnh còn chạy. Phải đợi recovery silently.
-- `getTaskResult` không có nhánh xử lý `result_type='brand_images'` hoặc tương đương.
+**`src/components/preview/ChannelMockupFrame.tsx`** — chỉnh `InstagramMockup` + `InstagramCarouselSlider`:
 
-**2. Stale threshold 10 phút giết task ảnh hợp lệ**
-- `STALE_TASK_THRESHOLD_MS = 10 * 60 * 1000` ở `useBackgroundGeneration.ts:42`.
-- Ảnh Nano Banana Pro / fallback PoYo có thể chạy > 10 phút khi load cao → auto-fail dù edge function vẫn đang upsert.
-- Đề xuất: nâng lên 20–25 phút cho image, hoặc check theo `task_type` (text 10 phút, image 20 phút).
+1. **Detect natural aspect ratio** của ảnh khi load (`onLoad` → `naturalWidth/naturalHeight`), lưu vào state.
+2. **Clamp ratio vào dải IG hợp lệ**: min `1.91:1` (landscape), max `4:5` (portrait), default `1:1` khi chưa load.
+3. **Container dùng ratio động** (`style={{ aspectRatio: ... }}`) thay vì cứng `aspect-[4/5]`.
+4. **`object-contain` khi ảnh khớp ratio đã clamp** (không mất pixel); **`object-cover` chỉ khi ảnh ngoài dải** (rất dọc / rất ngang) — giống behavior IG thật.
+5. **Background blur ảnh gốc** phía sau khi `object-contain` để 2 dải đen/trắng trông sang (giống IG khi post ratio không chuẩn).
+6. **Carousel**: dùng ratio của **ảnh đầu tiên** làm chuẩn cho cả slider (IG cũng vậy) → tránh nhảy chiều cao khi swipe.
+7. **Tối ưu cho viewport hẹp**: bỏ `aspect-[4/5]` cứng giúp khung không vượt quá ~520px cao trên mobile.
 
-**3. Logic insert task duplicated 3 nơi**
-- `useStreamingGeneration.ts:154` raw insert
-- `useStreamingCoreContent.ts:101` raw insert
-- `imageGenerationTasks.ts` insert
-- `useBackgroundGeneration.createTask` không được tái dùng → dễ drift khi đổi schema. Nên gom về 1 helper.
+## Không thay đổi
 
-**4. Auto image pipeline không tạo "parent" task cho cả lô**
-- Mỗi channel tạo 1 task riêng (5 channels = 5 rows). UI khó hiển thị "đang tạo ảnh cho 5 kênh, xong 2/5".
-- Nên có 1 task cha `task_type='multichannel_images'` + N task con, hoặc dùng `progress` + `current_step` để gom.
+- Header, action bar, caption, like animation, dots indicator
+- Carousel logic (prev/next, index)
+- Props API của `InstagramMockup` / `InstagramCarouselSlider`
+- Các mockup khác (Facebook, TikTok, Pinterest…)
+- Edge functions, schema, RLS
 
-**5. Resume sau reload chỉ có cho multichannel/core_content**
-- `MultiChannelFormWizard.tsx:1108` chỉ tìm task `core_content` & `multichannel`. Không có nhánh resume image pipeline.
-- Khi user F5 trong lúc ảnh đang chạy → wizard mở lại Step cuối, image grid trống cho tới khi recovery polling tự fill.
-
-### Phạm vi fix đề xuất (chỉ frontend + 1 type union)
-
-**Files:**
-- `src/hooks/useBackgroundGeneration.ts` — thêm `'image_generation'` vào `TaskType`, mở rộng `getTaskResult` để fetch ảnh từ `multi_channel_contents` theo `result_id` + `channel`, tách `STALE_TASK_THRESHOLD_MS` theo task_type (text 10', image 25').
-- `src/components/multichannel/ActiveTasksIndicator.tsx` — render task `image_generation` (label "Ảnh kênh X" + progress).
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — nhánh resume image: nếu có active `image_generation` task khớp `generatedContentIdProp` → set `imagePhase='generating'` + bỏ qua auto-trigger để tránh duplicate.
-- `src/lib/imageGenerationTasks.ts` — set `result_type='multi_channel_image'` thống nhất, lưu `channel` vào `input_params` (đã có).
-- (Tùy chọn) refactor 2 hook stream dùng chung `createTask` từ `useBackgroundGeneration`.
-
-**Không động vào:**
-- Edge functions `generate-multichannel`, `generate-brand-image` (logic background đã đúng).
-- Schema `generation_tasks`, RLS.
-- Realtime channel.
-
-### Kết quả kỳ vọng
-- User đóng tab giữa chừng → quay lại thấy đầy đủ task text + ảnh đang chạy với progress thực.
-- Không còn "zombie fail" ảnh do timeout 10 phút.
-- Logic tạo task gom về 1 chỗ, dễ maintain.
+## File edit
+- `src/components/preview/ChannelMockupFrame.tsx` (chỉ 2 component nội bộ)
