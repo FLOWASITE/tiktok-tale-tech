@@ -1,44 +1,40 @@
 ## Vấn đề
 
-Trong `IndustrySelectionDialog`, các card ngành non-compact đang hiển thị trong grid `lg:grid-cols-4` (Phổ biến, Đã dùng gần đây, related packs). Ở viewport ~1538px, panel phải chỉ rộng ~720px → mỗi card ~165px. Nội dung card hiện tại chiếm overhead lớn:
+Header brand switcher đang chọn **TAF**, nhưng các trang danh sách vẫn hiện content của brand khác trong cùng workspace. Nguyên nhân: hooks `useMultiChannelContents`, `useCarousels`, các tab của Video Studio (Scripts, Storyboard, QuickClip list) chỉ filter theo `organization_id`, **không** filter theo `currentBrand.id`.
 
-- `p-5` (40px) + icon box `p-3` ~48px + `gap-4` (16px) + `pr-4` (16px) + ChevronRight 20px ≈ **140px**
-- → chỉ còn ~25px cho text → "Kế toán" bị wrap thành "K / to / D."
+Hệ quả: 1 workspace có nhiều brand → mọi list view đều trộn chung content.
 
-## Giải pháp
+## Giải pháp: Auto-filter theo `currentBrand` ở list views
 
-Refactor card non-compact (`IndustryCard` lines 294–335) sang **vertical layout** thân thiện với grid 4 cột:
+Áp dụng pattern: **khi `currentBrand` có giá trị → chỉ hiện row có `brand_template_id === currentBrand.id` + row legacy `brand_template_id IS NULL`**. Khi không có brand → hiện tất cả của org (giữ hành vi cũ).
 
-```text
-┌─────────────────┐
-│ [icon]    [Hot] │
-│                 │
-│ Kế toán         │
-│ Dịch vụ kế toán │
-│ +5 ngành phụ    │
-└─────────────────┘
-```
+### 1. `src/pages/MultiChannel.tsx`
+- Đổi default `brandFilter` từ `'all'` → `currentBrand?.id ?? 'all'`, sync khi switch brand.
+- Giữ dropdown filter để user vẫn override sang "Tất cả brand" nếu muốn.
+- Active filter chip hiển thị "Brand: TAF" như indicator.
 
-### Thay đổi cụ thể
+### 2. `src/pages/Carousel.tsx`
+- Thêm `useCurrentBrand()` + `useMemo` filter `carousels.filter(c => !currentBrand || c.brand_template_id === currentBrand.id || !c.brand_template_id)`.
+- Empty state: "Brand TAF chưa có carousel nào — tạo mới?".
 
-**`src/components/brand/IndustrySelectionDialog.tsx`** (chỉ phần non-compact card, lines 294–335):
+### 3. Video Studio (`src/pages/VideoStudioPage.tsx` + tabs)
+- **ScriptsTab**: filter list scripts theo `currentBrand.id` (giống pattern `QuickClipContextPicker.tsx:63`).
+- **StoryboardTab / QuickClipTab list**: filter các project/clip có sẵn theo brand.
+- QuickClip create đã gắn `brand_id: currentBrand.id` → giữ nguyên.
 
-1. Đổi `flex items-start gap-4` → `flex flex-col gap-3` (icon trên, text dưới)
-2. Bỏ `pr-4` và `ChevronRight` ở góc phải (giữ Hot badge absolute như cũ)
-3. Giảm icon padding `p-3` → `p-2.5`, dùng `size='sm'` thay `'md'` để tiết kiệm không gian ngang
-4. Title: giữ `line-clamp-2` nhưng giờ có full width → đọc rõ
-5. Subtitle (`pack.name` khi khác `shortName`): `line-clamp-2` thay `line-clamp-1` để tận dụng vertical space
-6. `min-h-[100px]` → `min-h-[140px]` cho cân đối
-7. Hover chevron thay bằng border accent (đã có `hover:border-primary`)
+### 4. Empty state + Switch hint
+Khi list rỗng vì filter brand → hiện banner nhỏ: *"Đang xem brand **TAF**. [Xem tất cả brand]"* để user không bối rối.
 
-**Không đổi**:
-- Compact card (mobile drawer)
-- Grid layout 4 cột (vertical card hoạt động tốt với 4 cột)
-- Logic data, filter, click handler
-- Card AI suggestion (đã dùng layout horizontal khác, text vẫn đọc được vì nằm trong grid 3 cột rộng hơn)
+### 5. Không đụng vào
+- `useMultiChannelContents` / `useCarousels` query cấp DB: **giữ filter theo `organization_id`** để cache theo org (tránh refetch mỗi lần đổi brand). Filter theo brand làm ở client (memoized) — nhanh hơn và cho phép toggle "all brands".
+- RLS, schema, edge functions: không thay đổi.
+- Brand switcher header: đã hoạt động đúng.
 
-## Files
-- `src/components/brand/IndustrySelectionDialog.tsx` (chỉ block IndustryCard non-compact)
+## Files sẽ sửa
+- `src/pages/MultiChannel.tsx` — set default brandFilter theo currentBrand
+- `src/pages/Carousel.tsx` — thêm client-side brand filter + empty state
+- `src/components/video/ScriptsTab.tsx` — filter theo currentBrand
+- `src/components/video/StoryboardTab.tsx` (nếu có list) — filter theo currentBrand
+- `src/components/video/QuickClipTab.tsx` — nếu có list quick clips cũ thì filter
 
-## Test
-Sau khi sửa, kiểm tra preview ở `/brands/new` → mở dialog chọn ngành → các tab "Phổ biến", "Đã dùng gần đây", category cards phải hiển thị đầy đủ tên ngành, không bị cắt ký tự.
+Tổng: chỉ frontend, không động backend/RLS.
