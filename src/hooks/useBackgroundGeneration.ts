@@ -39,7 +39,14 @@ interface UseBackgroundGenerationOptions {
 }
 
 const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback
-const STALE_TASK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes — auto-dismiss zombies
+// Stale threshold per task_type — image gen có thể chạy lâu hơn (Nano Banana Pro / PoYo fallback)
+const STALE_THRESHOLD_BY_TYPE: Record<string, number> = {
+  image_generation: 25 * 60 * 1000, // 25 phút
+  carousel_image: 25 * 60 * 1000,
+  multichannel: 15 * 60 * 1000,     // 15 phút (streaming nhiều kênh)
+  core_content: 10 * 60 * 1000,
+};
+const DEFAULT_STALE_THRESHOLD_MS = 10 * 60 * 1000;
 
 export function useBackgroundGeneration(options: UseBackgroundGenerationOptions = {}) {
   const { user } = useAuth();
