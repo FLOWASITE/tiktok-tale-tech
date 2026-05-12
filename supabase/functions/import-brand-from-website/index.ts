@@ -808,15 +808,14 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     });
   }
 
-  // 4. HTML product cards: anchors with product-like path + img + price nearby
-  // Scope to body to avoid header nav noise.
+  // 4a. HTML product cards: anchors with product-like leaf path + img inside
   const body = html.match(/<body[\s\S]*<\/body>/i)?.[0] || html;
   const anchorRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,2000}?)<\/a>/gi;
   for (const m of body.matchAll(anchorRe)) {
-    if (out.length >= 20) break; // hard cap to bound work
+    if (out.length >= 40) break;
     const href = m[1];
     const inner = m[2];
-    if (!PRODUCT_PATH_RE.test(href)) continue;
+    if (!PRODUCT_PATH_LEAF_RE.test(href)) continue;
     if (!/<img/i.test(inner)) continue;
     const abs = resolveUrl(href, baseUrl);
     if (!abs) continue;
@@ -825,9 +824,8 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     const text = stripHtml(inner).replace(/\s+/g, " ").trim();
     const name = (titleAttr || text.split(/[•|·]|\s{2,}/)[0] || "").trim().slice(0, 150);
     if (!name || name.length < 3) continue;
-    const img = inner.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1]
-      || inner.match(/<img[^>]+data-src=["']([^"']+)["']/i)?.[1];
-    const priceMatch = text.match(PRICE_RE);
+    const img = extractImgFromBlock(inner);
+    const priceMatch = text.match(PRICE_ANY_RE);
     push({
       name,
       price_display: priceMatch?.[0],
@@ -838,7 +836,41 @@ function extractStructuredProducts(html: string | undefined, baseUrl: string): P
     });
   }
 
-  return out.slice(0, 15);
+  // 4b. Container-based heuristic: <article|li|div class="product-item|product-card|woocommerce-loop-product|...">
+  // Catches cards where <img> is sibling of <a>, or layout uses background-image, or anchor wraps only the title.
+  const containerRe = /<(article|li|div|section)\b([^>]*)>([\s\S]{0,3500}?)<\/\1>/gi;
+  for (const m of body.matchAll(containerRe)) {
+    if (out.length >= 40) break;
+    const attrs = m[2] || "";
+    if (!PRODUCT_CONTAINER_RE.test(`<x ${attrs}>`)) continue;
+    const block = m[3];
+    // Find first product-leaf anchor in block
+    const linkMatch = block.match(/<a[^>]+href=["']([^"']+)["']/i);
+    const href = linkMatch?.[1];
+    if (!href || !PRODUCT_PATH_LEAF_RE.test(href)) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    // Title: prefer <h1-h6>, then anchor text, then img alt
+    const titleH = block.match(/<h[1-6][^>]*>([\s\S]{3,200}?)<\/h[1-6]>/i)?.[1];
+    const titleAnchor = block.match(/<a[^>]*>([\s\S]{3,200}?)<\/a>/i)?.[1];
+    const titleAlt = block.match(/<img[^>]+alt=["']([^"']{3,200})["']/i)?.[1];
+    const rawTitle = titleH || titleAnchor || titleAlt || "";
+    const name = stripHtml(rawTitle).replace(/\s+/g, " ").trim().slice(0, 150);
+    if (!name || name.length < 3) continue;
+    const img = extractImgFromBlock(block);
+    const text = stripHtml(block).replace(/\s+/g, " ").trim();
+    const priceMatch = text.match(PRICE_ANY_RE);
+    push({
+      name,
+      price_display: priceMatch?.[0],
+      image_url: img ? resolveUrl(img, baseUrl) || img : undefined,
+      source_url: abs,
+      category: "product",
+      source: "html-card",
+    });
+  }
+
+  return out.slice(0, 25);
 }
 
 // ============================================================
