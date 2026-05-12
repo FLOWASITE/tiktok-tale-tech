@@ -888,14 +888,20 @@ async function extractProductSuggestions(
     ? "Output product names/descriptions in English."
     : "Output product names/descriptions in Vietnamese (tiếng Việt).";
 
+  const hintsBlock = (structuredHints && structuredHints.length > 0)
+    ? `\n\n## STRUCTURED PRODUCTS already detected (ground truth — do NOT remove or rename, only enrich missing description/USP/keywords):\n${
+        structuredHints.map((p, i) => `${i + 1}. ${p.name}${p.price_display ? ` — ${p.price_display}` : ""}${p.source_url ? ` (${p.source_url})` : ""}${p.description ? `\n   ${p.description.slice(0, 160)}` : ""}`).join("\n")
+      }\n`
+    : "";
+
   const messages = [
     {
       role: "system" as const,
-      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include real products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, or category lists. For each product, write a 1-2 sentence description that highlights what it does for the customer.`,
+      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items.`,
     },
     {
       role: "user" as const,
-      content: `Below is scraped content from a brand's website (homepage + sub pages). Extract up to 10 distinct products or services.\n\n${content.slice(0, 25000)}`,
+      content: `Below is scraped content from a brand's website (homepage + sub pages, each section prefixed with its source URL). Extract up to 10 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
     },
   ];
 
