@@ -1048,11 +1048,11 @@ async function extractProductSuggestions(
   const messages = [
     {
       role: "system" as const,
-      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items.`,
+      content: `You analyze a brand's website content and extract its product/service catalog. ${langInstr} Only include REAL products/services that the brand sells — never invent items. Skip generic blog posts, navigation links, FAQ entries, or category-only lists. For each product, write a tight 1-2 sentence description focused on customer benefit. If the website lists fewer than 2 real products, return an empty array — do NOT pad with generic items. If a STRUCTURED PRODUCTS list is provided, you MUST keep ALL of those names verbatim and only ADD new items when you find clear product names with price, CTA, or "add to cart" signals in the content. When in doubt, omit. Mark each product with confidence: "high" (price+image+clear name), "medium" (clear name+context), "low" (only mentioned).`,
     },
     {
       role: "user" as const,
-      content: `Below is scraped content from a brand's website (homepage + sub pages, each section prefixed with its source URL). Extract up to 10 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
+      content: `Below is scraped content from a brand's website (sub pages first, homepage last; each section prefixed with its source URL). Extract up to 15 distinct products or services. Treat any STRUCTURED PRODUCTS list as authoritative — keep those names exactly, just enrich their fields.${hintsBlock}\n\n${content.slice(0, 40000)}`,
     },
   ];
 
@@ -1077,6 +1077,7 @@ async function extractProductSuggestions(
                 unique_selling_points: { type: "array", items: { type: "string" } },
                 keywords: { type: "array", items: { type: "string" } },
                 source_url: { type: "string" },
+                confidence: { type: "string", enum: ["high", "medium", "low"] },
               },
               required: ["name"],
             },
