@@ -801,6 +801,17 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
 
       const { stream, emit, close } = makeSSEStream();
 
+      // Prime the SSE channel IMMEDIATELY so the client receives a first byte
+      // well within its FIRST_BYTE_TIMEOUT (cold-start can otherwise delay the
+      // first emit from runCarouselPipelineStreaming by 10-30s).
+      void emit({
+        type: 'progress',
+        step: 'connecting',
+        phase: 'planning',
+        percent: 1,
+        message: 'Đang kết nối máy chủ AI...',
+      });
+
       // Run pipeline async — never block response
       const pipelinePromise = runCarouselPipelineStreaming(formData, req, emit)
         .catch(async (err) => {
