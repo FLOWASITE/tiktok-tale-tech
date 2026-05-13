@@ -144,6 +144,12 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
           setActiveTasks(prev => prev.filter(t => t.id !== task.id));
           setCompletedTasks(prev => [task, ...prev].slice(0, 10));
           optionsRef.current.onTaskError?.(task);
+        } else if (task.status === 'cancelled') {
+          // User-initiated cancel — treat as terminal but call onTaskComplete
+          // so the UI can finalize state without showing a generic error toast.
+          setActiveTasks(prev => prev.filter(t => t.id !== task.id));
+          setCompletedTasks(prev => [task, ...prev].slice(0, 10));
+          optionsRef.current.onTaskComplete?.(task);
         } else {
           // Still active - update progress
           setActiveTasks(prev =>
