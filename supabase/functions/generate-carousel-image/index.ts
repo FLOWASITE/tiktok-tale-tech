@@ -519,7 +519,12 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
             carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic,
-            previousImageUrl } = requestBody;
+            previousImageUrl, anchorImageUrl, aspectRatio: bodyAspectRatio } = requestBody;
+    // Resolved aspect ratio for ALL provider calls below — must be identical
+    // across slides in the same carousel for visual coherence.
+    const resolvedAspect: string =
+      bodyAspectRatio
+      || (platform === 'tiktok' ? '9:16' : platform === 'instagram' ? '4:5' : '1:1');
 
     // ============================================
     // Distributed trace — propagate from generate-carousel
@@ -750,9 +755,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     let externalImageUrl: string | null = null;
     let sceneDescription: string | null = null;
 
-    // For single-input providers (PoYo/KIE/GeminiGen), prefer previousImageUrl for seamless continuity;
-    // when no previous image exists (e.g. slide 1 or non-seamless), use the logo as the single reference.
-    const singleRefImage = previousImageUrl || (includeLogo && resolvedLogoUrl) || undefined;
+    // For single-input providers (PoYo/KIE/GeminiGen): visual reference priority
+    //   slide 2 → anchor (locks identity early)
+    //   slide 3+ → previous (smooth chain), but fall back to anchor if no previous
+    //   slide 1 → logo (no previous yet)
+    const singleSlotRef =
+      slideNumber === 2 ? (anchorImageUrl || previousImageUrl)
+      : slideNumber > 2 ? (previousImageUrl || anchorImageUrl)
+      : null;
+    const singleRefImage = singleSlotRef || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
     if (isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
@@ -769,7 +780,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaPoyo({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
           // Single-image providers: previous slide takes priority for seamless continuity;
           // when absent, fall back to brand logo as the visual anchor.
           inputImage: singleRefImage,
@@ -801,7 +812,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: altPoyoModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_API_KEY);
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
@@ -837,7 +848,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaKie({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToKie(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToKie(resolvedAspect),
           outputFormat: 'jpeg',
           inputImage: singleRefImage,
         }, KIE_API_KEY);
@@ -869,7 +880,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: poyoFallbackModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_KEY_FOR_KIE);
             modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
@@ -910,7 +921,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaGeminiGen({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToGeminiGen(resolvedAspect),
           inputImage: singleRefImage,
           maxAttempts: 35, // 35 × 3s = 105s, leaves ~40s budget for fallback
         }, GEMINIGEN_API_KEY);
@@ -954,7 +965,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: poyoFallbackModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_KEY_FOR_GEMINIGEN);
             modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
@@ -1018,14 +1029,16 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
-        // Build multi-image content array: [text prompt, optional previous-slide ref, optional logo ref]
-        // Lovable AI Gateway / Gemini image models accept multi-image input via OpenAI-compatible content array.
+        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1), logo]
+        // Anchor preserves the original visual world even when the chain drifts.
+        // Cap at 3 reference images to keep gateway cost ~+15% vs pure text.
         const userContent: any[] = [{ type: "text", text: finalPrompt }];
-        if (previousImageUrl) {
-          userContent.push({ type: "image_url", image_url: { url: previousImageUrl } });
-        }
-        if (includeLogo && resolvedLogoUrl) {
-          userContent.push({ type: "image_url", image_url: { url: resolvedLogoUrl } });
+        const refs: string[] = [];
+        if (anchorImageUrl && anchorImageUrl !== previousImageUrl) refs.push(anchorImageUrl);
+        if (previousImageUrl) refs.push(previousImageUrl);
+        if (includeLogo && resolvedLogoUrl) refs.push(resolvedLogoUrl);
+        for (const r of refs.slice(0, 3)) {
+          userContent.push({ type: "image_url", image_url: { url: r } });
         }
         const attachedImages = userContent.length - 1;
 
@@ -1043,7 +1056,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           : imageModel;
 
         if (gatewayAttempt === 0) {
-          console.log(`[generate-carousel-image] Gateway payload: model=${gatewayModel} (requested=${imageModel}), refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
+          console.log(`[generate-carousel-image] Gateway payload: model=${gatewayModel} (requested=${imageModel}), refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, anchor=${!!anchorImageUrl}, prev=${!!previousImageUrl})`);
         }
 
         const bgResponse = await fetch(

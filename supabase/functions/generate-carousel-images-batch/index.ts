@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { taskId, carouselId, slides, brandColors, carouselStyle, visualPreset, platform, carouselTopic, seriesBible, siblingsSummary } = body;
+  const { taskId, carouselId, slides, brandColors, carouselStyle, visualPreset, platform, carouselTopic, seriesBible, siblingsSummary, aspectRatio: bodyAspectRatio } = body;
+  // Aspect ratio resolution: explicit body > slide hint > platform default.
+  // All slides MUST share the same aspect ratio for visual coherence.
+  const platformDefault = platform === 'tiktok' ? '9:16' : platform === 'instagram' ? '4:5' : platform === 'linkedin' ? '1:1' : '1:1';
+  const lockedAspectRatio: string = bodyAspectRatio || (slides?.[0]?.aspectRatio) || platformDefault;
 
   if (!taskId || !carouselId || !slides?.length) {
     return new Response(
@@ -58,7 +62,14 @@ Deno.serve(async (req) => {
     // Captures the ACTUAL previous slide's scene + image, so seamless context is real.
     let previousSceneDescription: string | null = seriesBible || null;
     let previousImageUrl: string | null = null;
-    // Rolling window of last 2 slides' descriptions to limit drift
+    // Anchor = slide 1 image. Used as visual reference for ALL subsequent slides
+    // to prevent style drift when the chain only carries slide N-1 forward.
+    let anchorImageUrl: string | null = null;
+    let anchorSceneDescription: string | null = null;
+    // Locked color palette (top hex colors) extracted from anchor slide once,
+    // then injected into seamlessContext.colorPalette for slides 2..N.
+    let lockedPalette: string[] | null = null;
+    // Rolling window of last 4 slides' descriptions to limit drift on long carousels.
     const recentScenes: string[] = [];
 
     try {
@@ -126,15 +137,28 @@ Deno.serve(async (req) => {
           'generating'
         );
 
-        // Build seamless context from PREVIOUS slide's actual output (not from a static seriesBible).
-        // For slide 1, fall back to seriesBible (no previous slide exists yet).
+        // Build seamless context. previousSceneDescription is layered:
+        // [seriesBible] + [slide 1 anchor] + [slide N-1] so far-from-anchor slides still see the original visual world.
         const accumulatedChain = recentScenes.length > 0
           ? `Recent slides in this carousel: ${recentScenes.map((s, idx) => `[${idx + 1}] ${s}`).join(' | ')}`
           : null;
 
+        const layeredPrevDesc = (() => {
+          const parts: string[] = [];
+          if (slideNum === 1 && seriesBible) parts.push(seriesBible);
+          if (slideNum > 1) {
+            if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
+            if (anchorSceneDescription) parts.push(`ANCHOR (slide 1): ${anchorSceneDescription.slice(0, 300)}`);
+            if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
+              parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
+            }
+          }
+          return parts.length > 0 ? parts.join('\n\n') : previousSceneDescription;
+        })();
+
         const slideSeamlessContext = {
-          colorPalette: null,
-          previousSceneDescription: previousSceneDescription, // ACTUAL previous slide scene (or seriesBible for slide 1)
+          colorPalette: lockedPalette, // null for slide 1, populated for slide 2..N
+          previousSceneDescription: layeredPrevDesc,
           siblingSlidesSummary: accumulatedChain || siblingsSummary || null,
           sequencePosition: slideNum,
           totalInSequence: totalSlides,
@@ -173,6 +197,7 @@ Deno.serve(async (req) => {
                 slideNumber: slideNum,
                 textContent: slide.textContent,
                 platform: platform || 'facebook',
+                aspectRatio: lockedAspectRatio,
                 brandColors,
                 carouselStyle: carouselStyle || 'educational',
                 totalSlides,
@@ -181,6 +206,9 @@ Deno.serve(async (req) => {
                 carouselTopic,
                 // Pass previous slide image for img2img continuity (slide 2..N only)
                 previousImageUrl: slideNum > 1 ? previousImageUrl : null,
+                // Anchor (slide 1) — gives single-slot providers a stable visual reference
+                // and lets multi-image providers (Lovable Gateway) layer logo+anchor+previous.
+                anchorImageUrl: slideNum > 1 ? anchorImageUrl : null,
                 seamlessContext: slideSeamlessContext,
               }),
               signal: controller.signal,
@@ -308,7 +336,6 @@ Deno.serve(async (req) => {
           successUrls.push(slideImageUrl);
 
           // === Update chain state for NEXT slide ===
-          // Prefer AI-returned sceneDescription. Fallback to slide objective + first 100 chars of prompt.
           const nextSceneDesc = slideSceneDescription
             || slide.objective
             || (slide.fullPrompt ? String(slide.fullPrompt).slice(0, 200) : null);
@@ -316,10 +343,73 @@ Deno.serve(async (req) => {
           previousSceneDescription = nextSceneDesc;
           previousImageUrl = slideImageUrl;
 
-          // Maintain rolling window of last 2 scenes (avoid drift from slide 1)
+          // === Anchor capture (slide 1 only) ===
+          // Slide 1 becomes the visual reference for the rest of the carousel.
+          // We also extract a locked color palette from it so slides 2..N can
+          // hard-lock the same dominant colors (consistency win #1).
+          if (slideNum === 1) {
+            anchorImageUrl = slideImageUrl;
+            anchorSceneDescription = slideSceneDescription || nextSceneDesc;
+
+            try {
+              const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+              if (lovableKey) {
+                const palCtl = new AbortController();
+                const palTo = setTimeout(() => palCtl.abort(), 12_000);
+                const palResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${lovableKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash-lite',
+                    messages: [{
+                      role: 'user',
+                      content: [
+                        { type: 'image_url', image_url: { url: slideImageUrl } },
+                        { type: 'text', text: 'Extract the 5 dominant hex colors of this image. Reply ONLY with a JSON array of hex strings, no markdown. Example: ["#1A2B3C","#FFFFFF","#888888","#A0E0FF","#222222"]' },
+                      ],
+                    }],
+                    max_tokens: 120,
+                  }),
+                  signal: palCtl.signal,
+                }).catch(() => null);
+                clearTimeout(palTo);
+                if (palResp && palResp.ok) {
+                  const pj = await palResp.json().catch(() => null);
+                  const txt: string = pj?.choices?.[0]?.message?.content || '';
+                  const m = txt.match(/\[[^\]]*\]/);
+                  if (m) {
+                    try {
+                      const arr = JSON.parse(m[0]);
+                      if (Array.isArray(arr)) {
+                        const hexes = arr
+                          .filter((x) => typeof x === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(x))
+                          .slice(0, 5);
+                        if (hexes.length >= 3) {
+                          lockedPalette = hexes;
+                          console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
+                          await supabase
+                            .from('carousels')
+                            .update({ locked_palette: hexes })
+                            .eq('id', carouselId);
+                        }
+                      }
+                    } catch { /* ignore parse */ }
+                  }
+                }
+              }
+            } catch (palErr) {
+              console.warn('[batch] Anchor palette extraction failed (non-fatal):', palErr);
+            }
+          }
+
+          // Rolling window of last 4 scenes — long carousels (8-10 slides)
+          // need more context than 2 to avoid drift from slide ~5 onward.
           if (nextSceneDesc) {
-          recentScenes.push(`Slide ${slideNum}: ${nextSceneDesc.slice(0, 150)}`);
-            if (recentScenes.length > 2) recentScenes.shift();
+            recentScenes.push(`Slide ${slideNum}: ${nextSceneDesc.slice(0, 150)}`);
+            if (recentScenes.length > 4) recentScenes.shift();
           }
         } else {
           failCount++;
@@ -461,16 +551,47 @@ Deno.serve(async (req) => {
             const issues = validation?.consistency?.issues || [];
             const needsRegen = typeof score === 'number' && score < 60;
 
+            // Detect outlier slides: brightness >25 from median, or temperature
+            // not matching majority cluster. successUrls is in slide order so
+            // index i = slide number i+1.
+            let outlierSlides: number[] = [];
+            try {
+              const slidesAnalysis = Array.isArray(validation?.slides) ? validation.slides : [];
+              if (slidesAnalysis.length >= 3) {
+                const brightnesses = slidesAnalysis.map((s: any) => Number(s?.brightness ?? 50));
+                const sorted = [...brightnesses].sort((a, b) => a - b);
+                const median = sorted[Math.floor(sorted.length / 2)];
+                const tempCounts = new Map<string, number>();
+                slidesAnalysis.forEach((s: any) => {
+                  const t = String(s?.temperature || 'neutral');
+                  tempCounts.set(t, (tempCounts.get(t) || 0) + 1);
+                });
+                const majorityTemp = Array.from(tempCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+                slidesAnalysis.forEach((s: any, idx: number) => {
+                  const brightDelta = Math.abs(Number(s?.brightness ?? 50) - median);
+                  const tempMismatch = majorityTemp && s?.temperature && s.temperature !== majorityTemp;
+                  if (brightDelta > 25 || tempMismatch) {
+                    outlierSlides.push(idx + 1);
+                  }
+                });
+                // Cap at 2 to avoid suggesting "regenerate everything"
+                outlierSlides = outlierSlides.slice(0, 2);
+              }
+            } catch (oErr) {
+              console.warn('[batch] Outlier detection failed (non-fatal):', oErr);
+            }
+
             await supabase
               .from('carousels')
               .update({
                 seamless_score: score,
                 seamless_issues: issues.length ? { issues, suggestion: validation?.consistency?.suggestion } : null,
                 needs_regeneration: needsRegen,
+                needs_regeneration_slides: outlierSlides.length > 0 ? outlierSlides : null,
               })
               .eq('id', carouselId);
 
-            console.log(`[batch] Seamless validation: score=${score}, needsRegen=${needsRegen}`);
+            console.log(`[batch] Seamless validation: score=${score}, needsRegen=${needsRegen}, outliers=[${outlierSlides.join(',')}]`);
           } else {
             console.warn('[batch] Seamless validation HTTP error:', validationResp.status);
           }
