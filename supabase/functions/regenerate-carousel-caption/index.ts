@@ -249,6 +249,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Telemetry
+    saveMetrics(supabase, {
+      traceId,
+      functionName: "regenerate-carousel-caption",
+      organizationId: carousel.organization_id || undefined,
+      userId,
+      totalDurationMs: Date.now() - startedAt,
+      contextSources: [],
+      hadError: false,
+      exitReason: "success",
+      actionType: "carousel_regen_caption",
+      channels: ["carousel"],
+      contentId: carouselId,
+      modelsUsed: result.model ? [result.model] : undefined,
+    } as any).catch(() => {});
+
     return new Response(
       JSON.stringify({
         captionSuggestion: parsed.captionSuggestion,
