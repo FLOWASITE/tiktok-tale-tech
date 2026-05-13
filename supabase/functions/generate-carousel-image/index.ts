@@ -12,6 +12,7 @@ import { createTrace } from "../_shared/tracing.ts";
 import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
 import { isCircuitOpen, recordSuccess, recordFailure } from "../_shared/circuit-breaker.ts";
 import { buildTypographyDirective, type TypographyArchetype } from "../_shared/carousel-creative-direction.ts";
+import { buildPresetDirective } from "../_shared/carousel-preset-dna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
