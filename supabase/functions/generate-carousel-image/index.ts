@@ -1558,7 +1558,7 @@ RULES FOR TEXT:
   if (brandColors) {
     const colorParts: string[] = [];
     if (brandColors.backgroundColor) {
-      colorParts.push(`PRIMARY BRAND COLOR: ${brandColors.backgroundColor} — This color MUST dominate the image (40-60% of visible color area). Use it for backgrounds, gradients, overlays, or large color blocks.`);
+      colorParts.push(`PRIMARY BRAND COLOR: ${brandColors.backgroundColor} — Use as the dominant accent color (~30-40% of visible area). Pair with neutral whites/creams/soft grays for breathing room. Do NOT wash the entire image in this color.`);
     }
     if (brandColors.textColor) {
       colorParts.push(`SECONDARY BRAND COLOR: ${brandColors.textColor} — Use for accents, highlights, and contrast elements.`);
