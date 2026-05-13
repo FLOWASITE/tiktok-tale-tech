@@ -446,53 +446,14 @@ Deno.serve(async (req) => {
             anchorSceneDescription = slideSceneDescription || nextSceneDesc;
 
             try {
-              const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-              if (lovableKey) {
-                const palCtl = new AbortController();
-                const palTo = setTimeout(() => palCtl.abort(), 12_000);
-                const palResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${lovableKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: 'google/gemini-2.5-flash-lite',
-                    messages: [{
-                      role: 'user',
-                      content: [
-                        { type: 'image_url', image_url: { url: slideImageUrl } },
-                        { type: 'text', text: 'Extract the 5 dominant hex colors of this image. Reply ONLY with a JSON array of hex strings, no markdown. Example: ["#1A2B3C","#FFFFFF","#888888","#A0E0FF","#222222"]' },
-                      ],
-                    }],
-                    max_tokens: 120,
-                  }),
-                  signal: palCtl.signal,
-                }).catch(() => null);
-                clearTimeout(palTo);
-                if (palResp && palResp.ok) {
-                  const pj = await palResp.json().catch(() => null);
-                  const txt: string = pj?.choices?.[0]?.message?.content || '';
-                  const m = txt.match(/\[[^\]]*\]/);
-                  if (m) {
-                    try {
-                      const arr = JSON.parse(m[0]);
-                      if (Array.isArray(arr)) {
-                        const hexes = arr
-                          .filter((x) => typeof x === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(x))
-                          .slice(0, 5);
-                        if (hexes.length >= 3) {
-                          lockedPalette = hexes;
-                          console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
-                          await supabase
-                            .from('carousels')
-                            .update({ locked_palette: hexes })
-                            .eq('id', carouselId);
-                        }
-                      }
-                    } catch { /* ignore parse */ }
-                  }
-                }
+              const hexes = await extractLockedPalette(slideImageUrl, organizationId, traceId, supabase);
+              if (hexes && hexes.length >= 3) {
+                lockedPalette = hexes;
+                console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
+                await supabase
+                  .from('carousels')
+                  .update({ locked_palette: hexes })
+                  .eq('id', carouselId);
               }
             } catch (palErr) {
               console.warn('[batch] Anchor palette extraction failed (non-fatal):', palErr);
