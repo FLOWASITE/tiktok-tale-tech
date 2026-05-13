@@ -347,8 +347,17 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 phase,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
+              void syncTaskRow({
+                progress: typeof event.percent === 'number' ? event.percent : undefined,
+                current_step: phase,
+                progress_message: event.message || event.step || 'Đang xử lý...',
+              });
             } else if (event.type === 'carousel_saved') {
-              if (event.carouselId) savedCarouselId = String(event.carouselId);
+              if (event.carouselId) {
+                savedCarouselId = String(event.carouselId);
+                updateJob(jobId, { carouselId: savedCarouselId });
+                void syncTaskRow({ result_id: savedCarouselId, result_type: 'carousels' }, true);
+              }
             } else if (event.type === 'slide_start') {
               const newSlide = event.slideNumber ?? 0;
               const prevMeta = job.revealingSlideMeta;
