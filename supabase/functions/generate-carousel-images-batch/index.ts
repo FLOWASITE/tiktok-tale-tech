@@ -355,11 +355,16 @@ Deno.serve(async (req) => {
           if (slideNum === 1 && seriesBible) parts.push(seriesBible);
           if (slideNum > 1) {
             if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
+            // LAYER 4.1: inject visual lexicon (metaphor + lighting + medium + perspective)
+            // — strongest cohesion lock, replaces vague "same visual world" hand-waving.
+            if (visualLexicon) parts.push(`VISUAL LEXICON (lock from slide 1 — match exactly): ${visualLexicon}`);
             if (anchorSceneDescription) parts.push(`ANCHOR (slide 1): ${anchorSceneDescription.slice(0, 300)}`);
             if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
               parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
             }
           }
+          // LAYER 4.3: composition scaffold rotation — break monotony, force per-slide variety.
+          parts.push(pickCompositionScaffold(slideNum, totalSlides));
           return parts.length > 0 ? parts.join('\n\n') : previousSceneDescription;
         })();
 
