@@ -137,15 +137,28 @@ Deno.serve(async (req) => {
           'generating'
         );
 
-        // Build seamless context from PREVIOUS slide's actual output (not from a static seriesBible).
-        // For slide 1, fall back to seriesBible (no previous slide exists yet).
+        // Build seamless context. previousSceneDescription is layered:
+        // [seriesBible] + [slide 1 anchor] + [slide N-1] so far-from-anchor slides still see the original visual world.
         const accumulatedChain = recentScenes.length > 0
           ? `Recent slides in this carousel: ${recentScenes.map((s, idx) => `[${idx + 1}] ${s}`).join(' | ')}`
           : null;
 
+        const layeredPrevDesc = (() => {
+          const parts: string[] = [];
+          if (slideNum === 1 && seriesBible) parts.push(seriesBible);
+          if (slideNum > 1) {
+            if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
+            if (anchorSceneDescription) parts.push(`ANCHOR (slide 1): ${anchorSceneDescription.slice(0, 300)}`);
+            if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
+              parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
+            }
+          }
+          return parts.length > 0 ? parts.join('\n\n') : previousSceneDescription;
+        })();
+
         const slideSeamlessContext = {
-          colorPalette: null,
-          previousSceneDescription: previousSceneDescription, // ACTUAL previous slide scene (or seriesBible for slide 1)
+          colorPalette: lockedPalette, // null for slide 1, populated for slide 2..N
+          previousSceneDescription: layeredPrevDesc,
           siblingSlidesSummary: accumulatedChain || siblingsSummary || null,
           sequencePosition: slideNum,
           totalInSequence: totalSlides,
