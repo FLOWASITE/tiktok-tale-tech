@@ -1723,52 +1723,93 @@ CAROUSEL COMPOSITION:
 `;
   }
   
-  // Clean prompt: only strip font directives (we WANT text-related content now)
+  // Clean prompt: strip font directives + leaked title fragments that AI tends
+  // to bake into the background as fake headlines. We KEEP genuine scene words.
   const cleanedPrompt = originalPrompt
-    .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '');
+    .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '')
+    // Strip topic title leaks like "Slide N/M", "Pillar:", "CTA:", "Hook:" lines
+    .replace(/^\s*(slide\s*\d+\s*\/\s*\d+|pillar|hook|cta|caption|headline)\s*[:\-].*$/gim, '')
+    // Strip standalone numeric-with-unit leaks ("4.2x", "73%", "$50") that AI
+    // turns into floating callout cards on the background
+    .replace(/(?<!\w)\d+(\.\d+)?\s*(x|%|\$|usd|vnd)\b/gi, '');
 
-  // === Topic Relevance Lock ===
+  // === Topic Relevance Lock — VISUAL metaphor only, NO literal title bake-in ===
   let topicDirective = '';
   if (carouselTopic) {
-    topicDirective = `\nTOPIC RELEVANCE (CRITICAL): The scene MUST be directly relevant to the topic "${carouselTopic}".`;
+    topicDirective = `\nTOPIC RELEVANCE: The scene must be VISUALLY relevant to the topic "${carouselTopic}" — express it through metaphor, symbol, or scene composition.`;
     if (slideObjective) {
-      topicDirective += ` This slide's objective is: "${slideObjective}".`;
+      topicDirective += ` This slide's objective: "${slideObjective}".`;
     }
-    topicDirective += ` Do NOT use abstract generic backgrounds unrelated to this topic. Every visual element should reinforce the topic.`;
-    topicDirective += `\nSLIDE UNIQUENESS: This is slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. This slide's unique focus: "${slideObjective || 'main topic'}". Vary between wide shot, medium shot, close-up, overhead, and side angle across slides.\n`;
+    topicDirective += ` DO NOT spell out the topic title, headline, or any keywords from it as visible text on the image — typography is handled by the TEXT RENDERING block ONLY.`;
+    topicDirective += `\nSLIDE UNIQUENESS: Slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. Vary between wide, medium, close-up, overhead, and side angle.\n`;
   }
 
-  // Assemble prompt: BRAND COLORS FIRST (AI prioritizes beginning of prompt)
+  // === Visual preset OVERRIDE — runs LAST so flat_design beats cinematic ===
+  // Fixes bug where `flat_design` user choice was being silently overridden by
+  // `educational`/`gallery` style blocks that pushed cinematic 3D output.
+  let visualPresetOverride = '';
+  // visualPreset is only available via closure; pass through originalPrompt context
+  // We detect it from styleDirective signal — if cleanedPrompt or seriesBible mentions flat
+  const isFlatRequest = /flat[_\s-]?design|flat\s+vector|2d\s+vector|editorial\s+illustration/i.test(originalPrompt + ' ' + (carouselTopic || ''));
+  // Always include anti-cliché directive for educational/business topics
+  visualPresetOverride = `
+VISUAL STYLE GUARDRAILS (override any conflicting cinematic directives above):
+- AVOID overused AI-tech clichés: NO circuit boards, NO glowing neon nodes/network meshes, NO holographic UI panels floating in air, NO dark navy + neon red/blue corporate gradient, NO matrix-style binary streams, NO generic "futuristic data" backgrounds.
+- Prefer EDITORIAL aesthetic: clean geometry, generous negative space, intentional asymmetry, paper-like or soft-matte surfaces, restrained palette with one focal accent.
+- Composition must have a clear focal point with surrounding breathing room — NOT a busy collage of overlapping elements.
+- Lighting: soft, directional, naturalistic. NOT high-contrast neon glow.
+${isFlatRequest ? '- STYLE: 2D flat vector illustration with solid color fills, geometric shapes, minimal gradients, Notion/Stripe/Linear-tier editorial illustration. NO photorealism, NO 3D render.' : ''}
+`;
+
+  // === Anti-hallucination guardrails (logos, fake text, watermarks) ===
+  const antiHallucinationGuard = `
+ANTI-HALLUCINATION RULES (CRITICAL):
+- DO NOT render any logo, brand mark, wordmark, watermark, signature, or company name anywhere on the image. (The brand logo, if any, is composited separately by the renderer.)
+- DO NOT render any text, words, headlines, bullet points, callout cards, percentage badges, statistics labels, chart legends, button labels, or UI labels EXCEPT the exact text specified in the TEXT RENDERING block below. If no TEXT RENDERING block is present, the image must be 100% text-free.
+- DO NOT invent fake brand names like "alero", "mopd", "(attached)" or any random letter combinations.
+- DO NOT add decorative speech bubbles, sticky notes, or floating badges with placeholder text.
+`;
+
+  // Soften brand color reinforcement — too aggressive previously caused monotone slides
   const brandColorReinforcement = brandColorDirective
-    ? `\n⚠️ FINAL REMINDER: The brand colors specified at the top of this prompt MUST be clearly dominant. Do NOT produce a blue/black/teal image unless those are the brand colors.`
+    ? `\nBRAND COLOR REMINDER: Brand colors should be clearly present (~30-40% of the image), but allow neutral whites/creams/soft grays for breathing room. Do NOT make the entire image a single saturated color wash.`
     : '';
 
   const prompt = [
     // PART 0: Brand colors FIRST — highest priority position
     brandColorDirective || '',
 
-    // PART 1: Scene description
+    // PART 0.5: Anti-hallucination FIRST so model anchors on it
+    antiHallucinationGuard,
+
+    // PART 1: Scene description (cleaned)
     cleanedPrompt,
-    
-    // PART 1.5: Topic lock
+
+    // PART 1.5: Topic lock (visual metaphor only)
     topicDirective || '',
-    
+
     // PART 2: Design tokens (mood/effects only when brand colors present)
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
-    
+
     // PART 3: Continuity
     seamlessDirective || '',
-    
-    // PART 4: Style directive
+
+    // PART 4: Style directive (carouselStyle-based)
     styleDirective || '',
-    
-    // PART 5: TEXT RENDERING
+
+    // PART 4.5: Visual style override — anti-cliché + flat_design enforcement
+    visualPresetOverride,
+
+    // PART 5: TEXT RENDERING (the ONLY allowed text on the image)
     textInstruction,
-    
+
     // PART 6: Final constraints
     safeZoneNote,
 
-    // PART 7: Brand color reinforcement (sandwich technique — end of prompt)
+    // PART 7: Anti-hallucination repeated at end (sandwich)
+    antiHallucinationGuard,
+
+    // PART 8: Brand color reinforcement (softened)
     brandColorReinforcement,
   ].filter(Boolean).join('\n');
 
