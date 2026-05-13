@@ -63,15 +63,10 @@ export function useCarouselImages(carouselId: string | null) {
     if (!carouselId || !user) return null;
 
     try {
-      // Deselect previous versions for this slide
-      await supabase
-        .from('carousel_images')
-        .update({ is_selected: false })
-        .eq('carousel_id', carouselId)
-        .eq('slide_number', slideNumber);
-
-      // Insert new version (scene_description persists for seamless continuity
-      // across page refresh + single-slide regenerate)
+      // Atomic-ish: INSERT new row first (is_selected=true), then deselect
+      // older versions for the same slide. This avoids the brief "no selected"
+      // window the previous deselect-then-insert order created when a user
+      // spammed regenerate (UI flickered "no image").
       const { data, error } = await supabase
         .from('carousel_images')
         .insert({
@@ -90,6 +85,16 @@ export function useCarouselImages(carouselId: string | null) {
       if (error) throw error;
 
       const newImage = data as CarouselImage;
+
+      // Deselect older versions (best-effort — if it fails, fetchImages will
+      // still pick up the latest selected row by ordering).
+      await supabase
+        .from('carousel_images')
+        .update({ is_selected: false })
+        .eq('carousel_id', carouselId)
+        .eq('slide_number', slideNumber)
+        .neq('id', newImage.id);
+
       setImages(prev => {
         const filtered = prev.filter(img => img.slide_number !== slideNumber);
         return [...filtered, newImage].sort((a, b) => a.slide_number - b.slide_number);
