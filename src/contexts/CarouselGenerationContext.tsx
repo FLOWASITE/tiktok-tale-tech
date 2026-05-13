@@ -275,22 +275,30 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
             } else if (event.type === 'slide_start') {
+              const newSlide = event.slideNumber ?? 0;
+              const prevMeta = job.revealingSlideMeta;
+              // Preserve prior meta if same slideNumber (avoid flicker between slide_start → slide_preview)
+              const nextMeta = prevMeta && prevMeta.slideNumber === newSlide
+                ? prevMeta
+                : { slideNumber: newSlide };
               updateJob(jobId, {
                 phase: 'revealing',
                 revealingSlide: event.slideNumber ?? null,
-                revealingSlideMeta: { slideNumber: event.slideNumber ?? 0 },
+                revealingSlideMeta: nextMeta,
                 currentStep: event.message || `Prompt cho Slide ${event.slideNumber}`,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
             } else if (event.type === 'slide_preview') {
+              const prevMeta = job.revealingSlideMeta;
               updateJob(jobId, {
                 phase: 'revealing',
                 revealingSlide: event.slideNumber ?? null,
                 revealingSlideMeta: {
                   slideNumber: event.slideNumber ?? 0,
-                  objective: event.objective,
-                  textPreview: event.textPreview,
-                  promptPreview: event.promptPreview,
+                  // Merge with prior to avoid losing fields if events arrive out of order
+                  objective: event.objective ?? prevMeta?.objective,
+                  textPreview: event.textPreview ?? prevMeta?.textPreview,
+                  promptPreview: event.promptPreview ?? prevMeta?.promptPreview,
                 },
                 currentStep: event.objective || event.message || `Đang viết slide ${event.slideNumber}...`,
                 totalSlides: event.totalSlides ?? job.totalSlides,
