@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   PenLine,
   Minimize2,
+  StopCircle,
   type LucideIcon,
 } from 'lucide-react';
 
