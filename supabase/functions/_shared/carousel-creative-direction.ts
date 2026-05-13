@@ -301,8 +301,21 @@ export function buildTypographyDirective(
   positionDesc: string,
   bgTreatment: string,
   textColorDesc: string,
+  visualPreset?: string | null,
 ): string {
-  const spec = ARCHETYPE_SPECS[archetype];
+  const baseSpec = ARCHETYPE_SPECS[archetype];
+  // Preset DNA wins over archetype default for font character (palette-coherent typography).
+  const presetFonts = getPresetFonts(visualPreset);
+  // Only override when archetype isn't a specialised numeric/condensed one
+  // (data-display & cta-poster keep their condensed display font for impact).
+  const useDisplayOverride = archetype === 'editorial-hero' || archetype === 'supporting-body' || archetype === 'caption-only';
+  const useBodyOverride = archetype !== 'data-display'; // monospace labels stay
+  const spec: ArchetypeSpec = {
+    ...baseSpec,
+    displayFont: useDisplayOverride ? presetFonts.display : baseSpec.displayFont,
+    bodyFont: useBodyOverride ? presetFonts.body : baseSpec.bodyFont,
+  };
+
   const hierarchy: string[] = [];
   if (textParts.dataValue) {
     hierarchy.push(`  1. Numeral "${textParts.dataValue}" — display weight, ${spec.ratio.split(':')[0]}× base size, ${spec.kerningRule}`);
@@ -324,8 +337,8 @@ export function buildTypographyDirective(
   return `
 
 TYPOGRAPHIC SYSTEM (museum-grade — execute as a master typographer would, NOT a generic AI text overlay):
-Archetype: ${archetype}
-Display font character: ${spec.displayFont} — or any visually identical alternative. NO Helvetica, NO Arial, NO default web sans.
+Archetype: ${archetype}${visualPreset ? ` · Preset: ${visualPreset}` : ''}
+Display font character: ${spec.displayFont} — or any visually identical alternative. NO Helvetica, NO Arial, NO Inter UI default, NO generic web sans.
 Body font character: ${spec.bodyFont}
 Display:body size ratio: ${spec.ratio}
 Composition rule: ${spec.composition}
@@ -345,7 +358,7 @@ Optical adjustments (mandatory):
 - Text must be sharp, high-contrast, perfectly readable.
 
 FORBIDDEN:
-- Generic "modern sans" fallback — commit to the archetype font character.
+- Generic "modern sans" fallback — commit to the archetype + preset font character.
 - Centering text when composition rule says left-aligned (or vice versa).
 - Adding any extra labels, watermarks, badges, or UI chrome not listed above.
 `;
