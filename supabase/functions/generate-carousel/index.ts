@@ -1604,15 +1604,24 @@ Follow the carousel style guidelines strictly.`;
     // Only run critique if not from cache
     if (!fromCache) {
       try {
-        const critiqueLoop = await runSelfCritiqueLoop({
-          content: generatedData,
-          contentType: 'carousel',
-          brandVoice,
-          mergedRules,
-          additionalContext: `Platform: ${formData.platform}, Slides: ${formData.slideCount}, AI Tool: ${formData.aiTool}`,
-          apiKey: Deno.env.get("LOVABLE_API_KEY") || '',
-          organizationId: organizationId || undefined,
-        });
+        // Hard-cap the entire critique+refine loop so a broken parser (which
+        // produces score=0 + 25s refinement timeout = ~45s wasted) cannot
+        // push the overall request past the client first-byte/idle budget.
+        const CRITIQUE_BUDGET_MS = 25_000;
+        const critiqueLoop = await Promise.race([
+          runSelfCritiqueLoop({
+            content: generatedData,
+            contentType: 'carousel',
+            brandVoice,
+            mergedRules,
+            additionalContext: `Platform: ${formData.platform}, Slides: ${formData.slideCount}, AI Tool: ${formData.aiTool}`,
+            apiKey: Deno.env.get("LOVABLE_API_KEY") || '',
+            organizationId: organizationId || undefined,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Self-critique budget exceeded (${CRITIQUE_BUDGET_MS}ms)`)), CRITIQUE_BUDGET_MS),
+          ),
+        ]);
 
         generatedData = critiqueLoop.finalContent;
         critiqueResult = critiqueLoop.critiqueResult;
@@ -1620,9 +1629,15 @@ Follow the carousel style guidelines strictly.`;
         refinementCount = critiqueLoop.refinementCount;
 
         console.log(`Self-Critique complete: score=${critiqueResult.overall_score}, refined=${wasRefined}`);
+
+        // If critique persistently scores 0 (parser broken for current provider),
+        // log it once so we can disable on the affected org.
+        if (critiqueResult.overall_score === 0) {
+          console.warn('[Self-Critique] score=0 — likely parser issue with current provider. Skipping refinement next time would save ~25s.');
+        }
       } catch (critiqueError) {
-        console.error("Self-critique failed, using original content:", critiqueError);
-        // Continue with original content if critique fails
+        console.warn("Self-critique skipped (timeout or error), using original content:", critiqueError);
+        // Continue with original content if critique fails or hits budget
       }
     }
 
