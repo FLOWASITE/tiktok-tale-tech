@@ -66,7 +66,7 @@ interface CarouselGenerationContextValue {
 
 const CarouselGenerationContext = createContext<CarouselGenerationContextValue | null>(null);
 
-const FIRST_BYTE_TIMEOUT_MS = 30_000;
+const FIRST_BYTE_TIMEOUT_MS = 60_000;
 const IDLE_TIMEOUT_MS = 150_000;
 const SYNC_FALLBACK_TIMEOUT_MS = 60_000; // After stream drop, wait this long for DB row before failing
 
