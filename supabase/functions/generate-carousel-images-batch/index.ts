@@ -102,6 +102,116 @@ async function extractLockedPalette(
   return hexes;
 }
 
+/**
+ * LAYER 4.1 — Visual Lexicon Lock
+ * After slide 1 generates, run a cheap Gemini Flash Lite multimodal call to
+ * extract the actual visual world: metaphor, lighting, medium, perspective.
+ * Returns a single short paragraph that can be injected into slides 2..N's
+ * seamlessContext to lock cohesion (vs hoping the model "remembers" via palette).
+ */
+async function extractVisualLexicon(
+  imageUrl: string,
+  organizationId: string | undefined,
+  traceId: string,
+  supabase: any,
+): Promise<string | null> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!lovableKey) return null;
+
+  const startedAt = Date.now();
+  let model = 'google/gemini-2.5-flash-lite';
+  let maxTokens = 220;
+  try {
+    const cfg = await getAIConfig('extract-carousel-lexicon', organizationId);
+    if (cfg?.model_override) model = cfg.model_override;
+    if (cfg?.max_tokens) maxTokens = cfg.max_tokens;
+  } catch { /* defaults */ }
+
+  let lexicon: string | null = null;
+  let hadError = false;
+  let errorMessage: string | undefined;
+
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 12_000);
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${lovableKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'text', text: `Analyze this carousel slide image. In ONE concise paragraph (max 80 words), describe its visual lexicon so future slides can match. Cover EXACTLY these 4 dimensions:
+1. METAPHOR/MOTIF (what visual symbol or concept anchors the scene)
+2. LIGHTING (direction + softness, e.g. "soft top-left light, no harsh shadows")
+3. RENDERING MEDIUM (e.g. "flat 2D vector", "soft 3D clay", "editorial photography", "minimalist line art")
+4. PERSPECTIVE (e.g. "isometric", "top-down", "eye-level frontal", "cinematic 3/4")
+Reply ONLY with the paragraph, no headers, no markdown, no quotes.` },
+          ],
+        }],
+        max_tokens: maxTokens,
+      }),
+      signal: ctl.signal,
+    }).catch((e) => { hadError = true; errorMessage = String(e); return null; });
+    clearTimeout(to);
+
+    if (resp && resp.ok) {
+      const pj = await resp.json().catch(() => null);
+      const txt: string = pj?.choices?.[0]?.message?.content || '';
+      const cleaned = txt.trim().replace(/^["']|["']$/g, '').slice(0, 600);
+      if (cleaned.length >= 40) lexicon = cleaned;
+    } else if (resp) {
+      hadError = true;
+      errorMessage = `gateway ${resp.status}`;
+    }
+  } catch (e) {
+    hadError = true;
+    errorMessage = String(e);
+  }
+
+  try {
+    await supabase.from('ai_metrics').insert({
+      trace_id: traceId,
+      function_name: 'extract-carousel-lexicon',
+      organization_id: organizationId || null,
+      total_duration_ms: Date.now() - startedAt,
+      models_used: [model],
+      had_error: hadError,
+      error_message: errorMessage || null,
+      exit_reason: lexicon ? 'success' : (hadError ? 'error' : 'no_lexicon'),
+    });
+  } catch { /* non-fatal */ }
+
+  return lexicon;
+}
+
+/**
+ * LAYER 4.3 — Composition Scaffold Rotation
+ * Per-slide composition archetype to break monotony. Slide 1 = hero left,
+ * Last = single icon + negative space, middle slides rotate through 4 archetypes.
+ */
+function pickCompositionScaffold(slideNum: number, totalSlides: number): string {
+  if (slideNum === 1) {
+    return 'COMPOSITION: Hero focal subject anchored on the LEFT third, generous breathing space on the RIGHT half (kept visually quiet — for later text overlay). Strong single focal point.';
+  }
+  if (slideNum === totalSlides) {
+    return 'COMPOSITION: Single strong icon or object centered, surrounded by GENEROUS negative space (~60% of frame). Calm, decisive, CTA-ready.';
+  }
+  const archetypes = [
+    'COMPOSITION: Split 60/40 layout — primary subject on one side, supporting visual element (small data viz / accent shape) on the other.',
+    'COMPOSITION: Full-width centered metaphor — subject occupies center 50%, edges fade to soft background, breathing space top + bottom.',
+    'COMPOSITION: Top-down flat-lay arrangement — multiple small elements arranged with grid-like rhythm, equal spacing.',
+    'COMPOSITION: Asymmetric editorial — primary subject offset to one corner, secondary visual rhythm flowing diagonally across frame.',
+  ];
+  // Slides 2..N-1 rotate through archetypes deterministically
+  return archetypes[(slideNum - 2) % archetypes.length];
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
