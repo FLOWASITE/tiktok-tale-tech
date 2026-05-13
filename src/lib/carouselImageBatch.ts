@@ -144,6 +144,14 @@ export async function launchCarouselImageBatch({
     .map((s) => `Slide ${s.slideNumber}: ${s.objective}`)
     .join(' | ');
 
+  // Lock aspect ratio at the carousel level so every slide uses the same one
+  // regardless of platform default. Falls back: slide hint → platform default → 1:1.
+  const slide1Aspect = carousel.slides_content?.[0]?.aspectRatio;
+  const platformAspect =
+    carousel.platform === 'tiktok' ? '9:16' :
+    carousel.platform === 'instagram' ? '4:5' : '1:1';
+  const aspectRatio = (slide1Aspect && /^\d+:\d+$/.test(slide1Aspect)) ? slide1Aspect : platformAspect;
+
   const inputParams = {
     carouselId: carousel.id,
     slides: carousel.slides_content,
@@ -151,6 +159,7 @@ export async function launchCarouselImageBatch({
     carouselStyle: carousel.carousel_style,
     visualPreset: (carousel as any).visual_preset || 'minimalist',
     platform: carousel.platform,
+    aspectRatio,
     carouselTopic: carousel.topic,
     seriesBible,
     siblingsSummary,
