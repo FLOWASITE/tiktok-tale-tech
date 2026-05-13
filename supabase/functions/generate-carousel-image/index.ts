@@ -519,7 +519,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
             carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic,
-            previousImageUrl, anchorImageUrl, aspectRatio: bodyAspectRatio } = requestBody;
+            previousImageUrl, anchorImageUrl, aspectRatio: bodyAspectRatio,
+            creativeDirection } = requestBody;
     // Resolved aspect ratio for ALL provider calls below — must be identical
     // across slides in the same carousel for visual coherence.
     const resolvedAspect: string =
@@ -760,7 +761,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
       seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
-      textContent, overlayConfig, visualPreset
+      textContent, overlayConfig, visualPreset, creativeDirection
     );
 
     // === LAYER 6: Logo is composited deterministically post-gen by
@@ -1480,6 +1481,11 @@ function buildBackgroundPrompt(
   textContent?: any | null,
   overlayConfig?: Record<string, any> | null,
   visualPreset?: string | null,
+  creativeDirection?: {
+    metaphor?: string | null;
+    moodForSlide?: { role?: string; contrast?: string; saturation?: string; focalIntent?: string } | null;
+    typographyArchetype?: string | null;
+  } | null,
 ): string {
   // === Safe zone note: now a COMPLETE slide (text rendered by AI) ===
   let safeZoneNote = `
