@@ -703,8 +703,50 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           const taskId = row.id as string;
           const status = row.status as string;
 
-          setJobs((prev) =>
-            prev.map((j) => {
+          setJobs((prev) => {
+            const exists = prev.some((j) => j.taskId === taskId);
+            if (!exists && (status === 'pending' || status === 'generating')) {
+              // Auto-add image-batch job that wasn't in memory (e.g. launched
+              // from another tab or before the provider mounted).
+              if (taskType === 'carousel_image') {
+                const params = (row.input_params as Record<string, unknown>) || {};
+                const totalSlides = ((params as { slides?: unknown[] }).slides?.length as number) || 0;
+                const startedAtMs = row.created_at ? new Date(row.created_at as string).getTime() : Date.now();
+                return [
+                  {
+                    id: `task_${taskId}`,
+                    formData: {
+                      topic: (params as { carouselTopic?: string }).carouselTopic || 'Carousel',
+                      platform: ((params as { platform?: string }).platform as CarouselFormData['platform']) || 'instagram',
+                      slideCount: totalSlides,
+                      aiTool: 'ideogram' as const,
+                      brandName: '',
+                      brandGuideline: '',
+                      includeLogo: false,
+                      carouselStyle: 'seamless' as const,
+                      visualPreset: 'minimalist' as const,
+                    },
+                    status: 'generating',
+                    startedAt: startedAtMs,
+                    progress: typeof row.progress === 'number' ? (row.progress as number) : 0,
+                    currentStep: (row.progress_message as string) || 'Đang tạo ảnh...',
+                    phase: 'image_generating',
+                    partialSlides: [],
+                    totalSlides,
+                    completedSlides: 0,
+                    lastEventAt: Date.now(),
+                    abortReason: null,
+                    revealingSlide: null,
+                    revealingSlideMeta: null,
+                    kind: 'image',
+                    taskId,
+                    carouselId: (row.result_id as string) || (params as { carouselId?: string }).carouselId || null,
+                  } satisfies CarouselGenerationJob,
+                  ...prev,
+                ];
+              }
+            }
+            return prev.map((j) => {
               if (j.taskId !== taskId) return j;
               if (status === 'completed') {
                 return {
