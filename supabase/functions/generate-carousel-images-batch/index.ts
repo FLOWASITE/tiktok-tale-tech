@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { updateTaskProgress, completeTask, failTask } from "../_shared/task-tracking.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { runCreativeDirection, type CreativeDirection } from "../_shared/carousel-creative-direction.ts";
 
 /**
  * Extract dominant hex palette from anchor slide image.
