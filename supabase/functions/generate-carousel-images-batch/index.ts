@@ -563,18 +563,40 @@ Deno.serve(async (req) => {
             anchorImageUrl = slideImageUrl;
             anchorSceneDescription = slideSceneDescription || nextSceneDesc;
 
+            // Run palette + visual lexicon extraction in parallel — both are
+            // anchored on slide 1 image and unrelated, so we save ~10s on long batches.
             try {
-              const hexes = await extractLockedPalette(slideImageUrl, organizationId, traceId, supabase);
+              const [hexes, lexicon] = await Promise.all([
+                extractLockedPalette(slideImageUrl, organizationId, traceId, supabase).catch((e) => {
+                  console.warn('[batch] Palette extraction failed:', e);
+                  return null;
+                }),
+                extractVisualLexicon(slideImageUrl, organizationId, traceId, supabase).catch((e) => {
+                  console.warn('[batch] Lexicon extraction failed:', e);
+                  return null;
+                }),
+              ]);
               if (hexes && hexes.length >= 3) {
                 lockedPalette = hexes;
                 console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
-                await supabase
-                  .from('carousels')
-                  .update({ locked_palette: hexes })
-                  .eq('id', carouselId);
               }
-            } catch (palErr) {
-              console.warn('[batch] Anchor palette extraction failed (non-fatal):', palErr);
+              if (lexicon) {
+                visualLexicon = lexicon;
+                console.log(`[batch] Locked visual lexicon from anchor: "${lexicon.slice(0, 120)}..."`);
+              }
+              if (hexes || lexicon) {
+                const updatePayload: Record<string, unknown> = {};
+                if (hexes) updatePayload.locked_palette = hexes;
+                if (lexicon) updatePayload.visual_lexicon = lexicon;
+                try {
+                  await supabase.from('carousels').update(updatePayload).eq('id', carouselId);
+                } catch (uErr) {
+                  // visual_lexicon column may not exist yet — non-fatal, lexicon still in-memory
+                  console.warn('[batch] Persist anchor metadata partial:', uErr);
+                }
+              }
+            } catch (anchorErr) {
+              console.warn('[batch] Anchor extraction step failed (non-fatal):', anchorErr);
             }
           }
 
