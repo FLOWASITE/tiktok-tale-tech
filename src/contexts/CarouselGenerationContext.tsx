@@ -255,6 +255,27 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         };
         armWatchdog();
 
+        // Throttled DB sync of progress → generation_tasks (so reload sees latest state)
+        let lastDbSync = 0;
+        const DB_SYNC_INTERVAL_MS = 1500;
+        const syncTaskRow = async (
+          patch: { progress?: number; current_step?: string; progress_message?: string; status?: string; error_message?: string; result_id?: string | null; result_type?: string | null },
+          force = false,
+        ) => {
+          if (!dbTaskId) return;
+          const now = Date.now();
+          if (!force && now - lastDbSync < DB_SYNC_INTERVAL_MS) return;
+          lastDbSync = now;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase.from('generation_tasks') as any)
+              .update({ ...patch, updated_at: new Date().toISOString() })
+              .eq('id', dbTaskId);
+          } catch (err) {
+            console.warn('[CarouselGen] sync task row failed:', err);
+          }
+        };
+
         const resp = await fetch(url, {
           method: 'POST',
           headers: {
