@@ -738,7 +738,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
       seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
-      textContent, overlayConfig
+      textContent, overlayConfig, visualPreset
     );
 
     // === Logo conditioning directive (only when we actually attach the logo image) ===
