@@ -273,6 +273,9 @@ Deno.serve(async (req) => {
     // Locked color palette (top hex colors) extracted from anchor slide once,
     // then injected into seamlessContext.colorPalette for slides 2..N.
     let lockedPalette: string[] | null = null;
+    // LAYER 4.1: Visual lexicon extracted from anchor slide (metaphor, lighting,
+    // medium, perspective). Locks visual world for slides 2..N beyond just palette.
+    let visualLexicon: string | null = null;
     // Rolling window of last 4 slides' descriptions to limit drift on long carousels.
     const recentScenes: string[] = [];
 
