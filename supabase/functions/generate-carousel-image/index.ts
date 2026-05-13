@@ -51,18 +51,21 @@ function detectSlideRole(
 // from the previous image alone". For aesthetic / luxury verticals where
 // visual consistency IS the product, we pay ~$0.001/slide to ask Gemini
 // Flash Lite to describe the image so slide N+1 can consume it.
-// Module-scope flag: once Gemini Flash Lite returns 402 (credits exhausted)
-// in this worker, skip describe entirely for the rest of the worker lifetime.
-// Saves ~400-1000ms per slide and reduces tail latency to keep us under 150s.
-let DESCRIBE_DISABLED_UNTIL_RESTART = false;
+// Module-scope cooldown: once Gemini Flash Lite returns 402/429, skip describe
+// for COOLDOWN_MS (5 min) instead of forever-until-worker-restart. Workers can
+// live for hours — a single 402 should not silently disable describe globally
+// across all users/orgs sharing the worker.
+let DESCRIBE_DISABLED_UNTIL = 0;
+const DESCRIBE_COOLDOWN_MS = 5 * 60_000;
 
 async function describeImageForContinuity(
   imageUrl: string,
   lovableApiKey: string | undefined,
 ): Promise<string | null> {
   if (!lovableApiKey || !imageUrl) return null;
-  if (DESCRIBE_DISABLED_UNTIL_RESTART) {
-    console.log('[describe] Skipped — disabled (prior 402 in this worker)');
+  if (Date.now() < DESCRIBE_DISABLED_UNTIL) {
+    const remaining = Math.ceil((DESCRIBE_DISABLED_UNTIL - Date.now()) / 1000);
+    console.log(`[describe] Skipped — in cooldown (${remaining}s remaining)`);
     return null;
   }
   try {
@@ -91,8 +94,8 @@ async function describeImageForContinuity(
     if (!resp.ok) {
       console.warn(`[describe] Failed status=${resp.status}`);
       if (resp.status === 402 || resp.status === 429) {
-        DESCRIBE_DISABLED_UNTIL_RESTART = true;
-        console.warn('[describe] Disabling for rest of worker lifetime');
+        DESCRIBE_DISABLED_UNTIL = Date.now() + DESCRIBE_COOLDOWN_MS;
+        console.warn(`[describe] Cooldown ${DESCRIBE_COOLDOWN_MS / 1000}s after status=${resp.status}`);
       }
       return null;
     }
