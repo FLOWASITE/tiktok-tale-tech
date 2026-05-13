@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +44,14 @@ export interface CarouselGenerationJob {
   revealingSlide: number | null;
   /** Real preview content for the slide currently being written */
   revealingSlideMeta: { slideNumber: number; objective?: string; textPreview?: string; promptPreview?: string } | null;
+  /** Linked DB row in generation_tasks (for cross-tab/reload persistence) */
+  taskId?: string | null;
+  /** Carousel UUID once backend has saved it */
+  carouselId?: string | null;
+  /** Job kind — 'prompt' is text/slide generation, 'image' is image-batch */
+  kind: 'prompt' | 'image';
+  /** True if this job was rebuilt from generation_tasks after page reload */
+  rehydrated?: boolean;
 }
 
 interface CarouselGenerationContextValue {
@@ -88,21 +96,37 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
       try { c.abort(); } catch { /* noop */ }
     }
     abortersRef.current.delete(id);
+    let cancelledTaskId: string | null = null;
     setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id && j.status === 'generating'
-          ? {
-              ...j,
-              status: 'cancelled',
-              phase: 'cancelled',
-              currentStep: 'Đã hủy',
-              error: 'Cancelled by user',
-              abortReason: 'user',
-              lastEventAt: Date.now(),
-            }
-          : j
-      )
+      prev.map((j) => {
+        if (j.id === id && j.status === 'generating') {
+          cancelledTaskId = j.taskId || null;
+          return {
+            ...j,
+            status: 'cancelled',
+            phase: 'cancelled',
+            currentStep: 'Đã hủy',
+            error: 'Cancelled by user',
+            abortReason: 'user',
+            lastEventAt: Date.now(),
+          };
+        }
+        return j;
+      })
     );
+    if (cancelledTaskId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      void (supabase.from('generation_tasks') as any)
+        .update({
+          status: 'cancelled',
+          progress_message: 'Đã hủy',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cancelledTaskId)
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.warn('[CarouselGen] cancel persist failed:', error);
+        });
+    }
     toast.info('Đã hủy quá trình tạo carousel');
   }, []);
 
@@ -185,8 +209,42 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         abortReason: null,
         revealingSlide: null,
         revealingSlideMeta: null,
+        kind: 'prompt',
+        taskId: null,
+        carouselId: null,
       };
       setJobs((prev) => [job, ...prev]);
+
+      // Persist task row up front so it survives reload / tab close
+      let dbTaskId: string | null = null;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: taskRow, error: taskErr } = await (supabase.from('generation_tasks') as any)
+          .insert({
+            user_id: user.id,
+            organization_id: currentOrganization?.id || null,
+            task_type: 'carousel_prompt',
+            status: 'generating',
+            progress: 0,
+            progress_message: 'Đang khởi tạo...',
+            current_step: 'init',
+            input_params: {
+              ...formData,
+              jobId,
+              startedAt,
+            },
+          })
+          .select('id')
+          .single();
+        if (!taskErr && taskRow?.id) {
+          dbTaskId = taskRow.id as string;
+          updateJob(jobId, { taskId: dbTaskId });
+        } else if (taskErr) {
+          console.warn('[CarouselGen] Could not persist task row:', taskErr);
+        }
+      } catch (err) {
+        console.warn('[CarouselGen] Persist task error:', err);
+      }
 
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -212,6 +270,27 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           }, receivedFirstByte ? IDLE_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
         };
         armWatchdog();
+
+        // Throttled DB sync of progress → generation_tasks (so reload sees latest state)
+        let lastDbSync = 0;
+        const DB_SYNC_INTERVAL_MS = 1500;
+        const syncTaskRow = async (
+          patch: { progress?: number; current_step?: string; progress_message?: string; status?: string; error_message?: string; result_id?: string | null; result_type?: string | null },
+          force = false,
+        ) => {
+          if (!dbTaskId) return;
+          const now = Date.now();
+          if (!force && now - lastDbSync < DB_SYNC_INTERVAL_MS) return;
+          lastDbSync = now;
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase.from('generation_tasks') as any)
+              .update({ ...patch, updated_at: new Date().toISOString() })
+              .eq('id', dbTaskId);
+          } catch (err) {
+            console.warn('[CarouselGen] sync task row failed:', err);
+          }
+        };
 
         const resp = await fetch(url, {
           method: 'POST',
@@ -284,8 +363,17 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 phase,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
+              void syncTaskRow({
+                progress: typeof event.percent === 'number' ? event.percent : undefined,
+                current_step: phase,
+                progress_message: event.message || event.step || 'Đang xử lý...',
+              });
             } else if (event.type === 'carousel_saved') {
-              if (event.carouselId) savedCarouselId = String(event.carouselId);
+              if (event.carouselId) {
+                savedCarouselId = String(event.carouselId);
+                updateJob(jobId, { carouselId: savedCarouselId });
+                void syncTaskRow({ result_id: savedCarouselId, result_type: 'carousels' }, true);
+              }
             } else if (event.type === 'slide_start') {
               const newSlide = event.slideNumber ?? 0;
               const prevMeta = job.revealingSlideMeta;
@@ -327,6 +415,11 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: event.completedSlides ?? partial.length,
                 totalSlides: event.totalSlides ?? partial.length,
               });
+              void syncTaskRow({
+                progress: event.percent ?? undefined,
+                progress_message: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
+                current_step: 'revealing',
+              });
             } else if (event.type === 'result') {
               finalCarousel = {
                 ...event.carousel,
@@ -336,6 +429,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 status: 'done',
                 phase: 'done',
                 carousel: finalCarousel,
+                carouselId: finalCarousel.id,
                 progress: 100,
                 currentStep: 'Hoàn thành!',
                 partialSlides: finalCarousel.slides_content || partial,
@@ -343,6 +437,14 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 revealingSlide: null,
                 revealingSlideMeta: null,
               });
+              void syncTaskRow({
+                status: 'completed',
+                progress: 100,
+                progress_message: 'Hoàn thành',
+                current_step: 'done',
+                result_id: finalCarousel.id || savedCarouselId,
+                result_type: 'carousels',
+              }, true);
               // Auto-launch image batch independently of UI mount
               if (formData.autoGenerateImages && finalCarousel.id && user) {
                 void launchCarouselImageBatch({
@@ -363,6 +465,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               else if (event.status === 402) toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
               else toast.error(m);
               updateJob(jobId, { status: 'error', phase: 'error', error: m, abortReason: 'backend' });
+              void syncTaskRow({ status: 'failed', error_message: m }, true);
             }
           }
         }
@@ -481,6 +584,218 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
     },
     [jobs, dismissJob, generateCarousel]
   );
+
+  // ────────────────────────────────────────────
+  // Rehydrate active background tasks on mount
+  // ────────────────────────────────────────────
+  const rehydratedRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id || rehydratedRef.current) return;
+    rehydratedRef.current = true;
+
+    const rebuildJob = (row: Record<string, unknown>): CarouselGenerationJob | null => {
+      const params = (row.input_params as Record<string, unknown>) || {};
+      const kind = row.task_type === 'carousel_image' ? 'image' : 'prompt';
+      const formData =
+        kind === 'prompt'
+          ? (params as unknown as CarouselFormData)
+          : ({
+              topic: (params as { carouselTopic?: string }).carouselTopic || 'Carousel',
+              platform: ((params as { platform?: string }).platform as CarouselFormData['platform']) || 'instagram',
+              slideCount: ((params as { slides?: unknown[] }).slides?.length as number) || 0,
+              aiTool: 'ideogram',
+              brandName: '',
+              brandGuideline: '',
+              includeLogo: false,
+              carouselStyle: ((params as { carouselStyle?: string }).carouselStyle as CarouselFormData['carouselStyle']) || 'seamless',
+              visualPreset: ((params as { visualPreset?: string }).visualPreset as CarouselFormData['visualPreset']) || 'minimalist',
+            } as CarouselFormData);
+      const totalSlides =
+        (formData.slideCount as number) ||
+        ((params as { slides?: unknown[] }).slides?.length as number) ||
+        0;
+      const startedAtMs = row.created_at ? new Date(row.created_at as string).getTime() : Date.now();
+      return {
+        id: `task_${row.id}`,
+        formData,
+        status: 'generating',
+        startedAt: startedAtMs,
+        progress: typeof row.progress === 'number' ? (row.progress as number) : 0,
+        currentStep: (row.progress_message as string) || 'Đang chạy nền...',
+        phase: 'ai_generating',
+        partialSlides: [],
+        totalSlides,
+        completedSlides: 0,
+        lastEventAt: Date.now(),
+        abortReason: null,
+        revealingSlide: null,
+        revealingSlideMeta: null,
+        kind,
+        taskId: row.id as string,
+        carouselId: (row.result_id as string) || null,
+        rehydrated: true,
+      };
+    };
+
+    (async () => {
+      try {
+        const sinceIso = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { data, error } = await supabase
+          .from('generation_tasks')
+          .select('id, task_type, status, progress, progress_message, current_step, input_params, result_id, created_at, updated_at')
+          .eq('user_id', user.id)
+          .in('task_type', ['carousel_prompt', 'carousel_image'])
+          .in('status', ['pending', 'generating'])
+          .gte('updated_at', sinceIso)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error) {
+          console.warn('[CarouselGen] Rehydrate query failed:', error);
+          return;
+        }
+        if (!data || data.length === 0) return;
+        const rebuilt = data
+          .map((row) => rebuildJob(row as Record<string, unknown>))
+          .filter((x): x is CarouselGenerationJob => Boolean(x));
+        if (rebuilt.length === 0) return;
+        setJobs((prev) => {
+          // De-dup against any in-memory jobs already started this session
+          const taskIds = new Set(prev.map((j) => j.taskId).filter(Boolean));
+          const merged = [...prev];
+          for (const r of rebuilt) {
+            if (r.taskId && !taskIds.has(r.taskId)) merged.push(r);
+          }
+          return merged;
+        });
+        toast.info(
+          rebuilt.length === 1
+            ? '🎨 Có 1 carousel đang chạy nền — tiếp tục theo dõi'
+            : `🎨 Có ${rebuilt.length} carousel đang chạy nền — tiếp tục theo dõi`,
+          { duration: 4000 },
+        );
+      } catch (err) {
+        console.warn('[CarouselGen] Rehydrate error:', err);
+      }
+    })();
+  }, [user?.id]);
+
+  // ────────────────────────────────────────────
+  // Realtime: keep jobs in sync with generation_tasks DB
+  // (covers reload state, image batch progress, cross-tab updates)
+  // ────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`carousel_gen_tasks:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'generation_tasks',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | null;
+          if (!row) return;
+          const taskType = row.task_type as string;
+          if (taskType !== 'carousel_prompt' && taskType !== 'carousel_image') return;
+          const taskId = row.id as string;
+          const status = row.status as string;
+
+          setJobs((prev) => {
+            const exists = prev.some((j) => j.taskId === taskId);
+            if (!exists && (status === 'pending' || status === 'generating')) {
+              // Auto-add image-batch job that wasn't in memory (e.g. launched
+              // from another tab or before the provider mounted).
+              if (taskType === 'carousel_image') {
+                const params = (row.input_params as Record<string, unknown>) || {};
+                const totalSlides = ((params as { slides?: unknown[] }).slides?.length as number) || 0;
+                const startedAtMs = row.created_at ? new Date(row.created_at as string).getTime() : Date.now();
+                return [
+                  {
+                    id: `task_${taskId}`,
+                    formData: {
+                      topic: (params as { carouselTopic?: string }).carouselTopic || 'Carousel',
+                      platform: ((params as { platform?: string }).platform as CarouselFormData['platform']) || 'instagram',
+                      slideCount: totalSlides,
+                      aiTool: 'ideogram' as const,
+                      brandName: '',
+                      brandGuideline: '',
+                      includeLogo: false,
+                      carouselStyle: 'seamless' as const,
+                      visualPreset: 'minimalist' as const,
+                    },
+                    status: 'generating',
+                    startedAt: startedAtMs,
+                    progress: typeof row.progress === 'number' ? (row.progress as number) : 0,
+                    currentStep: (row.progress_message as string) || 'Đang tạo ảnh...',
+                    phase: 'image_generating',
+                    partialSlides: [],
+                    totalSlides,
+                    completedSlides: 0,
+                    lastEventAt: Date.now(),
+                    abortReason: null,
+                    revealingSlide: null,
+                    revealingSlideMeta: null,
+                    kind: 'image',
+                    taskId,
+                    carouselId: (row.result_id as string) || (params as { carouselId?: string }).carouselId || null,
+                  } satisfies CarouselGenerationJob,
+                  ...prev,
+                ];
+              }
+            }
+            return prev.map((j) => {
+              if (j.taskId !== taskId) return j;
+              if (status === 'completed') {
+                return {
+                  ...j,
+                  status: 'done',
+                  phase: 'done',
+                  progress: 100,
+                  currentStep: 'Hoàn thành',
+                  carouselId: (row.result_id as string) || j.carouselId,
+                  lastEventAt: Date.now(),
+                };
+              }
+              if (status === 'failed') {
+                return {
+                  ...j,
+                  status: 'error',
+                  phase: 'error',
+                  error: (row.error_message as string) || j.error || 'Tạo thất bại',
+                  lastEventAt: Date.now(),
+                };
+              }
+              if (status === 'cancelled') {
+                return {
+                  ...j,
+                  status: 'cancelled',
+                  phase: 'cancelled',
+                  currentStep: 'Đã hủy',
+                  lastEventAt: Date.now(),
+                };
+              }
+              // Active: merge progress
+              return {
+                ...j,
+                progress: typeof row.progress === 'number' ? (row.progress as number) : j.progress,
+                currentStep: (row.progress_message as string) || j.currentStep,
+                lastEventAt: Date.now(),
+              };
+            });
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch { /* noop */ }
+    };
+  }, [user?.id]);
 
   const activeJob = jobs.find((j) => j.status === 'generating') || jobs[0] || null;
   const generating = jobs.some((j) => j.status === 'generating');

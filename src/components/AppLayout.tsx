@@ -11,6 +11,7 @@ import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
 import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
 import { ReconnectBanner } from '@/components/social/ReconnectBanner';
+import { GlobalCarouselJobsBadge } from '@/components/carousel/GlobalCarouselJobsBadge';
 
 
 import { useAutoLanguage } from '@/hooks/useAutoLanguage';
@@ -62,6 +63,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         
         {/* Help Chat Widget - Floating */}
         <HelpChatWidget />
+        {/* Background carousel jobs badge - Floating, app-wide */}
+        <GlobalCarouselJobsBadge />
       </div>
     </SidebarProvider>
   );
