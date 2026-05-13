@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { updateTaskProgress, completeTask, failTask } from "../_shared/task-tracking.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { runCreativeDirection, type CreativeDirection } from "../_shared/carousel-creative-direction.ts";
 
 /**
  * Extract dominant hex palette from anchor slide image.
@@ -332,6 +333,37 @@ Deno.serve(async (req) => {
         console.warn('[batch] Could not resolve organizationId/logo:', e);
       }
 
+      // === LAYER 7: Creative Director step (1 LLM call). Fail-soft. ===
+      let creativeDirection: CreativeDirection | null = null;
+      try {
+        creativeDirection = await runCreativeDirection({
+          topic: carouselTopic || '',
+          carouselStyle,
+          visualPreset,
+          slides: slides.map((s: any, idx: number) => ({
+            slideNumber: s.slideNumber || (idx + 1),
+            objective: s.objective,
+            textContent: s.textContent,
+          })),
+          brandColors,
+          organizationId,
+          traceId,
+        });
+        if (creativeDirection) {
+          try {
+            await supabase
+              .from('carousels')
+              .update({ creative_direction: creativeDirection as any })
+              .eq('id', carouselId);
+          } catch (e) {
+            console.warn('[batch] Could not persist creative_direction:', e);
+          }
+        }
+      } catch (e) {
+        console.warn('[batch] runCreativeDirection threw — continuing without:', e);
+        creativeDirection = null;
+      }
+
       // Process slides STRICTLY sequentially (slide N waits for slide N-1).
       // This is mandatory for seamless continuity — see plan layer 1.
       let userCancelled = false;
@@ -374,6 +406,10 @@ Deno.serve(async (req) => {
 
         const layeredPrevDesc = (() => {
           const parts: string[] = [];
+          // LAYER 7: locked metaphor — inject on slide 1 (and reinforce on later slides if anchor not yet set)
+          if (creativeDirection?.metaphor?.chosen) {
+            parts.push(`LOCKED VISUAL METAPHOR (use throughout the entire series — do NOT use literal arrows, charts, gears, light bulbs, neon, circuits): ${creativeDirection.metaphor.chosen}`);
+          }
           if (slideNum === 1 && seriesBible) parts.push(seriesBible);
           if (slideNum > 1) {
             if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
@@ -384,6 +420,11 @@ Deno.serve(async (req) => {
             if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
               parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
             }
+          }
+          // LAYER 7: mood arc directive for THIS slide
+          const mood = creativeDirection?.moodArc?.find((m) => m.slideNumber === slideNum);
+          if (mood) {
+            parts.push(`MOOD FOR THIS SLIDE (role=${mood.role}): contrast=${mood.contrast}, saturation=${mood.saturation}. Focal intent: ${mood.focalIntent}`);
           }
           // LAYER 4.3: composition scaffold rotation — break monotony, force per-slide variety.
           parts.push(pickCompositionScaffold(slideNum, totalSlides));
@@ -397,6 +438,14 @@ Deno.serve(async (req) => {
           sequencePosition: slideNum,
           totalInSequence: totalSlides,
         };
+
+        // LAYER 7: per-slide creative direction payload for image function
+        const slideCreativeDirection = creativeDirection ? {
+          metaphor: creativeDirection.metaphor.chosen,
+          moodForSlide: creativeDirection.moodArc.find((m) => m.slideNumber === slideNum) || null,
+          typographyArchetype: creativeDirection.typographyRole.find((t) => t.slideNumber === slideNum)?.archetype || null,
+        } : null;
+
 
         const MAX_ATTEMPTS = 2;
         let slideSuccess = false;
@@ -444,6 +493,7 @@ Deno.serve(async (req) => {
                 // and lets multi-image providers (Lovable Gateway) layer logo+anchor+previous.
                 anchorImageUrl: slideNum > 1 ? anchorImageUrl : null,
                 seamlessContext: slideSeamlessContext,
+                creativeDirection: slideCreativeDirection,
               }),
               signal: controller.signal,
             });

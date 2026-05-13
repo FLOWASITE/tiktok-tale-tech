@@ -104,3 +104,35 @@ AI models (PoYo/KIE/Gemini) khi nhận `logo_url` làm reference image + `logoDi
 - KHÔNG bao giờ inject logo vào AI prompt hay multi-image input nữa — luôn composite post-gen
 - KHÔNG dùng position `top-right` (collide với typography hook area)
 - KHÔNG dùng logoStyle `glass`/`pill` cho carousel (frame phá editorial composition)
+
+---
+
+## Layer 7: Creative Director + Typography Art Direction
+
+### Vấn đề
+Sau Layer 6: text vẫn "AI-generated" (font generic, hierarchy mềm), color không có "mood arc" (palette flat suốt 4-10 slides), metaphor literal (mũi tên, biểu đồ, neon).
+
+### Fix
+**`_shared/carousel-creative-direction.ts` (mới):**
+- `runCreativeDirection({...})` → 1 LLM call/carousel (Gemini 2.5 Flash mặc định, admin override qua `ai_function_configs.function_name='carousel-creative-direction'`)
+- Tool calling structured output: `{ metaphor: {chosen, rejected, reasoning}, moodArc[], typographyRole[] }`
+- Timeout 12s, fail-soft → return `null`, batch fallback Layer 4-6
+- 5 archetypes: `editorial-hero`, `data-display`, `supporting-body`, `cta-poster`, `caption-only`
+- Export `buildTypographyDirective()` sync builder cho prompt block
+
+**`generate-carousel-images-batch`:**
+- Gọi `runCreativeDirection` 1 lần đầu batch (sau resolve logo) → persist vào `carousels.creative_direction` (JSONB cột mới)
+- Inject `LOCKED VISUAL METAPHOR` vào `seamlessContext.previousSceneDescription` mọi slide
+- Inject `MOOD FOR THIS SLIDE` (contrast/saturation/focalIntent) per slide
+- Pass `creativeDirection: { metaphor, moodForSlide, typographyArchetype }` vào mỗi `generate-carousel-image`
+
+**`generate-carousel-image`:**
+- Nhận `creativeDirection` + truyền vào `buildBackgroundPrompt`
+- Replace TEXT RENDERING block bằng `buildTypographyDirective(archetype, ...)` khi có archetype
+- Fallback giữ block legacy nếu `creativeDirection=null` hoặc archetype unavailable
+
+### Anti-pattern phải tránh
+- KHÔNG hardcode font name vào prompt (để archetype quản lý)
+- KHÔNG dùng `creativeDirection` như block hard-fail (phải fail-soft)
+- KHÔNG set timeout < 10s cho creative-direction call (Gemini 2.5 Flash thi thoảng cần 8-10s)
+- KHÔNG persist creative_direction nếu schema validation fail (return null sớm)

@@ -3915,6 +3915,7 @@ export type Database = {
           caption_suggestion: string | null
           carousel_style: string
           created_at: string
+          creative_direction: Json | null
           critique_details: Json | null
           critique_score: number | null
           cta_suggestion: string | null
@@ -3956,6 +3957,7 @@ export type Database = {
           caption_suggestion?: string | null
           carousel_style?: string
           created_at?: string
+          creative_direction?: Json | null
           critique_details?: Json | null
           critique_score?: number | null
           cta_suggestion?: string | null
@@ -3997,6 +3999,7 @@ export type Database = {
           caption_suggestion?: string | null
           carousel_style?: string
           created_at?: string
+          creative_direction?: Json | null
           critique_details?: Json | null
           critique_score?: number | null
           cta_suggestion?: string | null

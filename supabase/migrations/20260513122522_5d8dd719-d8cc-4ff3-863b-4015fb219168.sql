@@ -1,0 +1,1 @@
+ALTER TABLE public.carousels ADD COLUMN IF NOT EXISTS creative_direction JSONB;
