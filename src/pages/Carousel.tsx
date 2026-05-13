@@ -59,10 +59,16 @@ const CarouselPage = () => {
   const { carousels: allCarousels, loading, generating, generateCarousel, deleteCarousel, updateCarousel, refetch } = useCarousels();
   const { currentBrand } = useCurrentBrand();
 
-  // Filter strictly by current brand (UI-level isolation)
+  // Filter strictly by current brand (UI-level isolation).
+  // Carousels with NULL brand_template_id (created before Brand context existed
+  // or via legacy entry points) are kept visible so the user never "loses" a
+  // carousel just because no brand is bound to it. Strict isolation still
+  // applies for carousels that DO have a brand_template_id.
   const carousels = useMemo(() => {
     if (!currentBrand) return allCarousels;
-    return allCarousels.filter((c) => c.brand_template_id === currentBrand.id);
+    return allCarousels.filter(
+      (c) => c.brand_template_id === currentBrand.id || !c.brand_template_id,
+    );
   }, [allCarousels, currentBrand]);
   
   // Fetch creator profiles for all carousels
