@@ -3924,8 +3924,10 @@ export type Database = {
           include_logo: boolean
           industry_template_id: string | null
           industry_template_version: string | null
+          locked_palette: Json | null
           needs_manual_review: boolean | null
           needs_regeneration: boolean | null
+          needs_regeneration_slides: Json | null
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           published_channels: string[]
@@ -3962,8 +3964,10 @@ export type Database = {
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
+          locked_palette?: Json | null
           needs_manual_review?: boolean | null
           needs_regeneration?: boolean | null
+          needs_regeneration_slides?: Json | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           published_channels?: string[]
@@ -4000,8 +4004,10 @@ export type Database = {
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
+          locked_palette?: Json | null
           needs_manual_review?: boolean | null
           needs_regeneration?: boolean | null
+          needs_regeneration_slides?: Json | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           published_channels?: string[]
