@@ -888,6 +888,22 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     const twarn = (msg: string, ...rest: any[]) => console.warn(`[trace=${traceId.slice(0, 8)}] ${msg}`, ...rest);
 
     // ============================================
+    // 2.0 Server-side length cap (UI enforces 300, but a hand-crafted client
+    // could spam 10K+ chars → costly AI calls). Reject hard at 500.
+    // ============================================
+    const rawTopicLen = (formData.topic || "").length;
+    if (rawTopicLen > 500) {
+      return new Response(
+        JSON.stringify({
+          error: "INPUT_TOO_LONG",
+          message: `Chủ đề quá dài (${rawTopicLen} ký tự). Tối đa 500 ký tự.`,
+          traceId,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json", "x-trace-id": traceId } }
+      );
+    }
+
+    // ============================================
     // 2.1 Prompt-injection guard on user-supplied free text
     // ============================================
     const topicGuard = sanitizeInput(formData.topic || "");

@@ -104,7 +104,7 @@ export async function launchCarouselImageBatch({
   // batches failed, no human-readable signal of why).
   try {
     const sinceIso = new Date(Date.now() - 60_000).toISOString();
-    const { data: recent } = await supabase
+    let q = supabase
       .from('generation_tasks')
       .select('id, status, input_params, created_at')
       .eq('user_id', userId)
@@ -112,6 +112,10 @@ export async function launchCarouselImageBatch({
       .gte('created_at', sinceIso)
       .order('created_at', { ascending: false })
       .limit(20);
+    // Scope cooldown to current organization so a workspace switch doesn't
+    // get blocked by another org's recent failures.
+    if (organizationId) q = q.eq('organization_id', organizationId);
+    const { data: recent } = await q;
     const sameCarousel = (recent || []).filter(
       (t: any) => (t.input_params as any)?.carouselId === carousel.id,
     );

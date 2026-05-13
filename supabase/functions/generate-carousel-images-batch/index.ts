@@ -156,6 +156,7 @@ Deno.serve(async (req) => {
           const attemptStartedAt = Date.now();
           let attemptExitReason = 'success';
           let attemptError: string | null = null;
+          let attemptModel: string | null = null;
 
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
@@ -225,6 +226,7 @@ Deno.serve(async (req) => {
             if (data.imageUrl) {
               slideImageUrl = data.imageUrl;
               slideSceneDescription = data.sceneDescription || null;
+              attemptModel = data.modelUsed || null;
               slideSuccess = true;
 
               // Save to carousel_images table — persist scene_description for
@@ -293,6 +295,7 @@ Deno.serve(async (req) => {
                 content_id: carouselId,
                 action_type: 'carousel_image_slide',
                 channels: ['carousel'],
+                models_used: attemptModel ? [attemptModel] : null,
               });
             } catch (mErr) {
               console.warn('[batch] ai_metrics insert failed (non-fatal):', mErr);
