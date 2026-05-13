@@ -1104,7 +1104,13 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           }
           if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
             return new Response(
-              JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED", fallback: true }),
+              JSON.stringify({
+                error: `Lovable AI Gateway hết credit (model fallback ${gatewayModel}). Provider chính được cấu hình: ${requestedModel}. Hãy kiểm tra lại routing — tránh để Gateway bị gọi khi đã chọn provider riêng (GeminiGen/PoYo/KIE).`,
+                errorCode: "CREDITS_EXHAUSTED",
+                fallback: true,
+                requestedModel,
+                gatewayModel,
+              }),
               { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
