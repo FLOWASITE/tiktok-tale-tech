@@ -519,7 +519,12 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
             carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic,
-            previousImageUrl } = requestBody;
+            previousImageUrl, anchorImageUrl, aspectRatio: bodyAspectRatio } = requestBody;
+    // Resolved aspect ratio for ALL provider calls below — must be identical
+    // across slides in the same carousel for visual coherence.
+    const resolvedAspect: string =
+      bodyAspectRatio
+      || (platform === 'tiktok' ? '9:16' : platform === 'instagram' ? '4:5' : '1:1');
 
     // ============================================
     // Distributed trace — propagate from generate-carousel
