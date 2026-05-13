@@ -62,7 +62,14 @@ Deno.serve(async (req) => {
     // Captures the ACTUAL previous slide's scene + image, so seamless context is real.
     let previousSceneDescription: string | null = seriesBible || null;
     let previousImageUrl: string | null = null;
-    // Rolling window of last 2 slides' descriptions to limit drift
+    // Anchor = slide 1 image. Used as visual reference for ALL subsequent slides
+    // to prevent style drift when the chain only carries slide N-1 forward.
+    let anchorImageUrl: string | null = null;
+    let anchorSceneDescription: string | null = null;
+    // Locked color palette (top hex colors) extracted from anchor slide once,
+    // then injected into seamlessContext.colorPalette for slides 2..N.
+    let lockedPalette: string[] | null = null;
+    // Rolling window of last 4 slides' descriptions to limit drift on long carousels.
     const recentScenes: string[] = [];
 
     try {
