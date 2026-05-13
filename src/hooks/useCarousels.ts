@@ -90,6 +90,25 @@ export function useCarousels() {
           });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'carousels',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          const updated = {
+            ...row,
+            slides_content: row.slides_content as CarouselSlide[],
+          } as Carousel;
+          setCarousels((prev) =>
+            prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+          );
+        }
+      )
       .subscribe();
 
     return () => {
