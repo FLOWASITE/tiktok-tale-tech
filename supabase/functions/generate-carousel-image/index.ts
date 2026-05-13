@@ -763,12 +763,13 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       textContent, overlayConfig, visualPreset
     );
 
-    // === Logo conditioning directive (only when we actually attach the logo image) ===
-    // Models receive the logo as a real image input (multi-image), this text tells them HOW to use it.
-    const logoDirective = (includeLogo && resolvedLogoUrl)
-      ? `\n\n[REFERENCE IMAGE — BRAND LOGO]: One of the attached images is the EXACT brand logo. You MUST place it in the design WITHOUT redrawing, modifying its shape, colors, typography, or proportions. Position: top-right corner with ~5% padding from edges. Size: ~10–12% of canvas width. Do NOT invent a different logo. If unsure, omit the logo rather than guess.`
-      : '';
-    const finalPrompt = backgroundPrompt + logoDirective;
+    // === LAYER 6: Logo is composited deterministically post-gen by
+    // generate-carousel-images-batch via overlay-logo-canvas. Do NOT
+    // attach the logo as a reference image and do NOT instruct the model
+    // to render it — models hallucinate fake wordmarks ("alero", "mopd"),
+    // wrong colors, wrong proportions. AntiHallucinationGuard already
+    // forbids any logo/wordmark/watermark in the AI output.
+    const finalPrompt = backgroundPrompt;
 
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
