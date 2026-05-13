@@ -333,6 +333,37 @@ Deno.serve(async (req) => {
         console.warn('[batch] Could not resolve organizationId/logo:', e);
       }
 
+      // === LAYER 7: Creative Director step (1 LLM call). Fail-soft. ===
+      let creativeDirection: CreativeDirection | null = null;
+      try {
+        creativeDirection = await runCreativeDirection({
+          topic: carouselTopic || '',
+          carouselStyle,
+          visualPreset,
+          slides: slides.map((s: any, idx: number) => ({
+            slideNumber: s.slideNumber || (idx + 1),
+            objective: s.objective,
+            textContent: s.textContent,
+          })),
+          brandColors,
+          organizationId,
+          traceId,
+        });
+        if (creativeDirection) {
+          try {
+            await supabase
+              .from('carousels')
+              .update({ creative_direction: creativeDirection as any })
+              .eq('id', carouselId);
+          } catch (e) {
+            console.warn('[batch] Could not persist creative_direction:', e);
+          }
+        }
+      } catch (e) {
+        console.warn('[batch] runCreativeDirection threw — continuing without:', e);
+        creativeDirection = null;
+      }
+
       // Process slides STRICTLY sequentially (slide N waits for slide N-1).
       // This is mandatory for seamless continuity — see plan layer 1.
       let userCancelled = false;
