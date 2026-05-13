@@ -297,17 +297,39 @@ Deno.serve(async (req) => {
         console.warn('[batch] Could not mark generation_mode:', e);
       }
 
-      // Resolve organizationId from carousel
+      // Resolve organizationId + brand logo (for Layer 6 deterministic logo overlay)
       let organizationId: string | undefined;
+      let brandLogoUrl: string | null = null;
+      let brandIncludesLogo = false;
       try {
         const { data: carouselData } = await supabase
           .from('carousels')
-          .select('organization_id')
+          .select('organization_id, include_logo, brand_template_id')
           .eq('id', carouselId)
           .maybeSingle();
         organizationId = carouselData?.organization_id || undefined;
+        brandIncludesLogo = !!carouselData?.include_logo;
+        const brandTemplateId = carouselData?.brand_template_id || null;
+
+        if (brandIncludesLogo && brandTemplateId) {
+          const { data: brand } = await supabase
+            .from('brand_templates')
+            .select('logo_url')
+            .eq('id', brandTemplateId)
+            .maybeSingle();
+          const raw = brand?.logo_url || null;
+          if (raw) {
+            if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) {
+              brandLogoUrl = raw;
+            } else {
+              const { data: pub } = supabase.storage.from('brand-assets').getPublicUrl(raw);
+              brandLogoUrl = pub?.publicUrl || null;
+            }
+          }
+          console.log(`[batch] Brand logo resolved: ${brandLogoUrl ? 'YES' : 'NO'} (brand=${brandTemplateId})`);
+        }
       } catch (e) {
-        console.warn('[batch] Could not resolve organizationId:', e);
+        console.warn('[batch] Could not resolve organizationId/logo:', e);
       }
 
       // Process slides STRICTLY sequentially (slide N waits for slide N-1).
@@ -468,6 +490,52 @@ Deno.serve(async (req) => {
               slideSceneDescription = data.sceneDescription || null;
               attemptModel = data.modelUsed || null;
               slideSuccess = true;
+
+              // === LAYER 6: Deterministic logo compositing ===
+              // AI no longer attempts to render the logo. Composite the REAL
+              // brand logo via overlay-logo-canvas. Fail-soft: keep AI image on
+              // error, never block batch.
+              if (brandIncludesLogo && brandLogoUrl) {
+                try {
+                  const isCta = slideNum === totalSlides;
+                  const overlayResp = await fetch(
+                    `${supabaseUrl}/functions/v1/overlay-logo-canvas`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseServiceKey}`,
+                      },
+                      body: JSON.stringify({
+                        baseImageUrl: slideImageUrl,
+                        logoUrl: brandLogoUrl,
+                        position: isCta ? 'bottom-center' : 'bottom-right',
+                        logoStyle: 'subtle',
+                        logoSizePercent: 10,
+                        logoOpacity: 100,
+                        padding: 48,
+                        contentId: carouselId,
+                        channel: `carousel-slide-${slideNum}`,
+                        organizationId: organizationId,
+                      }),
+                    }
+                  );
+                  if (overlayResp.ok) {
+                    const overlayJson = await overlayResp.json();
+                    if (overlayJson?.success && overlayJson.imageUrl) {
+                      console.log(`[batch] Slide ${slideNum} logo composited`);
+                      slideImageUrl = overlayJson.imageUrl;
+                    } else {
+                      console.warn(`[batch] Slide ${slideNum} logo overlay returned no URL — keeping AI image`);
+                    }
+                  } else {
+                    const t = await overlayResp.text().catch(() => '');
+                    console.warn(`[batch] Slide ${slideNum} logo overlay HTTP ${overlayResp.status}: ${t.slice(0, 120)} — keeping AI image`);
+                  }
+                } catch (e) {
+                  console.warn(`[batch] Slide ${slideNum} logo overlay exception (fail-soft):`, e);
+                }
+              }
 
               // Save to carousel_images table — persist scene_description for
               // seamless continuity across refresh + single-slide regenerate.

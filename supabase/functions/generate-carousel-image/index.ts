@@ -763,12 +763,13 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       textContent, overlayConfig, visualPreset
     );
 
-    // === Logo conditioning directive (only when we actually attach the logo image) ===
-    // Models receive the logo as a real image input (multi-image), this text tells them HOW to use it.
-    const logoDirective = (includeLogo && resolvedLogoUrl)
-      ? `\n\n[REFERENCE IMAGE — BRAND LOGO]: One of the attached images is the EXACT brand logo. You MUST place it in the design WITHOUT redrawing, modifying its shape, colors, typography, or proportions. Position: top-right corner with ~5% padding from edges. Size: ~10–12% of canvas width. Do NOT invent a different logo. If unsure, omit the logo rather than guess.`
-      : '';
-    const finalPrompt = backgroundPrompt + logoDirective;
+    // === LAYER 6: Logo is composited deterministically post-gen by
+    // generate-carousel-images-batch via overlay-logo-canvas. Do NOT
+    // attach the logo as a reference image and do NOT instruct the model
+    // to render it — models hallucinate fake wordmarks ("alero", "mopd"),
+    // wrong colors, wrong proportions. AntiHallucinationGuard already
+    // forbids any logo/wordmark/watermark in the AI output.
+    const finalPrompt = backgroundPrompt;
 
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
@@ -781,11 +782,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     //   slide 2 → anchor (locks identity early)
     //   slide 3+ → previous (smooth chain), but fall back to anchor if no previous
     //   slide 1 → logo (no previous yet)
+    // For single-input providers (PoYo/KIE/GeminiGen): visual reference priority
+    //   slide 2 → anchor (locks identity early)
+    //   slide 3+ → previous (smooth chain), but fall back to anchor if no previous
+    //   slide 1 → no ref (logo NOT used as anchor — composited post-gen, see Layer 6)
     const singleSlotRef =
       slideNumber === 2 ? (anchorImageUrl || previousImageUrl)
       : slideNumber > 2 ? (previousImageUrl || anchorImageUrl)
       : null;
-    const singleRefImage = singleSlotRef || (includeLogo && resolvedLogoUrl) || undefined;
+    const singleRefImage = singleSlotRef || undefined;
 
     // --- PoYo routing ---
     if (!forceLovableGateway && isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
@@ -1051,15 +1056,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
-        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1), logo]
+        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1)]
         // Anchor preserves the original visual world even when the chain drifts.
-        // Cap at 3 reference images to keep gateway cost ~+15% vs pure text.
+        // Logo is NOT attached — composited post-gen by overlay-logo-canvas (Layer 6).
+        // Cap at 2 reference images to keep gateway cost minimal.
         const userContent: any[] = [{ type: "text", text: finalPrompt }];
         const refs: string[] = [];
         if (anchorImageUrl && anchorImageUrl !== previousImageUrl) refs.push(anchorImageUrl);
         if (previousImageUrl) refs.push(previousImageUrl);
-        if (includeLogo && resolvedLogoUrl) refs.push(resolvedLogoUrl);
-        for (const r of refs.slice(0, 3)) {
+        for (const r of refs.slice(0, 2)) {
           userContent.push({ type: "image_url", image_url: { url: r } });
         }
         const attachedImages = userContent.length - 1;

@@ -75,3 +75,32 @@ type: feature
   - Fall-through tới Lovable Gateway block (line ~1046) chạy với gemini-3.1-flash-image
 - Lý do: PoYo/KIE/GeminiGen lean photoreal/cinematic → over-render flat_design thành 3D. Gemini 3.1 Flash Image (Nano Banana 2) tôn trọng directive 2D vector clean editorial.
 - Photoreal presets (gradient/geometric/illustration/product_only) → giữ provider chain hiện tại.
+
+## Layer 6: Canvas Logo Compositing (deterministic post-gen)
+
+### Vấn đề
+AI models (PoYo/KIE/Gemini) khi nhận `logo_url` làm reference image + `logoDirective` text → thường:
+- Vẽ lại logo (sai shape/màu/typography)
+- Bịa wordmark giả "alero", "mopd"
+- Đè lên typography overlay
+- Bỏ qua hoàn toàn logo
+
+### Fix
+**generate-carousel-image:**
+- BỎ `logoDirective` text directive (không yêu cầu model render logo)
+- BỎ attach `resolvedLogoUrl` vào `userContent` refs (gateway) và `singleRefImage` (PoYo/KIE/GeminiGen slide 1 fallback)
+- Cap refs gateway từ 3 → 2 (anchor + previous, không có logo)
+- AntiHallucinationGuard "DO NOT render any logo/wordmark" giữ nguyên (đủ mạnh)
+
+**generate-carousel-images-batch:**
+- Fetch `include_logo` + `brand_template_id` + resolve `brand_templates.logo_url` 1 lần đầu batch
+- Sau mỗi `data.imageUrl` thành công → fetch `${supabaseUrl}/functions/v1/overlay-logo-canvas` với:
+  - `position`: `bottom-right` (slide 1..N-1), `bottom-center` (slide N = CTA)
+  - `logoSizePercent`: `10`, `logoStyle`: `subtle`, `logoOpacity`: `100`, `padding`: `48`
+- Replace `slideImageUrl` bằng URL composited TRƯỚC khi insert vào `carousel_images`
+- Fail-soft: lỗi overlay → giữ ảnh AI gốc + warn log, không block batch
+
+### Anti-pattern phải tránh
+- KHÔNG bao giờ inject logo vào AI prompt hay multi-image input nữa — luôn composite post-gen
+- KHÔNG dùng position `top-right` (collide với typography hook area)
+- KHÔNG dùng logoStyle `glass`/`pill` cho carousel (frame phá editorial composition)
