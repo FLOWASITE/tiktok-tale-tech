@@ -388,7 +388,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           });
           const syncStart = Date.now();
           while (Date.now() - syncStart < SYNC_FALLBACK_TIMEOUT_MS) {
-            const synced = await trySyncFromDb(formData, startedAt);
+            const synced = await trySyncFromDb(formData, startedAt, savedCarouselId);
             if (synced) {
               updateJob(jobId, {
                 status: 'done',
