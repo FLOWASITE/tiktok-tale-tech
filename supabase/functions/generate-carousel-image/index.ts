@@ -727,6 +727,27 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       // We do NOT mutate requestedModel: the multi-image fork below triggers on `!externalImageUrl`.
     }
 
+    // === LAYER 5: Preset-aware model routing ===
+    // Editorial-leaning presets (flat_design / minimalist / editorial_minimal /
+    // soft_organic) are routinely over-rendered into cinematic 3D by PoYo/KIE
+    // (which lean photoreal). Route them to Lovable Gateway gemini-3.1-flash
+    // -image-preview (Nano Banana 2) — respects 2D vector / clean editorial
+    // directives much more faithfully. Skip override if user explicitly
+    // selected a non-single-slot model or no Lovable key.
+    const editorialPresets = new Set(['flat_design', 'minimalist', 'editorial_minimal', 'soft_organic']);
+    if (
+      lovableApiKey &&
+      visualPreset &&
+      editorialPresets.has(visualPreset) &&
+      (isSingleImageProvider || imageModel === 'google/gemini-2.5-flash-image')
+    ) {
+      const before = imageModel;
+      imageModel = 'google/gemini-3.1-flash-image-preview';
+      console.log(
+        `[generate-carousel-image] LAYER 5: visualPreset='${visualPreset}' is editorial → ${before} → ${imageModel}`,
+      );
+    }
+
     console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel})`);
 
     // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
