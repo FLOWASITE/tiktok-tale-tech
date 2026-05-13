@@ -63,6 +63,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         
         {/* Help Chat Widget - Floating */}
         <HelpChatWidget />
+        {/* Background carousel jobs badge - Floating, app-wide */}
+        <GlobalCarouselJobsBadge />
       </div>
     </SidebarProvider>
   );
