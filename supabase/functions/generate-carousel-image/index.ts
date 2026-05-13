@@ -782,11 +782,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     //   slide 2 → anchor (locks identity early)
     //   slide 3+ → previous (smooth chain), but fall back to anchor if no previous
     //   slide 1 → logo (no previous yet)
+    // For single-input providers (PoYo/KIE/GeminiGen): visual reference priority
+    //   slide 2 → anchor (locks identity early)
+    //   slide 3+ → previous (smooth chain), but fall back to anchor if no previous
+    //   slide 1 → no ref (logo NOT used as anchor — composited post-gen, see Layer 6)
     const singleSlotRef =
       slideNumber === 2 ? (anchorImageUrl || previousImageUrl)
       : slideNumber > 2 ? (previousImageUrl || anchorImageUrl)
       : null;
-    const singleRefImage = singleSlotRef || (includeLogo && resolvedLogoUrl) || undefined;
+    const singleRefImage = singleSlotRef || undefined;
 
     // --- PoYo routing ---
     if (!forceLovableGateway && isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
