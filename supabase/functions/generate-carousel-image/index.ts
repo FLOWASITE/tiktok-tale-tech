@@ -1538,6 +1538,7 @@ High resolution, professional design quality, 1080x1080px.
           positionDesc,
           bgTreatment,
           colorDesc,
+          visualPreset,
         );
       } catch (e) {
         console.warn('[generate-carousel-image] buildTypographyDirective failed, falling back:', e);
