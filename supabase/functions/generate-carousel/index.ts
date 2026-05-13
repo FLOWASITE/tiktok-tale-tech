@@ -1784,6 +1784,15 @@ async function runCarouselPipelineStreaming(
   const carousel: any = await resp.json();
   const slides: any[] = Array.isArray(carousel?.slides_content) ? carousel.slides_content : [];
 
+  // Emit carousel id early so client can use it for DB-sync fallback (avoids topic-based race conditions)
+  if (carousel?.id) {
+    await emit({
+      type: 'carousel_saved',
+      carouselId: carousel.id,
+      totalSlides: slides.length,
+    });
+  }
+
   await emit({
     type: 'progress',
     step: 'parsing',
