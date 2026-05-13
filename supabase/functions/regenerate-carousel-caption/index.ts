@@ -71,6 +71,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const traceId = generateTraceId();
+  const startedAt = Date.now();
+
   try {
     const { carouselId } = await req.json();
     if (!carouselId) {
@@ -101,6 +104,14 @@ Deno.serve(async (req) => {
       });
     }
     const userId = userData.user.id;
+
+    // Rate limit (carousel bucket — caption regen reuses same quota)
+    const planType = await getUserPlanType(supabase, userId);
+    const rlConfig = getRateLimitConfig(planType, "carousel");
+    const rl = checkRateLimit(userId, rlConfig);
+    if (!rl.allowed) {
+      return createRateLimitErrorResponse(rl, corsHeaders);
+    }
 
     // Load carousel
     const { data: carousel, error: cErr } = await supabase
