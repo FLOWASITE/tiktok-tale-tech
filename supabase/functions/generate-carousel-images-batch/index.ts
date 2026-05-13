@@ -7,6 +7,100 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { updateTaskProgress, completeTask, failTask } from "../_shared/task-tracking.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
+
+/**
+ * Extract dominant hex palette from anchor slide image.
+ * Reads model + max_tokens from `ai_function_configs` (function_name = 'extract-carousel-palette')
+ * so admin có thể override mà không cần đụng code. Multimodal call → đi thẳng Lovable Gateway
+ * (callAI() chưa hỗ trợ image_url content arrays).
+ */
+async function extractLockedPalette(
+  imageUrl: string,
+  organizationId: string | undefined,
+  traceId: string,
+  supabase: any,
+): Promise<string[] | null> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!lovableKey) return null;
+
+  const startedAt = Date.now();
+  let model = 'google/gemini-2.5-flash-lite';
+  let maxTokens = 120;
+  try {
+    const cfg = await getAIConfig('extract-carousel-palette', organizationId);
+    if (cfg?.model_override) model = cfg.model_override;
+    if (cfg?.max_tokens) maxTokens = cfg.max_tokens;
+  } catch { /* fall back to defaults */ }
+
+  let hexes: string[] | null = null;
+  let hadError = false;
+  let errorMessage: string | undefined;
+
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 12_000);
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${lovableKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'text', text: 'Extract the 5 dominant hex colors of this image. Reply ONLY with a JSON array of hex strings, no markdown. Example: ["#1A2B3C","#FFFFFF","#888888","#A0E0FF","#222222"]' },
+          ],
+        }],
+        max_tokens: maxTokens,
+      }),
+      signal: ctl.signal,
+    }).catch((e) => { hadError = true; errorMessage = String(e); return null; });
+    clearTimeout(to);
+
+    if (resp && resp.ok) {
+      const pj = await resp.json().catch(() => null);
+      const txt: string = pj?.choices?.[0]?.message?.content || '';
+      const m = txt.match(/\[[^\]]*\]/);
+      if (m) {
+        try {
+          const arr = JSON.parse(m[0]);
+          if (Array.isArray(arr)) {
+            const filtered = arr
+              .filter((x) => typeof x === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(x))
+              .slice(0, 5);
+            if (filtered.length >= 3) hexes = filtered;
+          }
+        } catch { /* ignore parse */ }
+      }
+    } else if (resp) {
+      hadError = true;
+      errorMessage = `gateway ${resp.status}`;
+    }
+  } catch (e) {
+    hadError = true;
+    errorMessage = String(e);
+  }
+
+  // Telemetry → ai_metrics (cost + latency tracking)
+  try {
+    await supabase.from('ai_metrics').insert({
+      trace_id: traceId,
+      function_name: 'extract-carousel-palette',
+      organization_id: organizationId || null,
+      total_duration_ms: Date.now() - startedAt,
+      models_used: [model],
+      had_error: hadError,
+      error_message: errorMessage || null,
+      exit_reason: hexes ? 'success' : (hadError ? 'error' : 'no_palette'),
+    });
+  } catch { /* non-fatal */ }
+
+  return hexes;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -352,53 +446,14 @@ Deno.serve(async (req) => {
             anchorSceneDescription = slideSceneDescription || nextSceneDesc;
 
             try {
-              const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-              if (lovableKey) {
-                const palCtl = new AbortController();
-                const palTo = setTimeout(() => palCtl.abort(), 12_000);
-                const palResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${lovableKey}`,
-                  },
-                  body: JSON.stringify({
-                    model: 'google/gemini-2.5-flash-lite',
-                    messages: [{
-                      role: 'user',
-                      content: [
-                        { type: 'image_url', image_url: { url: slideImageUrl } },
-                        { type: 'text', text: 'Extract the 5 dominant hex colors of this image. Reply ONLY with a JSON array of hex strings, no markdown. Example: ["#1A2B3C","#FFFFFF","#888888","#A0E0FF","#222222"]' },
-                      ],
-                    }],
-                    max_tokens: 120,
-                  }),
-                  signal: palCtl.signal,
-                }).catch(() => null);
-                clearTimeout(palTo);
-                if (palResp && palResp.ok) {
-                  const pj = await palResp.json().catch(() => null);
-                  const txt: string = pj?.choices?.[0]?.message?.content || '';
-                  const m = txt.match(/\[[^\]]*\]/);
-                  if (m) {
-                    try {
-                      const arr = JSON.parse(m[0]);
-                      if (Array.isArray(arr)) {
-                        const hexes = arr
-                          .filter((x) => typeof x === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(x))
-                          .slice(0, 5);
-                        if (hexes.length >= 3) {
-                          lockedPalette = hexes;
-                          console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
-                          await supabase
-                            .from('carousels')
-                            .update({ locked_palette: hexes })
-                            .eq('id', carouselId);
-                        }
-                      }
-                    } catch { /* ignore parse */ }
-                  }
-                }
+              const hexes = await extractLockedPalette(slideImageUrl, organizationId, traceId, supabase);
+              if (hexes && hexes.length >= 3) {
+                lockedPalette = hexes;
+                console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
+                await supabase
+                  .from('carousels')
+                  .update({ locked_palette: hexes })
+                  .eq('id', carouselId);
               }
             } catch (palErr) {
               console.warn('[batch] Anchor palette extraction failed (non-fatal):', palErr);
