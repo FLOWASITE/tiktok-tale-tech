@@ -156,6 +156,7 @@ Deno.serve(async (req) => {
           const attemptStartedAt = Date.now();
           let attemptExitReason = 'success';
           let attemptError: string | null = null;
+          let attemptModel: string | null = null;
 
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
