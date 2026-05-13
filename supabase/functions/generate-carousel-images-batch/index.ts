@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
             if (data.imageUrl) {
               slideImageUrl = data.imageUrl;
               slideSceneDescription = data.sceneDescription || null;
+              attemptModel = data.modelUsed || null;
               slideSuccess = true;
 
               // Save to carousel_images table — persist scene_description for
