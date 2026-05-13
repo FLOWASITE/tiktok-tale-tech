@@ -106,17 +106,26 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
     toast.info('Đã hủy quá trình tạo carousel');
   }, []);
 
-  /** Try to fetch the carousel row by topic+timestamp window — used as fallback when stream drops */
+  /** Try to fetch the carousel row by id (preferred) or topic+timestamp window (fallback) */
   const trySyncFromDb = useCallback(
-    async (formData: CarouselFormData, startedAt: number): Promise<Carousel | null> => {
+    async (formData: CarouselFormData, startedAt: number, knownId?: string | null): Promise<Carousel | null> => {
       try {
         if (!user) return null;
+        // Preferred path: backend emitted carousel_saved with id — fetch by id directly
+        if (knownId) {
+          let q = supabase.from('carousels').select('*').eq('id', knownId).limit(1);
+          if (currentOrganization?.id) q = q.eq('organization_id', currentOrganization.id);
+          const { data } = await q.maybeSingle();
+          if (data) return data as any;
+        }
+        // Fallback: match by topic + user + tight created_at window
         let q = supabase
           .from('carousels')
           .select('*')
           .eq('topic', formData.topic)
           .eq('user_id', user.id)
           .gte('created_at', new Date(startedAt - 5_000).toISOString())
+          .lte('created_at', new Date(startedAt + 10 * 60_000).toISOString())
           .order('created_at', { ascending: false })
           .limit(1);
         if (currentOrganization?.id) q = q.eq('organization_id', currentOrganization.id);
