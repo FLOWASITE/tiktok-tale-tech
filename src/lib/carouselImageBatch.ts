@@ -98,20 +98,35 @@ export async function launchCarouselImageBatch({
   organizationId,
 }: LaunchOpts): Promise<{ taskId: string | null; alreadyRunning: boolean }> {
   // Idempotency: check existing pending/generating task for this carousel
+  // Cooldown: also block if there are 2+ failed tasks for this carousel within
+  // the last 60s — protects against retry storms when image providers are down
+  // (observed in prod 12/05: same user spawned 8 carousels in 7 minutes, all
+  // batches failed, no human-readable signal of why).
   try {
-    const { data: existing } = await supabase
+    const sinceIso = new Date(Date.now() - 60_000).toISOString();
+    const { data: recent } = await supabase
       .from('generation_tasks')
-      .select('id, status, input_params')
+      .select('id, status, input_params, created_at')
       .eq('user_id', userId)
       .eq('task_type', 'carousel_image')
-      .in('status', ['pending', 'generating'])
+      .gte('created_at', sinceIso)
       .order('created_at', { ascending: false })
       .limit(20);
-    const match = (existing || []).find(
+    const sameCarousel = (recent || []).filter(
       (t: any) => (t.input_params as any)?.carouselId === carousel.id,
     );
-    if (match) {
-      return { taskId: match.id, alreadyRunning: true };
+    const active = sameCarousel.find(
+      (t: any) => t.status === 'pending' || t.status === 'generating',
+    );
+    if (active) {
+      return { taskId: active.id, alreadyRunning: true };
+    }
+    const recentFails = sameCarousel.filter((t: any) => t.status === 'failed').length;
+    if (recentFails >= 2) {
+      console.warn(
+        `[launchCarouselImageBatch] Cooldown active: ${recentFails} failed tasks in last 60s for carousel ${carousel.id} — refusing to retry`,
+      );
+      return { taskId: null, alreadyRunning: true };
     }
   } catch (err) {
     console.warn('[launchCarouselImageBatch] idempotency check failed:', err);

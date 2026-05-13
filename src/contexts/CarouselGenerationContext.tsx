@@ -110,21 +110,24 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
   const trySyncFromDb = useCallback(
     async (formData: CarouselFormData, startedAt: number): Promise<Carousel | null> => {
       try {
-        const { data } = await supabase
+        if (!user) return null;
+        let q = supabase
           .from('carousels')
           .select('*')
           .eq('topic', formData.topic)
+          .eq('user_id', user.id)
           .gte('created_at', new Date(startedAt - 5_000).toISOString())
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+        if (currentOrganization?.id) q = q.eq('organization_id', currentOrganization.id);
+        const { data } = await q.maybeSingle();
         return (data as any) || null;
       } catch (err) {
         console.warn('[CarouselGen] DB sync fallback query failed:', err);
         return null;
       }
     },
-    []
+    [user, currentOrganization?.id]
   );
 
   const generateCarousel = useCallback(
