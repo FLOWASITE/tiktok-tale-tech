@@ -729,29 +729,16 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       // We do NOT mutate requestedModel: the multi-image fork below triggers on `!externalImageUrl`.
     }
 
-    // === LAYER 5: Preset-aware model routing ===
-    // Editorial-leaning presets (flat_design / minimalist / editorial_minimal /
-    // soft_organic) are routinely over-rendered into cinematic 3D by PoYo/KIE
-    // (which lean photoreal). Force route to Lovable Gateway gemini-3.1-flash
-    // -image-preview (Nano Banana 2) — respects 2D vector / clean editorial
-    // directives much more faithfully.
-    const editorialPresets = new Set(['flat_design', 'minimalist', 'editorial_minimal', 'soft_organic']);
+    // === LAYER 5: Preset-aware model routing (DISABLED for external providers) ===
+    // Editorial bypass to Lovable Gateway is ONLY applied when admin hasn't
+    // explicitly chosen an external provider. Admin's choice (geminigen/poyo/kie)
+    // ALWAYS wins — we don't silently re-route their paid provider to Lovable AI.
     let forceLovableGateway = false;
-    if (
-      lovableApiKey &&
-      visualPreset &&
-      editorialPresets.has(visualPreset) &&
-      isSingleImageProvider
-    ) {
-      const before = imageModel;
-      imageModel = 'google/gemini-3.1-flash-image-preview';
-      forceLovableGateway = true;
-      console.log(
-        `[generate-carousel-image] LAYER 5: visualPreset='${visualPreset}' is editorial → bypass ${before} → ${imageModel}`,
-      );
-    }
+    // (Bypass intentionally removed: previously forced minimalist/flat_design
+    // visualPreset onto Lovable Gateway gemini-3.1-flash-image-preview, which
+    // burned LOVABLE_API_KEY balance even when admin had GeminiGen credits.)
 
-    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel}, forceGateway=${forceLovableGateway})`);
+    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel}, forceGateway=${forceLovableGateway}, visualPreset=${visualPreset})`);
 
     // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
     const overlayConfig = getOverlayConfig(

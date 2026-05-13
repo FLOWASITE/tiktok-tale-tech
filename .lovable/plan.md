@@ -1,60 +1,53 @@
-## Chẩn đoán
+## Kết luận kiểm tra lại
 
-Bạn không thấy ảnh được tạo vì **bước tạo nội dung carousel (text/prompt) bị watchdog client cắt trước khi tới bước tạo ảnh**. Ảnh chưa bao giờ được kích hoạt.
+Carousel không tạo ảnh vì **luồng ảnh đang bị ép chạy qua Lovable AI Gateway**, không phải GeminiGen:
 
-### Bằng chứng từ log
+1. `generation_tasks` gần nhất `8ea25682-5d0d-4048-84b5-536361150252` failed:
+   - `status = failed`
+   - `successCount = 0`, `failCount = 6`
+   - slide 1 lỗi: `Đã hết credits AI. Vui lòng nâng cấp.`
+   - slide 2-6 bị skip vì batch thấy `CREDITS_EXHAUSTED`
 
-**Edge function `generate-carousel`** (phiên 14:22:30 → 14:24:01):
-- 14:22:38–14:23:15 — gọi qwen-plus sinh slides (~36s, cold start)
-- 14:23:15–14:23:34 — Self-Critique chấm điểm = 0/100 (POOR)
-- 14:23:34–14:24:00 — Refinement chạy thêm rồi **timeout 25s, dùng fallback**
-- 14:24:01 — trả response (200) — **tổng 85s**, `coldStart:true`
+2. Log function xác nhận:
+   - `carousel-creative-direction` gọi `google/gemini-2.5-flash` qua Lovable Gateway và bị `402 Not enough credits`
+   - `generate-carousel-image` log:
+     - `resolved model=geminigen/nano-banana-pro`
+     - nhưng sau đó: `visualPreset='minimalist' is editorial → bypass geminigen/nano-banana-pro → google/gemini-3.1-flash-image-preview`
+     - rồi Gateway trả `402 Not enough credits`
 
-**Client `CarouselGenerationContext`**:
-- Watchdog `FIRST_BYTE_TIMEOUT_MS = 30_000` — không nhận được byte SSE đầu trong 30s
-- 14:23:00 → `[CarouselGen] Watchdog timeout — aborting` → fetch bị huỷ
-- Client cancel ⇒ pipeline `runCarouselPipelineStreaming` không kịp emit `result` ⇒ `autoGenerateImages` không trigger ⇒ `generate-carousel-images-batch` không bao giờ chạy.
+3. Root cause trong code:
+   - `generate-carousel-image/index.ts` dòng 738-752 có rule `editorialPresets` gồm `minimalist`
+   - nếu preset là `minimalist`, code set `forceLovableGateway = true`
+   - kết quả: dù admin config đang đặt `generate-carousel-image = geminigen/nano-banana-pro`, nó vẫn bị bypass sang Lovable AI
 
-### Vì sao first-byte không tới trong 30s
+4. Có thêm lỗi phụ:
+   - `carousel-creative-direction` vẫn dùng Lovable Gateway text model; tuy fail-soft không làm hỏng batch, nhưng vẫn tạo log 402 và gây nhiễu.
+   - `generate-carousel-images-batch` còn 2 call phụ `extract-carousel-palette` và `extract-carousel-lexicon` cũng dùng Lovable Gateway nếu slide 1 tạo thành công.
 
-Trong `generate-carousel/index.ts` ở nhánh streaming (line 766–828):
-1. Trước khi `return new Response(stream)`, có **preflight `authClient.auth.getUser()`** — đây là 1 round-trip mạng có thể chậm vài giây khi cold-start.
-2. SSE stream được trả về NGAY, nhưng **emit đầu tiên (`planning`) phụ thuộc vào việc `runCarouselPipelineStreaming` được scheduler chạy** — không có byte mồi nào được flush trước.
-3. Cold-start Deno + TLS handshake + auth round-trip + scheduler cộng dồn vượt 30s ngưỡng client.
+## Plan sửa
 
-### Vấn đề phụ (làm chậm thêm 45s và xói chất lượng)
+### 1. Không ép preset `minimalist` sang Lovable Gateway nữa
+- Trong `generate-carousel-image`, bỏ hoặc đổi rule `editorialPresets` để **không force Gateway khi requested model là external provider** (`geminigen/*`, `poyo/*`, `kie/*`).
+- Nếu admin đã chọn `geminigen/nano-banana-pro`, phải ưu tiên GeminiGen đúng như cấu hình.
 
-Self-Critique luôn chấm `score: 0` (xem log: "Initial score: 0", "Tier: POOR, Issues: 6") → trigger refinement → refinement timeout 25s → dùng fallback. Việc score = 0 có vẻ là **bug parsing** trong critique loop khi dùng qwen-plus (provider Dashscope), không thực sự đánh giá được output.
+### 2. Chặn fallback sang Lovable Gateway khi provider riêng còn được cấu hình
+- Khi `requestedModel` là `geminigen/*` và GeminiGen lỗi non-credit:
+  - thử fallback provider riêng theo cấu hình hiện có nếu có (`PoYo` nếu key/circuit cho phép)
+  - nếu không có fallback riêng, trả lỗi provider thật thay vì rơi xuống Lovable Gateway.
+- Khi Gateway hết credit, message phải ghi rõ là **Lovable AI Gateway hết credit**, không nói chung chung “provider ảnh”.
 
----
+### 3. Tắt Lovable AI cho các bước phụ carousel image
+- `carousel-creative-direction`: nếu không có provider override ngoài Lovable, fail-soft ngay hoặc route qua provider text riêng đã có (`DashScope/Qwen`) thay vì Gateway.
+- `extract-carousel-palette` và `extract-carousel-lexicon`: không được gọi Lovable Gateway khi Gateway đang hết credit; nếu chưa có provider vision riêng thì skip an toàn, không làm fail batch.
 
-## Kế hoạch sửa
+### 4. Giữ telemetry rõ ràng
+- Log rõ `requestedModel`, `effectiveProvider`, `fallbackReason`, `gatewayBypassed` để lần sau nhìn `ai_metrics`/logs biết ngay ảnh chạy qua GeminiGen hay Gateway.
 
-Chỉ đụng tới phần frontend + edge function `generate-carousel` (không động vào batch ảnh — batch ảnh vốn đã hoạt động đúng nếu được trigger).
-
-### 1. Flush byte mồi SSE trước khi chạy pipeline (`supabase/functions/generate-carousel/index.ts`)
-- Trong nhánh `wantStream`, ngay sau `makeSSEStream()` và TRƯỚC khi schedule `runCarouselPipelineStreaming`, gọi `emit({ type: 'progress', step: 'connecting', percent: 1, message: 'Đang khởi tạo...' })` đồng bộ.
-- Mục đích: client nhận byte đầu trong <1s ⇒ chuyển sang `IDLE_TIMEOUT_MS = 150s` ⇒ đủ chỗ cho self-critique 45s + AI 36s.
-
-### 2. Tăng `FIRST_BYTE_TIMEOUT_MS` từ 30s → 60s (`src/contexts/CarouselGenerationContext.tsx` line 69)
-- Phòng vệ cho trường hợp cold-start cực mạnh trên Lovable Cloud edge runtime.
-- Giữ `IDLE_TIMEOUT_MS = 150s` cho các sự kiện tiếp theo.
-
-### 3. Cho phép tắt Self-Critique khi nó score = 0 lặp lại
-- Trong `generate-carousel/index.ts`, khi `[Self-Critique] Initial score: 0` → bỏ qua refinement, log `[Self-Critique] SKIPPED — parser broken for provider X`. Tránh tốn thêm 45s phí cho mỗi lần tạo carousel.
-- Đồng thời giảm `Refinement timeout` từ 25s → 15s để giảm dead-time.
-
-### 4. (Tuỳ chọn, low risk) Bỏ preflight `auth.getUser()` cho streaming
-- Có thể chuyển preflight auth thành emit lỗi `event: error` qua SSE thay vì block response. Việc này rút ngắn thời gian tới byte đầu thêm 1–3s.
-- Hoặc giữ nguyên auth nhưng cache `authClient` ở module-scope để cold-start chỉ trả phí 1 lần.
-
----
-
-## Kiểm chứng sau khi fix
-1. Mở console preview → tạo carousel mới với cùng prompt "7 nguyên tắc vàng content marketing 2026".
-2. Quan sát: trong <2s xuất hiện log `[CarouselGen]` nhận event `connecting`/`planning` (first byte OK).
-3. Pipeline hoàn thành, emit `result` → toast "🎨 Ảnh đang được tạo nền".
-4. Kiểm tra logs `generate-carousel-images-batch` chạy, `carousel_images` được insert dần.
-5. UI carousel mới hiển thị 6 ảnh.
-
-Nếu bạn đồng ý plan này tôi sẽ implement: chỉ sửa 2 file core (`generate-carousel/index.ts` + `CarouselGenerationContext.tsx`), không động đến `generate-carousel-image*`.
+### 5. Validate sau khi sửa
+- Deploy/test 2 function liên quan:
+  - `generate-carousel-image`
+  - `generate-carousel-images-batch`
+- Chạy thử bằng request carousel gần nhất, kỳ vọng log phải có:
+  - `Routing to GeminiGen.ai: geminigen/nano-banana-pro`
+  - không còn `LAYER 5 ... bypass ... google/gemini-3.1-flash-image-preview`
+  - không còn `Background gen error: 402 Not enough credits` từ Lovable Gateway
