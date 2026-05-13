@@ -1056,15 +1056,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
-        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1), logo]
+        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1)]
         // Anchor preserves the original visual world even when the chain drifts.
-        // Cap at 3 reference images to keep gateway cost ~+15% vs pure text.
+        // Logo is NOT attached — composited post-gen by overlay-logo-canvas (Layer 6).
+        // Cap at 2 reference images to keep gateway cost minimal.
         const userContent: any[] = [{ type: "text", text: finalPrompt }];
         const refs: string[] = [];
         if (anchorImageUrl && anchorImageUrl !== previousImageUrl) refs.push(anchorImageUrl);
         if (previousImageUrl) refs.push(previousImageUrl);
-        if (includeLogo && resolvedLogoUrl) refs.push(resolvedLogoUrl);
-        for (const r of refs.slice(0, 3)) {
+        for (const r of refs.slice(0, 2)) {
           userContent.push({ type: "image_url", image_url: { url: r } });
         }
         const attachedImages = userContent.length - 1;
