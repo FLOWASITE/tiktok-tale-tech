@@ -5,6 +5,7 @@
 // ============================================
 
 import { getAIConfig } from "./ai-config.ts";
+import { getPresetFonts } from "./carousel-preset-dna.ts";
 
 export type SlideRole = 'hook' | 'explain' | 'data' | 'support' | 'cta';
 export type TypographyArchetype =
