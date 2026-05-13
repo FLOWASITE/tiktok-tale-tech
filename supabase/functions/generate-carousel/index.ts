@@ -764,6 +764,41 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     // STREAMING BRANCH — return SSE immediately, run pipeline in background
     // ============================================
     if (wantStream) {
+      // ── Preflight auth gate ────────────────────────────────────
+      // Without this, anyone (including unauth callers) can hold an SSE
+      // connection open until the inner JSON fetch returns 401 — wastes
+      // worker time and leaves a DoS vector. Validate JWT synchronously
+      // BEFORE returning Response(stream).
+      const preAuth = req.headers.get("authorization");
+      if (!preAuth?.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized - Please login" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Allow service-role calls that pass userId in body (agent-creator-v2 pattern)
+      if (!(formData as any).userId) {
+        try {
+          const supabaseUrlPre = Deno.env.get("SUPABASE_URL")!;
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+          const authClient = createClient(supabaseUrlPre, anonKey, {
+            global: { headers: { Authorization: preAuth } },
+          });
+          const { data: u, error: uErr } = await authClient.auth.getUser(preAuth.replace("Bearer ", ""));
+          if (uErr || !u?.user?.id) {
+            return new Response(
+              JSON.stringify({ error: "Unauthorized - invalid token" }),
+              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       const { stream, emit, close } = makeSSEStream();
 
       // Run pipeline async — never block response
