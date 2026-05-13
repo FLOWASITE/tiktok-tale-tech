@@ -1749,18 +1749,21 @@ CAROUSEL COMPOSITION:
   // Fixes bug where `flat_design` user choice was being silently overridden by
   // `educational`/`gallery` style blocks that pushed cinematic 3D output.
   let visualPresetOverride = '';
-  // visualPreset is only available via closure; pass through originalPrompt context
-  // We detect it from styleDirective signal — if cleanedPrompt or seriesBible mentions flat
-  const isFlatRequest = /flat[_\s-]?design|flat\s+vector|2d\s+vector|editorial\s+illustration/i.test(originalPrompt + ' ' + (carouselTopic || ''));
-  // Always include anti-cliché directive for educational/business topics
+  const presetKey = (visualPreset || '').toLowerCase();
+  const isFlatRequest = /flat[_\s-]?design|flat[_\s-]?vector|editorial[_\s-]?illustration|2d[_\s-]?vector/.test(presetKey);
+  const isMinimal = /minimal|clean|editorial/.test(presetKey);
+  const isOrganic = /soft[_\s-]?organic|organic|hand[_\s-]?drawn|paper/.test(presetKey);
   visualPresetOverride = `
 VISUAL STYLE GUARDRAILS (override any conflicting cinematic directives above):
-- AVOID overused AI-tech clichés: NO circuit boards, NO glowing neon nodes/network meshes, NO holographic UI panels floating in air, NO dark navy + neon red/blue corporate gradient, NO matrix-style binary streams, NO generic "futuristic data" backgrounds.
+- AVOID overused AI-tech clichés: NO circuit boards, NO glowing neon nodes/network meshes, NO holographic UI panels floating in air, NO dark-navy + neon-red/blue corporate gradient, NO matrix-style binary streams, NO generic "futuristic data" backgrounds, NO floating data-cards with fake numbers.
 - Prefer EDITORIAL aesthetic: clean geometry, generous negative space, intentional asymmetry, paper-like or soft-matte surfaces, restrained palette with one focal accent.
 - Composition must have a clear focal point with surrounding breathing room — NOT a busy collage of overlapping elements.
 - Lighting: soft, directional, naturalistic. NOT high-contrast neon glow.
-${isFlatRequest ? '- STYLE: 2D flat vector illustration with solid color fills, geometric shapes, minimal gradients, Notion/Stripe/Linear-tier editorial illustration. NO photorealism, NO 3D render.' : ''}
+${isFlatRequest ? '- STYLE LOCK: 2D flat vector illustration. Solid color fills, geometric shapes, minimal gradients, Notion/Stripe/Linear-tier editorial illustration. NO photorealism, NO 3D render, NO cinematic photography.' : ''}
+${isMinimal && !isFlatRequest ? '- STYLE LOCK: Minimalist editorial. Lots of whitespace, single hero subject, restrained color usage, premium magazine-spread feel.' : ''}
+${isOrganic ? '- STYLE LOCK: Soft organic shapes, hand-drawn or paper-cut feel, warm muted palette, gentle textures.' : ''}
 `;
+
 
   // === Anti-hallucination guardrails (logos, fake text, watermarks) ===
   const antiHallucinationGuard = `
