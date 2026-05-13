@@ -1,137 +1,60 @@
-## Layer 7: Creative Director + Typography Art Direction
+## Chẩn đoán
 
-Combo **A' + C**: thêm 1 LLM step "Art Director" trước batch (sinh metaphor + mood arc + typo role per slide), sau đó nâng cấp `TEXT RENDERING` block trong từng prompt thành 1 typography system thực sự (vẫn để AI render text, không Canvas).
+Bạn không thấy ảnh được tạo vì **bước tạo nội dung carousel (text/prompt) bị watchdog client cắt trước khi tới bước tạo ảnh**. Ảnh chưa bao giờ được kích hoạt.
 
-Mục tiêu fix 3 điểm yếu lớn nhất theo eval gần nhất:
-- Typography craft 4/10 → 7/10
-- Color storytelling 5.5/10 → 8/10
-- Conceptual originality 5/10 → 7/10
+### Bằng chứng từ log
 
----
+**Edge function `generate-carousel`** (phiên 14:22:30 → 14:24:01):
+- 14:22:38–14:23:15 — gọi qwen-plus sinh slides (~36s, cold start)
+- 14:23:15–14:23:34 — Self-Critique chấm điểm = 0/100 (POOR)
+- 14:23:34–14:24:00 — Refinement chạy thêm rồi **timeout 25s, dùng fallback**
+- 14:24:01 — trả response (200) — **tổng 85s**, `coldStart:true`
 
-### C — Creative Director Step (1 LLM call/carousel)
+**Client `CarouselGenerationContext`**:
+- Watchdog `FIRST_BYTE_TIMEOUT_MS = 30_000` — không nhận được byte SSE đầu trong 30s
+- 14:23:00 → `[CarouselGen] Watchdog timeout — aborting` → fetch bị huỷ
+- Client cancel ⇒ pipeline `runCarouselPipelineStreaming` không kịp emit `result` ⇒ `autoGenerateImages` không trigger ⇒ `generate-carousel-images-batch` không bao giờ chạy.
 
-**File mới:** `supabase/functions/_shared/carousel-creative-direction.ts`
+### Vì sao first-byte không tới trong 30s
 
-Export `runCreativeDirection({ topic, carouselStyle, visualPreset, slides, brandColors, organizationId })` → trả về:
+Trong `generate-carousel/index.ts` ở nhánh streaming (line 766–828):
+1. Trước khi `return new Response(stream)`, có **preflight `authClient.auth.getUser()`** — đây là 1 round-trip mạng có thể chậm vài giây khi cold-start.
+2. SSE stream được trả về NGAY, nhưng **emit đầu tiên (`planning`) phụ thuộc vào việc `runCarouselPipelineStreaming` được scheduler chạy** — không có byte mồi nào được flush trước.
+3. Cold-start Deno + TLS handshake + auth round-trip + scheduler cộng dồn vượt 30s ngưỡng client.
 
-```ts
-{
-  metaphor: { chosen: string; rejected: string[]; reasoning: string },
-  moodArc: Array<{ slideNumber: number; role: 'hook'|'explain'|'data'|'support'|'cta';
-                   contrast: 'high'|'mid'|'low'; saturation: 'bold'|'muted'|'accent';
-                   focalIntent: string }>,
-  typographyRole: Array<{ slideNumber: number; archetype: 'editorial-hero'|'data-display'|'supporting-body'|'cta-poster'|'caption-only' }>
-}
-```
+### Vấn đề phụ (làm chậm thêm 45s và xói chất lượng)
 
-Internals:
-- 1 call tới Lovable Gateway, model mặc định `google/gemini-2.5-flash` (admin override qua `ai_function_configs.function_name='carousel-creative-direction'`)
-- Tool calling structured output (schema cố định)
-- Prompt: "Bạn là Creative Director cho 1 carousel `{slideCount}` slides về `{topic}`. Sinh 3 metaphor abstract (loại bỏ literal: mũi tên, biểu đồ, circuit board, neon). Chọn 1 metaphor mạnh nhất. Sinh mood arc theo slide role (hook tension cao → explain mid → data focal → cta resolve). Map mỗi slide vào 1 typography archetype."
-- Fail-soft: lỗi/timeout 8s → return `null`, batch tiếp tục với pipeline cũ
-- Persist vào `carousels.creative_direction` (JSONB, cột mới)
-
-**Inject vào batch** (`generate-carousel-images-batch/index.ts`):
-- Gọi `runCreativeDirection` 1 lần đầu batch (parallel với resolve logo/org)
-- Truyền `creativeDirection` vào mỗi `generate-carousel-image` request:
-  ```ts
-  body: { ..., creativeDirection: cd ? {
-    metaphor: cd.metaphor.chosen,
-    moodForSlide: cd.moodArc[i],
-    typographyRole: cd.typographyRole[i].archetype
-  } : null }
-  ```
-- Inject metaphor vào `seamlessContext.previousSceneDescription` cho slide 1 (replace generic topic):
-  `LOCKED VISUAL METAPHOR (use throughout series): {metaphor.chosen}`
+Self-Critique luôn chấm `score: 0` (xem log: "Initial score: 0", "Tier: POOR, Issues: 6") → trigger refinement → refinement timeout 25s → dùng fallback. Việc score = 0 có vẻ là **bug parsing** trong critique loop khi dùng qwen-plus (provider Dashscope), không thực sự đánh giá được output.
 
 ---
 
-### A' — Typography Art Direction trong PROMPT (giữ AI render text)
+## Kế hoạch sửa
 
-**File:** `supabase/functions/generate-carousel-image/index.ts`
+Chỉ đụng tới phần frontend + edge function `generate-carousel` (không động vào batch ảnh — batch ảnh vốn đã hoạt động đúng nếu được trigger).
 
-Thêm helper `buildTypographySystem(typographyRole, textContent, visualPreset, slideRole)` → trả về 1 block thay thế `TEXT RENDERING` cũ (lines 1496-1581).
+### 1. Flush byte mồi SSE trước khi chạy pipeline (`supabase/functions/generate-carousel/index.ts`)
+- Trong nhánh `wantStream`, ngay sau `makeSSEStream()` và TRƯỚC khi schedule `runCarouselPipelineStreaming`, gọi `emit({ type: 'progress', step: 'connecting', percent: 1, message: 'Đang khởi tạo...' })` đồng bộ.
+- Mục đích: client nhận byte đầu trong <1s ⇒ chuyển sang `IDLE_TIMEOUT_MS = 150s` ⇒ đủ chỗ cho self-critique 45s + AI 36s.
 
-**5 typography archetypes** (mỗi cái có font pairing + size ratio + composition rule):
+### 2. Tăng `FIRST_BYTE_TIMEOUT_MS` từ 30s → 60s (`src/contexts/CarouselGenerationContext.tsx` line 69)
+- Phòng vệ cho trường hợp cold-start cực mạnh trên Lovable Cloud edge runtime.
+- Giữ `IDLE_TIMEOUT_MS = 150s` cho các sự kiện tiếp theo.
 
-| Archetype | Display Font Hint | Body Font Hint | Size Ratio | Composition |
-|---|---|---|---|---|
-| `editorial-hero` | Playfair / Fraunces (serif, high contrast) | Inter (clean sans) | 8:1 | Left-aligned, hanging punctuation, generous leading 1.4 |
-| `data-display` | Archivo Black / Bebas Neue (condensed bold) | IBM Plex Mono (mono) | 12:1 | Center, tight tracking on number, label in uppercase 0.15em tracking |
-| `supporting-body` | Inter Bold | Inter Regular | 3:1 | Left, comfortable measure 45ch, leading 1.6 |
-| `cta-poster` | Druk / Anton (massive sans) | Inter | 6:1 | Center, all-caps, 0.05em tracking, single line |
-| `caption-only` | Inter Medium | — | 1:1 | Bottom-left corner, 0.1em tracking, low-contrast ghost text |
+### 3. Cho phép tắt Self-Critique khi nó score = 0 lặp lại
+- Trong `generate-carousel/index.ts`, khi `[Self-Critique] Initial score: 0` → bỏ qua refinement, log `[Self-Critique] SKIPPED — parser broken for provider X`. Tránh tốn thêm 45s phí cho mỗi lần tạo carousel.
+- Đồng thời giảm `Refinement timeout` từ 25s → 15s để giảm dead-time.
 
-Pairing fallback theo `visualPreset`:
-- `flat_design` / `minimalist` → editorial-hero default
-- `geometric` (corporate) → data-display + Playfair
-- `illustration` → supporting-body với Nunito
-- `gradient` → cta-poster với Druk
-
-**Block mới (đơn giản hoá ví dụ — file thực tế sẽ có instruction chi tiết hơn):**
-```
-TYPOGRAPHIC SYSTEM (museum-grade — execute as a master typographer would):
-Archetype: {archetype}
-Display font: {displayFontHint} (or visually identical alternative)
-Body font: {bodyFontHint}
-Size ratio (display:body): {ratio}
-Hierarchy (top to bottom):
-  1. {dataValue} — display weight, {ratio}x base size, tight tracking -0.02em, hanging if punctuation
-  2. {headline} — display weight, base size × 4, leading 1.2
-  3. {subtitle} — body regular, base size × 1.5, leading 1.5, color 70% opacity
-  4. {caption} — body medium UPPERCASE, base size × 0.6, tracking 0.15em
-Composition: {compositionRule}
-Optical adjustments: kern manually for each character; numerals tabular; quotes typographic ("" not ""); avoid widow/orphan.
-NO generic "modern sans" fallback — commit to the archetype.
-```
-
-Anti-pattern guard append vào `antiHallucinationGuard`:
-- "DO NOT use Helvetica/Arial/default web fonts for display text — commit to the archetype font character."
-- "DO NOT center text when archetype says left-aligned. Composition rule is mandatory."
+### 4. (Tuỳ chọn, low risk) Bỏ preflight `auth.getUser()` cho streaming
+- Có thể chuyển preflight auth thành emit lỗi `event: error` qua SSE thay vì block response. Việc này rút ngắn thời gian tới byte đầu thêm 1–3s.
+- Hoặc giữ nguyên auth nhưng cache `authClient` ở module-scope để cold-start chỉ trả phí 1 lần.
 
 ---
 
-### Database
+## Kiểm chứng sau khi fix
+1. Mở console preview → tạo carousel mới với cùng prompt "7 nguyên tắc vàng content marketing 2026".
+2. Quan sát: trong <2s xuất hiện log `[CarouselGen]` nhận event `connecting`/`planning` (first byte OK).
+3. Pipeline hoàn thành, emit `result` → toast "🎨 Ảnh đang được tạo nền".
+4. Kiểm tra logs `generate-carousel-images-batch` chạy, `carousel_images` được insert dần.
+5. UI carousel mới hiển thị 6 ảnh.
 
-Migration: 
-```sql
-ALTER TABLE carousels ADD COLUMN creative_direction JSONB;
-```
-
-(Dùng cho debugging A/B + future analytics; không phá schema cũ.)
-
----
-
-### Validation
-
-1. Regen carousel `2454080d-060b-4e09-9666-e1be0cc2f5c3` (educational + flat_design):
-   - Check `carousels.creative_direction` populated
-   - 4 slides phải dùng metaphor abstract chung (không còn mũi tên/biểu đồ literal)
-   - Hook slide vs CTA slide phải có **font weight contrast rõ rệt** (hero serif vs poster sans)
-   - Color saturation slide hook > slide explain (mood arc working)
-2. Test 1 carousel với `creative_direction = null` (giả lập fail) → confirm fall-back về Layer 4-6 hoạt động bình thường
-3. Edge function logs: 1 dòng `[creative-direction]` mỗi carousel với metaphor chosen + tokens used
-4. Eval mới:
-   - Typography craft target ≥ 7/10
-   - Color storytelling target ≥ 8/10  
-   - Originality target ≥ 7/10
-
----
-
-### Out of scope (defer)
-
-- Layer 8 Aesthetic Scoring + Auto-Refine (đợi A'+C có baseline tốt)
-- UI để user chọn manual archetype per slide
-- Custom font upload per brand
-- Ablation logging (so sánh A/B với feature flag)
-
----
-
-### Files changed
-
-- **NEW**: `supabase/functions/_shared/carousel-creative-direction.ts`
-- **NEW**: migration `add_creative_direction_to_carousels.sql`
-- **EDIT**: `supabase/functions/generate-carousel-images-batch/index.ts` (gọi creative-direction + pass-through)
-- **EDIT**: `supabase/functions/generate-carousel-image/index.ts` (signature thêm `creativeDirection`, replace TEXT RENDERING block bằng `buildTypographySystem`)
-- **EDIT**: `.lovable/memory/features/carousel/aesthetic-guardrails-vn.md` (Layer 7 section)
+Nếu bạn đồng ý plan này tôi sẽ implement: chỉ sửa 2 file core (`generate-carousel/index.ts` + `CarouselGenerationContext.tsx`), không động đến `generate-carousel-image*`.
