@@ -551,16 +551,47 @@ Deno.serve(async (req) => {
             const issues = validation?.consistency?.issues || [];
             const needsRegen = typeof score === 'number' && score < 60;
 
+            // Detect outlier slides: brightness >25 from median, or temperature
+            // not matching majority cluster. successUrls is in slide order so
+            // index i = slide number i+1.
+            let outlierSlides: number[] = [];
+            try {
+              const slidesAnalysis = Array.isArray(validation?.slides) ? validation.slides : [];
+              if (slidesAnalysis.length >= 3) {
+                const brightnesses = slidesAnalysis.map((s: any) => Number(s?.brightness ?? 50));
+                const sorted = [...brightnesses].sort((a, b) => a - b);
+                const median = sorted[Math.floor(sorted.length / 2)];
+                const tempCounts = new Map<string, number>();
+                slidesAnalysis.forEach((s: any) => {
+                  const t = String(s?.temperature || 'neutral');
+                  tempCounts.set(t, (tempCounts.get(t) || 0) + 1);
+                });
+                const majorityTemp = Array.from(tempCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+                slidesAnalysis.forEach((s: any, idx: number) => {
+                  const brightDelta = Math.abs(Number(s?.brightness ?? 50) - median);
+                  const tempMismatch = majorityTemp && s?.temperature && s.temperature !== majorityTemp;
+                  if (brightDelta > 25 || tempMismatch) {
+                    outlierSlides.push(idx + 1);
+                  }
+                });
+                // Cap at 2 to avoid suggesting "regenerate everything"
+                outlierSlides = outlierSlides.slice(0, 2);
+              }
+            } catch (oErr) {
+              console.warn('[batch] Outlier detection failed (non-fatal):', oErr);
+            }
+
             await supabase
               .from('carousels')
               .update({
                 seamless_score: score,
                 seamless_issues: issues.length ? { issues, suggestion: validation?.consistency?.suggestion } : null,
                 needs_regeneration: needsRegen,
+                needs_regeneration_slides: outlierSlides.length > 0 ? outlierSlides : null,
               })
               .eq('id', carouselId);
 
-            console.log(`[batch] Seamless validation: score=${score}, needsRegen=${needsRegen}`);
+            console.log(`[batch] Seamless validation: score=${score}, needsRegen=${needsRegen}, outliers=[${outlierSlides.join(',')}]`);
           } else {
             console.warn('[batch] Seamless validation HTTP error:', validationResp.status);
           }
