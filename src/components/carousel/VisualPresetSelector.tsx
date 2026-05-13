@@ -17,14 +17,14 @@ interface VisualPresetSelectorProps {
   disabled?: boolean;
 }
 
-/** Mini color/font preview data per preset */
+/** Mini color/font preview data per preset — synced with PRESET_DNA in edge function */
 const PRESET_PREVIEW: Record<VisualPresetType, { colors: string[]; font: string }> = {
-  minimalist: { colors: ['#1a1a1a', '#ffffff', '#6366f1'], font: 'Inter' },
-  flat_design: { colors: ['#1e293b', '#f8fafc', '#f59e0b'], font: 'Montserrat' },
-  gradient: { colors: ['#0f0f23', '#667eea', '#764ba2'], font: 'Poppins' },
-  geometric: { colors: ['#1b2a4a', '#f5f0e8', '#c8a961'], font: 'Playfair' },
-  illustration: { colors: ['#2d2d2d', '#fdf6ec', '#e07a5f'], font: 'Nunito' },
-  product_only: { colors: ['#111111', '#f5f5f5', '#e5e5e5'], font: 'Helvetica' },
+  minimalist:    { colors: ['#F8F6F2', '#1A1A1A', '#8A8A87'], font: 'Fraunces' },
+  flat_design:   { colors: ['#0A0A0A', '#FAFAF7', '#FF5722'], font: 'Archivo Black' },
+  gradient:      { colors: ['#0F0F23', '#667EEA', '#F0ABFC'], font: 'Migra' },
+  geometric:     { colors: ['#0B1F3A', '#F4EFE6', '#C9A961'], font: 'Domaine' },
+  illustration:  { colors: ['#FDF6EC', '#E07A5F', '#83A275'], font: 'Recoleta' },
+  product_only:  { colors: ['#F2EFE9', '#1A1A1A', '#C9C4BA'], font: 'Tiempos' },
 };
 
 export function VisualPresetSelector({ value, onChange, disabled }: VisualPresetSelectorProps) {
