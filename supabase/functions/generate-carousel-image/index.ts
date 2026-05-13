@@ -1029,14 +1029,16 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
-        // Build multi-image content array: [text prompt, optional previous-slide ref, optional logo ref]
-        // Lovable AI Gateway / Gemini image models accept multi-image input via OpenAI-compatible content array.
+        // Build multi-image content: [text, anchor (slide 1), previous (slide N-1), logo]
+        // Anchor preserves the original visual world even when the chain drifts.
+        // Cap at 3 reference images to keep gateway cost ~+15% vs pure text.
         const userContent: any[] = [{ type: "text", text: finalPrompt }];
-        if (previousImageUrl) {
-          userContent.push({ type: "image_url", image_url: { url: previousImageUrl } });
-        }
-        if (includeLogo && resolvedLogoUrl) {
-          userContent.push({ type: "image_url", image_url: { url: resolvedLogoUrl } });
+        const refs: string[] = [];
+        if (anchorImageUrl && anchorImageUrl !== previousImageUrl) refs.push(anchorImageUrl);
+        if (previousImageUrl) refs.push(previousImageUrl);
+        if (includeLogo && resolvedLogoUrl) refs.push(resolvedLogoUrl);
+        for (const r of refs.slice(0, 3)) {
+          userContent.push({ type: "image_url", image_url: { url: r } });
         }
         const attachedImages = userContent.length - 1;
 
