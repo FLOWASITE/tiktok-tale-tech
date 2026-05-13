@@ -784,8 +784,8 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 currentStep: (row.progress_message as string) || j.currentStep,
                 lastEventAt: Date.now(),
               };
-            })
-          );
+            });
+          });
         }
       )
       .subscribe();
