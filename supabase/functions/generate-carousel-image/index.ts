@@ -774,7 +774,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaPoyo({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
           // Single-image providers: previous slide takes priority for seamless continuity;
           // when absent, fall back to brand logo as the visual anchor.
           inputImage: singleRefImage,
@@ -806,7 +806,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: altPoyoModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_API_KEY);
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
@@ -842,7 +842,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaKie({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToKie(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToKie(resolvedAspect),
           outputFormat: 'jpeg',
           inputImage: singleRefImage,
         }, KIE_API_KEY);
@@ -874,7 +874,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: poyoFallbackModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_KEY_FOR_KIE);
             modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
@@ -915,7 +915,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         externalImageUrl = await generateImageViaGeminiGen({
           prompt: finalPrompt,
           model: requestedModel,
-          aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+          aspectRatio: mapAspectRatioToGeminiGen(resolvedAspect),
           inputImage: singleRefImage,
           maxAttempts: 35, // 35 × 3s = 105s, leaves ~40s budget for fallback
         }, GEMINIGEN_API_KEY);
@@ -959,7 +959,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             externalImageUrl = await generateImageViaPoyo({
               prompt: finalPrompt,
               model: poyoFallbackModel,
-              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
               inputImage: singleRefImage,
             }, POYO_KEY_FOR_GEMINIGEN);
             modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
