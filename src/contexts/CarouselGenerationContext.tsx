@@ -399,6 +399,11 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: event.completedSlides ?? partial.length,
                 totalSlides: event.totalSlides ?? partial.length,
               });
+              void syncTaskRow({
+                progress: event.percent ?? undefined,
+                progress_message: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
+                current_step: 'revealing',
+              });
             } else if (event.type === 'result') {
               finalCarousel = {
                 ...event.carousel,
@@ -408,6 +413,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 status: 'done',
                 phase: 'done',
                 carousel: finalCarousel,
+                carouselId: finalCarousel.id,
                 progress: 100,
                 currentStep: 'Hoàn thành!',
                 partialSlides: finalCarousel.slides_content || partial,
@@ -415,6 +421,14 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 revealingSlide: null,
                 revealingSlideMeta: null,
               });
+              void syncTaskRow({
+                status: 'completed',
+                progress: 100,
+                progress_message: 'Hoàn thành',
+                current_step: 'done',
+                result_id: finalCarousel.id || savedCarouselId,
+                result_type: 'carousels',
+              }, true);
               // Auto-launch image batch independently of UI mount
               if (formData.autoGenerateImages && finalCarousel.id && user) {
                 void launchCarouselImageBatch({
@@ -435,6 +449,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               else if (event.status === 402) toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
               else toast.error(m);
               updateJob(jobId, { status: 'error', phase: 'error', error: m, abortReason: 'backend' });
+              void syncTaskRow({ status: 'failed', error_message: m }, true);
             }
           }
         }
