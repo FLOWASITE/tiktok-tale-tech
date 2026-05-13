@@ -44,6 +44,14 @@ export interface CarouselGenerationJob {
   revealingSlide: number | null;
   /** Real preview content for the slide currently being written */
   revealingSlideMeta: { slideNumber: number; objective?: string; textPreview?: string; promptPreview?: string } | null;
+  /** Linked DB row in generation_tasks (for cross-tab/reload persistence) */
+  taskId?: string | null;
+  /** Carousel UUID once backend has saved it */
+  carouselId?: string | null;
+  /** Job kind — 'prompt' is text/slide generation, 'image' is image-batch */
+  kind: 'prompt' | 'image';
+  /** True if this job was rebuilt from generation_tasks after page reload */
+  rehydrated?: boolean;
 }
 
 interface CarouselGenerationContextValue {
