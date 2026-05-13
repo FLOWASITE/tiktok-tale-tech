@@ -1821,13 +1821,16 @@ ANTI-HALLUCINATION RULES (CRITICAL):
     // PART 2: Design tokens (mood/effects only when brand colors present)
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
 
+    // PART 2.5: Preset DNA — palette + typography + editorial reference (HIGH PRIORITY)
+    presetDnaDirective,
+
     // PART 3: Continuity
     seamlessDirective || '',
 
     // PART 4: Style directive (carouselStyle-based)
     styleDirective || '',
 
-    // PART 4.5: Visual style override — anti-cliché + flat_design enforcement
+    // PART 4.5: Anti-cliché guardrails
     visualPresetOverride,
 
     // PART 5: TEXT RENDERING (the ONLY allowed text on the image)
