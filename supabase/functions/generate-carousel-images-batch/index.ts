@@ -41,6 +41,10 @@ Deno.serve(async (req) => {
     );
   }
 
+  // trace_id ties together every per-slide ai_metrics row + carousel/task — so
+  // ops can grep one ID across logs to reconstruct the whole batch.
+  const traceId = `carousel-batch-${taskId}`;
+
   // Return immediately — processing happens in the background
   const responsePromise = (async () => {
     const totalSlides = slides.length;
