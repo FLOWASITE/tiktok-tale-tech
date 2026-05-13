@@ -96,21 +96,37 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
       try { c.abort(); } catch { /* noop */ }
     }
     abortersRef.current.delete(id);
+    let cancelledTaskId: string | null = null;
     setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id && j.status === 'generating'
-          ? {
-              ...j,
-              status: 'cancelled',
-              phase: 'cancelled',
-              currentStep: 'Đã hủy',
-              error: 'Cancelled by user',
-              abortReason: 'user',
-              lastEventAt: Date.now(),
-            }
-          : j
-      )
+      prev.map((j) => {
+        if (j.id === id && j.status === 'generating') {
+          cancelledTaskId = j.taskId || null;
+          return {
+            ...j,
+            status: 'cancelled',
+            phase: 'cancelled',
+            currentStep: 'Đã hủy',
+            error: 'Cancelled by user',
+            abortReason: 'user',
+            lastEventAt: Date.now(),
+          };
+        }
+        return j;
+      })
     );
+    if (cancelledTaskId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      void (supabase.from('generation_tasks') as any)
+        .update({
+          status: 'cancelled',
+          progress_message: 'Đã hủy',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cancelledTaskId)
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.warn('[CarouselGen] cancel persist failed:', error);
+        });
+    }
     toast.info('Đã hủy quá trình tạo carousel');
   }, []);
 
