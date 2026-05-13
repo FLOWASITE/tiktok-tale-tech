@@ -178,7 +178,11 @@ Direct this carousel.`;
     if (!resp || !resp.ok) {
       if (resp) {
         const t = await resp.text().catch(() => '');
-        console.warn(`[creative-direction] non-ok status=${resp.status} traceId=${input.traceId}: ${t.slice(0, 200)}`);
+        if (resp.status === 402) {
+          console.info(`[creative-direction] Lovable Gateway 402 (no credits) → skipping creative direction, batch continues with fallback prompts. traceId=${input.traceId}`);
+        } else {
+          console.warn(`[creative-direction] non-ok status=${resp.status} traceId=${input.traceId}: ${t.slice(0, 200)}`);
+        }
       }
       return null;
     }
