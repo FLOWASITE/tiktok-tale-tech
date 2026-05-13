@@ -1500,7 +1500,7 @@ High resolution, professional design quality, 1080x1080px.
     safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third to ensure white text readability.';
   }
 
-  // === TEXT RENDERING INSTRUCTION ===
+  // === LAYER 7 / TEXT RENDERING INSTRUCTION (typography art-directed) ===
   let textInstruction = '';
   if (textContent && slideRole !== 'visual') {
     const structured = typeof textContent === 'object' && textContent.headline
@@ -1508,33 +1508,9 @@ High resolution, professional design quality, 1080x1080px.
       : { headline: typeof textContent === 'string' ? textContent : '' };
     const { headline, subtitle, caption, dataValue, dataLabel } = structured;
 
-    // Position & background from overlayConfig
     const position = overlayConfig?.position || 'center';
     const background = overlayConfig?.background || 'none';
 
-    // Build text block description
-    const textParts: string[] = [];
-
-    if (dataValue) {
-      textParts.push(`— Display "${dataValue}" as a very large, bold number (biggest text on the image)`);
-      if (dataLabel) {
-        textParts.push(`— Below the number, display "${dataLabel}" in small uppercase letters`);
-      }
-    }
-
-    if (headline) {
-      textParts.push(`— Main headline text: "${headline}" — bold, prominent, easy to read`);
-    }
-
-    if (subtitle) {
-      textParts.push(`— Subtitle text below headline: "${subtitle}" — smaller, lighter weight`);
-    }
-
-    if (caption) {
-      textParts.push(`— Small caption at bottom: "${caption}" — subtle, small size`);
-    }
-
-    // Position instruction
     let positionDesc = 'centered on the image';
     if (position === 'bottom-left') positionDesc = 'in the bottom-left area';
     if (position === 'top-left') positionDesc = 'in the top-left area';
@@ -1544,30 +1520,55 @@ High resolution, professional design quality, 1080x1080px.
     if (position === 'center-left') positionDesc = 'in the center-left area';
     if (position === 'asymmetric-left') positionDesc = 'in the left area with asymmetric layout';
 
-    // Background treatment
     let bgTreatment = '';
     if (background === 'glass') {
-      bgTreatment = 'Place the text inside a frosted glass card (glassmorphism effect: semi-transparent white background with blur, rounded corners, subtle border).';
+      bgTreatment = 'Place the text inside a frosted glass card (glassmorphism: semi-transparent white background with blur, rounded corners, subtle border).';
     } else if (background === 'solid-block') {
       bgTreatment = 'Place the text on a solid dark semi-transparent rectangle for high contrast readability.';
     } else if (background === 'cta-button') {
       bgTreatment = 'The last line of text should look like a call-to-action button (rounded rectangle, bright contrasting color).';
     } else {
-      bgTreatment = 'Text should have subtle drop shadow or dark gradient behind it for readability against the background.';
+      bgTreatment = 'Text has a subtle drop shadow or soft gradient behind it for readability — no heavy box.';
     }
 
-    // Font style from tokens
-    let fontDesc = 'clean modern sans-serif font';
-    if (dbTokens?.typography?.fontFamily?.heading) {
-      const fontName = dbTokens.typography.fontFamily.heading.split(',')[0].replace(/'/g, '').trim();
-      fontDesc = `${fontName} font or similar style`;
-    }
-
-    // Text color
     const textColor = overlayConfig?.textColor || '#FFFFFF';
     const colorDesc = textColor === '#FFFFFF' ? 'white' : textColor === '#1A1A1A' ? 'dark/black' : textColor;
 
-    textInstruction = `
+    // === LAYER 7 path: archetype-driven typography ===
+    const archetypeFromCD = creativeDirection?.typographyArchetype as TypographyArchetype | null | undefined;
+    if (archetypeFromCD) {
+      try {
+        textInstruction = buildTypographyDirective(
+          archetypeFromCD,
+          { dataValue, dataLabel, headline, subtitle, caption },
+          positionDesc,
+          bgTreatment,
+          colorDesc,
+        );
+      } catch (e) {
+        console.warn('[generate-carousel-image] buildTypographyDirective failed, falling back:', e);
+        textInstruction = '';
+      }
+    }
+
+    // === Legacy fallback (no creativeDirection / archetype unavailable) ===
+    if (!textInstruction) {
+      const textParts: string[] = [];
+      if (dataValue) {
+        textParts.push(`— Display "${dataValue}" as a very large, bold number (biggest text on the image)`);
+        if (dataLabel) textParts.push(`— Below the number, display "${dataLabel}" in small uppercase letters`);
+      }
+      if (headline) textParts.push(`— Main headline text: "${headline}" — bold, prominent, easy to read`);
+      if (subtitle) textParts.push(`— Subtitle text below headline: "${subtitle}" — smaller, lighter weight`);
+      if (caption) textParts.push(`— Small caption at bottom: "${caption}" — subtle, small size`);
+
+      let fontDesc = 'clean modern sans-serif font';
+      if (dbTokens?.typography?.fontFamily?.heading) {
+        const fontName = dbTokens.typography.fontFamily.heading.split(',')[0].replace(/'/g, '').trim();
+        fontDesc = `${fontName} font or similar style`;
+      }
+
+      textInstruction = `
 
 TEXT RENDERING (MANDATORY — this is the most important part):
 All text must be rendered ${positionDesc}.
@@ -1585,7 +1586,9 @@ RULES FOR TEXT:
 - If text is in Vietnamese, render the diacritics (dấu) correctly: ă, â, ê, ô, ơ, ư, đ and tone marks.
 - DO NOT add any extra text, watermarks, or labels not specified above.
 `;
+    }
   }
+
 
   // === Phase C: Brand Color injection (STRONG directive) ===
   let brandColorDirective = '';
