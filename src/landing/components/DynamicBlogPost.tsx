@@ -80,14 +80,13 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>{post.seo_title || post.title} | Flowa Blog</title>
-        <meta
-          name="description"
-          content={post.seo_description || post.excerpt || ''}
-        />
-        <link rel="canonical" href={`https://flowa.vn/blog/${post.slug}`} />
-      </Helmet>
+      <SEOHead
+        title={`${post.seo_title || post.title} | Flowa Blog`}
+        description={post.seo_description || post.excerpt || ''}
+        canonicalPath={`/blog/${post.slug}`}
+        ogImage={post.cover_image || undefined}
+        ogType="article"
+      />
 
       <ReadingProgress containerRef={articleRef} />
       <LandingNav />
