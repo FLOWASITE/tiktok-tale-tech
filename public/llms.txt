@@ -1,0 +1,27 @@
+# Flowa
+
+> AI Marketing Agent platform giúp marketing teams tạo content đa kênh (12+ kênh) trong 10 phút, tự động hoá 90% quy trình và giữ brand voice nhất quán.
+
+Flowa kết hợp Industry Memory (knowledge graph theo ngành), Brand Voice cloning, và AI agent pipeline để sản xuất script video, carousel, blog, ad copy và publish trực tiếp lên Facebook, Instagram, TikTok, LinkedIn, X, Threads, YouTube, Pinterest, Bluesky, Zalo OA, Google Business Profile, Blogger, WordPress, Shopify, Wix.
+
+## Pages
+
+- [Trang chủ](/): Giới thiệu nền tảng và workflow đa kênh.
+- [Pricing](/pricing): Các gói Free, Starter, Pro, Enterprise với hạn mức Nội dung / Ảnh / Video.
+- [About](/about): Sứ mệnh và đội ngũ Flowa.
+- [Contact](/contact): Liên hệ sales và hỗ trợ.
+- [Careers](/careers): Cơ hội nghề nghiệp.
+- [Blog](/blog): Hướng dẫn AI marketing, content repurposing, multi-channel.
+
+## Blog
+
+- [Flowa Content Marketing Đa Kênh](/blog/flowa-content-marketing-da-kenh): Tổng quan workflow đa kênh.
+- [Cách tạo content đa kênh](/blog/cach-tao-content-da-kenh): Hướng dẫn từng bước.
+- [AI Content Marketing](/blog/ai-content-marketing-huong-dan): Best practices dùng AI cho marketing.
+- [Content Repurposing chiến lược](/blog/content-repurposing-chien-luoc): Tối đa hoá ROI từ 1 ý tưởng.
+
+## Optional
+
+- [Sitemap](/sitemap): Bản đồ trang.
+- [Terms](/terms): Điều khoản sử dụng.
+- [Privacy](/privacy): Chính sách bảo mật.
