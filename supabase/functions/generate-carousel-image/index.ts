@@ -12,6 +12,7 @@ import { createTrace } from "../_shared/tracing.ts";
 import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
 import { isCircuitOpen, recordSuccess, recordFailure } from "../_shared/circuit-breaker.ts";
 import { buildTypographyDirective, type TypographyArchetype } from "../_shared/carousel-creative-direction.ts";
+import { buildPresetDirective } from "../_shared/carousel-preset-dna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1537,6 +1538,7 @@ High resolution, professional design quality, 1080x1080px.
           positionDesc,
           bgTreatment,
           colorDesc,
+          visualPreset,
         );
       } catch (e) {
         console.warn('[generate-carousel-image] buildTypographyDirective failed, falling back:', e);
@@ -1775,23 +1777,17 @@ CAROUSEL COMPOSITION:
     topicDirective += `\nSLIDE UNIQUENESS: Slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. Vary between wide, medium, close-up, overhead, and side angle.\n`;
   }
 
-  // === Visual preset OVERRIDE — runs LAST so flat_design beats cinematic ===
-  // Fixes bug where `flat_design` user choice was being silently overridden by
-  // `educational`/`gallery` style blocks that pushed cinematic 3D output.
-  let visualPresetOverride = '';
-  const presetKey = (visualPreset || '').toLowerCase();
-  const isFlatRequest = /flat[_\s-]?design|flat[_\s-]?vector|editorial[_\s-]?illustration|2d[_\s-]?vector/.test(presetKey);
-  const isMinimal = /minimal|clean|editorial/.test(presetKey);
-  const isOrganic = /soft[_\s-]?organic|organic|hand[_\s-]?drawn|paper/.test(presetKey);
-  visualPresetOverride = `
-VISUAL STYLE GUARDRAILS (override any conflicting cinematic directives above):
-- AVOID overused AI-tech clichés: NO circuit boards, NO glowing neon nodes/network meshes, NO holographic UI panels floating in air, NO dark-navy + neon-red/blue corporate gradient, NO matrix-style binary streams, NO generic "futuristic data" backgrounds, NO floating data-cards with fake numbers.
-- Prefer EDITORIAL aesthetic: clean geometry, generous negative space, intentional asymmetry, paper-like or soft-matte surfaces, restrained palette with one focal accent.
+  // === Preset DNA — palette + typography + reference editorial (single source of truth) ===
+  const brandPrimaryHex = brandColors?.textColor || brandColors?.backgroundColor || null;
+  const presetDnaDirective = buildPresetDirective(visualPreset, brandPrimaryHex);
+
+  // === Visual preset OVERRIDE — anti-cliché guardrails (kept lean; DNA above does the heavy lifting) ===
+  const visualPresetOverride = `
+ANTI-CLICHÉ GUARDRAILS (override any conflicting cinematic directives above):
+- AVOID overused AI-tech clichés: NO circuit boards, NO glowing neon nodes/network meshes, NO holographic UI panels floating in air, NO matrix-style binary streams, NO generic "futuristic data" backgrounds, NO floating data-cards with fake numbers.
 - Composition must have a clear focal point with surrounding breathing room — NOT a busy collage of overlapping elements.
-- Lighting: soft, directional, naturalistic. NOT high-contrast neon glow.
-${isFlatRequest ? '- STYLE LOCK: 2D flat vector illustration. Solid color fills, geometric shapes, minimal gradients, Notion/Stripe/Linear-tier editorial illustration. NO photorealism, NO 3D render, NO cinematic photography.' : ''}
-${isMinimal && !isFlatRequest ? '- STYLE LOCK: Minimalist editorial. Lots of whitespace, single hero subject, restrained color usage, premium magazine-spread feel.' : ''}
-${isOrganic ? '- STYLE LOCK: Soft organic shapes, hand-drawn or paper-cut feel, warm muted palette, gentle textures.' : ''}
+- Lighting: soft, directional, naturalistic unless preset DNA explicitly calls for otherwise.
+- The Preset DNA block above is AUTHORITATIVE for palette, typography, and reference style — do NOT deviate.
 `;
 
 
@@ -1825,13 +1821,16 @@ ANTI-HALLUCINATION RULES (CRITICAL):
     // PART 2: Design tokens (mood/effects only when brand colors present)
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
 
+    // PART 2.5: Preset DNA — palette + typography + editorial reference (HIGH PRIORITY)
+    presetDnaDirective,
+
     // PART 3: Continuity
     seamlessDirective || '',
 
     // PART 4: Style directive (carouselStyle-based)
     styleDirective || '',
 
-    // PART 4.5: Visual style override — anti-cliché + flat_design enforcement
+    // PART 4.5: Anti-cliché guardrails
     visualPresetOverride,
 
     // PART 5: TEXT RENDERING (the ONLY allowed text on the image)
