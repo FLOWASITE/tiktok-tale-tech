@@ -137,11 +137,26 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         return null;
       }
 
-      const dedupKey = `${formData.topic}|${formData.carouselStyle}|${formData.visualPreset}`;
+      // Dedup key: normalized topic + style + preset + brand + user.
+      // sessionStorage TTL 90s survives a fast refresh (without it the
+      // in-memory ref is wiped and the user can spawn duplicates as observed
+      // in prod 12/05 — 8 carousels in 7 minutes for the same intent).
+      const normTopic = (formData.topic || '').trim().toLowerCase().slice(0, 80);
+      const dedupKey = `carousel:${user.id}:${formData.brandTemplateId || 'nobrand'}:${normTopic}:${formData.carouselStyle}:${formData.visualPreset}`;
       if (inFlightRef.current.has(dedupKey)) {
-        console.log('[CarouselGen] Blocked duplicate invoke');
+        console.log('[CarouselGen] Blocked duplicate invoke (in-memory)');
+        toast.info('Đang tạo carousel cho chủ đề này — vui lòng đợi.');
         return null;
       }
+      try {
+        const stored = sessionStorage.getItem(dedupKey);
+        if (stored && Date.now() - parseInt(stored, 10) < 90_000) {
+          console.log('[CarouselGen] Blocked duplicate invoke (session, <90s)');
+          toast.info('Bạn vừa tạo carousel tương tự. Vui lòng đợi 90s rồi thử lại.');
+          return null;
+        }
+        sessionStorage.setItem(dedupKey, String(Date.now()));
+      } catch { /* sessionStorage may be disabled */ }
       inFlightRef.current.add(dedupKey);
 
       const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
