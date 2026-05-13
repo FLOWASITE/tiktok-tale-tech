@@ -94,7 +94,25 @@ Deno.serve(async (req) => {
 
       // Process slides STRICTLY sequentially (slide N waits for slide N-1).
       // This is mandatory for seamless continuity — see plan layer 1.
+      let userCancelled = false;
       for (let i = 0; i < totalSlides; i++) {
+        // Cancel check: user may stop the batch from UI by setting status='cancelled'.
+        try {
+          const { data: t } = await supabase
+            .from('generation_tasks')
+            .select('status')
+            .eq('id', taskId)
+            .maybeSingle();
+          if (t?.status === 'cancelled') {
+            console.log(`[batch] Task ${taskId} cancelled by user — stopping at slide ${i + 1}/${totalSlides}`);
+            userCancelled = true;
+            break;
+          }
+        } catch (e) {
+          // Non-fatal: continue if cancel check fails
+          console.warn('[batch] Cancel check failed:', e);
+        }
+
         const slide = slides[i];
         const slideNum = slide.slideNumber || (i + 1);
         const progress = Math.round((i / totalSlides) * 100);
@@ -353,7 +371,7 @@ Deno.serve(async (req) => {
       }
 
       // === Post-batch: persist metadata ===
-      const metadata = { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2' };
+      const metadata = { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2', cancelled: userCancelled };
 
       try {
         await supabase
@@ -362,6 +380,20 @@ Deno.serve(async (req) => {
           .eq('id', taskId);
       } catch (e) {
         console.warn('[batch] Failed to save result_metadata:', e);
+      }
+
+      // === Early-exit branch: user cancelled via UI ===
+      if (userCancelled) {
+        await updateTaskProgress(
+          supabase,
+          taskId,
+          Math.round((successCount / totalSlides) * 100),
+          `Đã dừng theo yêu cầu — ${successCount}/${totalSlides} ảnh đã tạo`,
+          'cancelled',
+          'cancelled'
+        );
+        console.log(`[batch] User cancelled: ${successCount}/${totalSlides} success, ${failCount} failed before stop`);
+        return; // skip validation
       }
 
       // === AUTO seamless validation (anti silent-failure) ===

@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callAI } from "../_shared/ai-provider.ts";
+import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +71,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const traceId = generateTraceId();
+  const startedAt = Date.now();
+
   try {
     const { carouselId } = await req.json();
     if (!carouselId) {
@@ -99,6 +104,14 @@ Deno.serve(async (req) => {
       });
     }
     const userId = userData.user.id;
+
+    // Rate limit (carousel bucket — caption regen reuses same quota)
+    const planType = await getUserPlanType(supabase, userId);
+    const rlConfig = getRateLimitConfig(planType, "carousel");
+    const rl = checkRateLimit(userId, rlConfig);
+    if (!rl.allowed) {
+      return createRateLimitErrorResponse(rl, corsHeaders);
+    }
 
     // Load carousel
     const { data: carousel, error: cErr } = await supabase
@@ -235,6 +248,22 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Telemetry
+    saveMetrics(supabase, {
+      traceId,
+      functionName: "regenerate-carousel-caption",
+      organizationId: carousel.organization_id || undefined,
+      userId,
+      totalDurationMs: Date.now() - startedAt,
+      contextSources: [],
+      hadError: false,
+      exitReason: "success",
+      actionType: "carousel_regen_caption",
+      channels: ["carousel"],
+      contentId: carouselId,
+      modelsUsed: result.model ? [result.model] : undefined,
+    } as any).catch(() => {});
 
     return new Response(
       JSON.stringify({

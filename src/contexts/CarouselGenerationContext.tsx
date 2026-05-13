@@ -106,17 +106,26 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
     toast.info('Đã hủy quá trình tạo carousel');
   }, []);
 
-  /** Try to fetch the carousel row by topic+timestamp window — used as fallback when stream drops */
+  /** Try to fetch the carousel row by id (preferred) or topic+timestamp window (fallback) */
   const trySyncFromDb = useCallback(
-    async (formData: CarouselFormData, startedAt: number): Promise<Carousel | null> => {
+    async (formData: CarouselFormData, startedAt: number, knownId?: string | null): Promise<Carousel | null> => {
       try {
         if (!user) return null;
+        // Preferred path: backend emitted carousel_saved with id — fetch by id directly
+        if (knownId) {
+          let q = supabase.from('carousels').select('*').eq('id', knownId).limit(1);
+          if (currentOrganization?.id) q = q.eq('organization_id', currentOrganization.id);
+          const { data } = await q.maybeSingle();
+          if (data) return data as any;
+        }
+        // Fallback: match by topic + user + tight created_at window
         let q = supabase
           .from('carousels')
           .select('*')
           .eq('topic', formData.topic)
           .eq('user_id', user.id)
           .gte('created_at', new Date(startedAt - 5_000).toISOString())
+          .lte('created_at', new Date(startedAt + 10 * 60_000).toISOString())
           .order('created_at', { ascending: false })
           .limit(1);
         if (currentOrganization?.id) q = q.eq('organization_id', currentOrganization.id);
@@ -241,6 +250,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         const decoder = new TextDecoder();
         let buffer = '';
         let finalCarousel: Carousel | null = null;
+        let savedCarouselId: string | null = null;
         const partial: CarouselSlide[] = [];
 
         while (true) {
@@ -274,6 +284,8 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 phase,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
+            } else if (event.type === 'carousel_saved') {
+              if (event.carouselId) savedCarouselId = String(event.carouselId);
             } else if (event.type === 'slide_start') {
               const newSlide = event.slideNumber ?? 0;
               const prevMeta = job.revealingSlideMeta;
@@ -376,7 +388,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           });
           const syncStart = Date.now();
           while (Date.now() - syncStart < SYNC_FALLBACK_TIMEOUT_MS) {
-            const synced = await trySyncFromDb(formData, startedAt);
+            const synced = await trySyncFromDb(formData, startedAt, savedCarouselId);
             if (synced) {
               updateJob(jobId, {
                 status: 'done',

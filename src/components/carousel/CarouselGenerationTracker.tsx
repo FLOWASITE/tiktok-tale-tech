@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   PenLine,
   Minimize2,
+  StopCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -505,6 +506,29 @@ export function CarouselGenerationTracker({
                 <Badge variant="default" className="text-[10px] h-4 px-1.5 bg-primary/20 text-primary border-0">
                   {successCount}/{slideCount} ảnh
                 </Badge>
+              )}
+              {imageGenStarted && !imageGenDone && backgroundTaskId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-6 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('generation_tasks')
+                        .update({ status: 'cancelled', current_step: 'cancelled' })
+                        .eq('id', backgroundTaskId);
+                      if (error) throw error;
+                      toast.info('Đã yêu cầu dừng — ảnh đang tạo dở sẽ hoàn thành rồi mới thoát.');
+                    } catch (e: any) {
+                      toast.error(e?.message || 'Không thể hủy task');
+                    }
+                  }}
+                  title="Dừng tạo ảnh"
+                >
+                  <StopCircle className="w-3 h-3 mr-1" />
+                  Dừng
+                </Button>
               )}
             </div>
 
