@@ -922,7 +922,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] KIE model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- GeminiGen routing ---
-    else if (isGeminiGenModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    else if (!forceLovableGateway && isGeminiGenModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
         return new Response(
