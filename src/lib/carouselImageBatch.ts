@@ -67,17 +67,19 @@ export function buildSeriesBible(slides: CarouselSlide[]): string {
     if (m) consistencyParts.push(m[1].trim());
   });
   const uniqueParts = [...new Set(consistencyParts)];
-  const slide1Prompt = slides[0]?.fullPrompt || '';
+  const slide1 = slides[0];
+  const slide1Prompt = slide1?.fullPrompt || '';
   return [
     `SERIES VISUAL BIBLE (applies to ALL slides):`,
     uniqueParts.length > 0
       ? `Visual world: ${uniqueParts.join('. ')}.`
-      : `Visual world: ${slides[0]?.designStyle || 'professional photography'}.`,
+      : `Visual world: ${slide1?.designStyle || 'professional photography'}.`,
     `Total slides in series: ${slides.length}.`,
     `All slides share the SAME: lighting direction, color temperature, photography style, environment/setting, and visual mood.`,
+    slide1?.colorLayout ? `Lighting & palette anchor (from slide 1): ${slide1.colorLayout}.` : '',
     `DIFFERENTIATION: Each slide MUST use a DIFFERENT camera angle (wide/medium/close-up/overhead/side), focal subject, and composition while staying in the same visual world. No two slides should look alike.`,
-    `Reference scene (slide 1): "${slide1Prompt.slice(0, 200)}..."`,
-  ].join('\n');
+    `Reference scene (slide 1): "${slide1Prompt.slice(0, 400)}..."`,
+  ].filter(Boolean).join('\n');
 }
 
 interface LaunchOpts {
