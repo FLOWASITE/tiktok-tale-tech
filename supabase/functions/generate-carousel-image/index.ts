@@ -1452,6 +1452,7 @@ function buildBackgroundPrompt(
   slideObjective?: string | null,
   textContent?: any | null,
   overlayConfig?: Record<string, any> | null,
+  visualPreset?: string | null,
 ): string {
   // === Safe zone note: now a COMPLETE slide (text rendered by AI) ===
   let safeZoneNote = `
