@@ -9,7 +9,7 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 // ============================================
 
 export type TaskType = 'core_content' | 'multichannel' | 'carousel_image' | 'image_generation';
-export type TaskStatus = 'pending' | 'generating' | 'completed' | 'failed';
+export type TaskStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
 
 export interface GenerationTask {
   id: string;
