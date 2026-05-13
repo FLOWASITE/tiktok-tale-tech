@@ -406,6 +406,10 @@ Deno.serve(async (req) => {
 
         const layeredPrevDesc = (() => {
           const parts: string[] = [];
+          // LAYER 7: locked metaphor — inject on slide 1 (and reinforce on later slides if anchor not yet set)
+          if (creativeDirection?.metaphor?.chosen) {
+            parts.push(`LOCKED VISUAL METAPHOR (use throughout the entire series — do NOT use literal arrows, charts, gears, light bulbs, neon, circuits): ${creativeDirection.metaphor.chosen}`);
+          }
           if (slideNum === 1 && seriesBible) parts.push(seriesBible);
           if (slideNum > 1) {
             if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
@@ -416,6 +420,11 @@ Deno.serve(async (req) => {
             if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
               parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
             }
+          }
+          // LAYER 7: mood arc directive for THIS slide
+          const mood = creativeDirection?.moodArc?.find((m) => m.slideNumber === slideNum);
+          if (mood) {
+            parts.push(`MOOD FOR THIS SLIDE (role=${mood.role}): contrast=${mood.contrast}, saturation=${mood.saturation}. Focal intent: ${mood.focalIntent}`);
           }
           // LAYER 4.3: composition scaffold rotation — break monotony, force per-slide variety.
           parts.push(pickCompositionScaffold(slideNum, totalSlides));
@@ -429,6 +438,14 @@ Deno.serve(async (req) => {
           sequencePosition: slideNum,
           totalInSequence: totalSlides,
         };
+
+        // LAYER 7: per-slide creative direction payload for image function
+        const slideCreativeDirection = creativeDirection ? {
+          metaphor: creativeDirection.metaphor.chosen,
+          moodForSlide: creativeDirection.moodArc.find((m) => m.slideNumber === slideNum) || null,
+          typographyArchetype: creativeDirection.typographyRole.find((t) => t.slideNumber === slideNum)?.archetype || null,
+        } : null;
+
 
         const MAX_ATTEMPTS = 2;
         let slideSuccess = false;
