@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
     );
   }
 
-  const { taskId, carouselId, slides, brandColors, carouselStyle, visualPreset, platform, carouselTopic, seriesBible, siblingsSummary } = body;
+  const { taskId, carouselId, slides, brandColors, carouselStyle, visualPreset, platform, carouselTopic, seriesBible, siblingsSummary, aspectRatio: bodyAspectRatio } = body;
+  // Aspect ratio resolution: explicit body > slide hint > platform default.
+  // All slides MUST share the same aspect ratio for visual coherence.
+  const platformDefault = platform === 'tiktok' ? '9:16' : platform === 'instagram' ? '4:5' : platform === 'linkedin' ? '1:1' : '1:1';
+  const lockedAspectRatio: string = bodyAspectRatio || (slides?.[0]?.aspectRatio) || platformDefault;
 
   if (!taskId || !carouselId || !slides?.length) {
     return new Response(
