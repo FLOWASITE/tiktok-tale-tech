@@ -727,7 +727,29 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       // We do NOT mutate requestedModel: the multi-image fork below triggers on `!externalImageUrl`.
     }
 
-    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel})`);
+    // === LAYER 5: Preset-aware model routing ===
+    // Editorial-leaning presets (flat_design / minimalist / editorial_minimal /
+    // soft_organic) are routinely over-rendered into cinematic 3D by PoYo/KIE
+    // (which lean photoreal). Force route to Lovable Gateway gemini-3.1-flash
+    // -image-preview (Nano Banana 2) — respects 2D vector / clean editorial
+    // directives much more faithfully.
+    const editorialPresets = new Set(['flat_design', 'minimalist', 'editorial_minimal', 'soft_organic']);
+    let forceLovableGateway = false;
+    if (
+      lovableApiKey &&
+      visualPreset &&
+      editorialPresets.has(visualPreset) &&
+      isSingleImageProvider
+    ) {
+      const before = imageModel;
+      imageModel = 'google/gemini-3.1-flash-image-preview';
+      forceLovableGateway = true;
+      console.log(
+        `[generate-carousel-image] LAYER 5: visualPreset='${visualPreset}' is editorial → bypass ${before} → ${imageModel}`,
+      );
+    }
+
+    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel}, forceGateway=${forceLovableGateway})`);
 
     // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
     const overlayConfig = getOverlayConfig(
@@ -766,7 +788,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const singleRefImage = singleSlotRef || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
-    if (isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    if (!forceLovableGateway && isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
@@ -834,7 +856,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] PoYo model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- KIE routing ---
-    else if (isKieModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    else if (!forceLovableGateway && isKieModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
@@ -900,7 +922,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] KIE model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- GeminiGen routing ---
-    else if (isGeminiGenModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    else if (!forceLovableGateway && isGeminiGenModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
         return new Response(

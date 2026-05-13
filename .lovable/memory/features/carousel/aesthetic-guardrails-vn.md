@@ -43,3 +43,35 @@ type: feature
 - Topic relevance bằng "Every visual element should reinforce the topic" → AI bake topic title vào ảnh
 - Style directive chỉ map theo `carouselStyle`, không xét `visualPreset` → flat_design bị silent override
 - Không có anti-hallucination → fake logos & fake bullet cards
+
+## Layer 4 Cohesion (generate-carousel-images-batch)
+
+### 4.1 Visual Lexicon Lock
+- Sau slide 1 success → chạy `extractVisualLexicon()` (Gemini Flash Lite multimodal) PARALLEL với `extractLockedPalette()`
+- Output: 1 paragraph ≤80 từ mô tả 4 dimensions: METAPHOR, LIGHTING, MEDIUM, PERSPECTIVE
+- Persist vào `carousels.visual_lexicon` (TEXT column)
+- Inject vào `seamlessContext.previousSceneDescription` cho slides 2..N as `VISUAL LEXICON (lock from slide 1 — match exactly): ...`
+- Edge function config key: `extract-carousel-lexicon` (admin có thể override model + max_tokens)
+
+### 4.3 Composition Scaffold Rotation
+- `pickCompositionScaffold(slideNum, totalSlides)` inject per-slide composition archetype
+- Slide 1: hero left + breathing right
+- Last slide: single icon + 60% negative space (CTA-ready)
+- Middle slides: rotate qua [split 60/40, full-width centered, top-down flat-lay, asymmetric editorial]
+- Append vào layeredPrevDesc cho mọi slide → break monotone composition
+
+### 4.2 Text bake-in detection (DEFERRED)
+- Layer 1 (anti-hallucination prompt sandwich) đã đủ mạnh trong test
+- Skip OCR/vision check để tiết kiệm 1 call/slide
+
+## Layer 5 Routing (generate-carousel-image)
+
+### 5.1 Editorial preset → Lovable Gateway
+- Set `editorialPresets = {flat_design, minimalist, editorial_minimal, soft_organic}`
+- Khi `visualPreset` thuộc set + `isSingleImageProvider(requestedModel)`:
+  - `forceLovableGateway = true`
+  - `imageModel = 'google/gemini-3.1-flash-image-preview'`
+  - 3 provider branches (PoYo / KIE / GeminiGen) có gate `if (!forceLovableGateway && isXxxModel(...))` → bỏ qua
+  - Fall-through tới Lovable Gateway block (line ~1046) chạy với gemini-3.1-flash-image
+- Lý do: PoYo/KIE/GeminiGen lean photoreal/cinematic → over-render flat_design thành 3D. Gemini 3.1 Flash Image (Nano Banana 2) tôn trọng directive 2D vector clean editorial.
+- Photoreal presets (gradient/geometric/illustration/product_only) → giữ provider chain hiện tại.

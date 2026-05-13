@@ -1,0 +1,2 @@
+ALTER TABLE public.carousels ADD COLUMN IF NOT EXISTS visual_lexicon TEXT;
+COMMENT ON COLUMN public.carousels.visual_lexicon IS 'Short paragraph describing visual world from anchor slide: metaphor, lighting, rendering medium, perspective. Injected into seamlessContext for slides 2..N.';

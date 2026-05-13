@@ -102,6 +102,116 @@ async function extractLockedPalette(
   return hexes;
 }
 
+/**
+ * LAYER 4.1 — Visual Lexicon Lock
+ * After slide 1 generates, run a cheap Gemini Flash Lite multimodal call to
+ * extract the actual visual world: metaphor, lighting, medium, perspective.
+ * Returns a single short paragraph that can be injected into slides 2..N's
+ * seamlessContext to lock cohesion (vs hoping the model "remembers" via palette).
+ */
+async function extractVisualLexicon(
+  imageUrl: string,
+  organizationId: string | undefined,
+  traceId: string,
+  supabase: any,
+): Promise<string | null> {
+  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!lovableKey) return null;
+
+  const startedAt = Date.now();
+  let model = 'google/gemini-2.5-flash-lite';
+  let maxTokens = 220;
+  try {
+    const cfg = await getAIConfig('extract-carousel-lexicon', organizationId);
+    if (cfg?.model_override) model = cfg.model_override;
+    if (cfg?.max_tokens) maxTokens = cfg.max_tokens;
+  } catch { /* defaults */ }
+
+  let lexicon: string | null = null;
+  let hadError = false;
+  let errorMessage: string | undefined;
+
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 12_000);
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${lovableKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'text', text: `Analyze this carousel slide image. In ONE concise paragraph (max 80 words), describe its visual lexicon so future slides can match. Cover EXACTLY these 4 dimensions:
+1. METAPHOR/MOTIF (what visual symbol or concept anchors the scene)
+2. LIGHTING (direction + softness, e.g. "soft top-left light, no harsh shadows")
+3. RENDERING MEDIUM (e.g. "flat 2D vector", "soft 3D clay", "editorial photography", "minimalist line art")
+4. PERSPECTIVE (e.g. "isometric", "top-down", "eye-level frontal", "cinematic 3/4")
+Reply ONLY with the paragraph, no headers, no markdown, no quotes.` },
+          ],
+        }],
+        max_tokens: maxTokens,
+      }),
+      signal: ctl.signal,
+    }).catch((e) => { hadError = true; errorMessage = String(e); return null; });
+    clearTimeout(to);
+
+    if (resp && resp.ok) {
+      const pj = await resp.json().catch(() => null);
+      const txt: string = pj?.choices?.[0]?.message?.content || '';
+      const cleaned = txt.trim().replace(/^["']|["']$/g, '').slice(0, 600);
+      if (cleaned.length >= 40) lexicon = cleaned;
+    } else if (resp) {
+      hadError = true;
+      errorMessage = `gateway ${resp.status}`;
+    }
+  } catch (e) {
+    hadError = true;
+    errorMessage = String(e);
+  }
+
+  try {
+    await supabase.from('ai_metrics').insert({
+      trace_id: traceId,
+      function_name: 'extract-carousel-lexicon',
+      organization_id: organizationId || null,
+      total_duration_ms: Date.now() - startedAt,
+      models_used: [model],
+      had_error: hadError,
+      error_message: errorMessage || null,
+      exit_reason: lexicon ? 'success' : (hadError ? 'error' : 'no_lexicon'),
+    });
+  } catch { /* non-fatal */ }
+
+  return lexicon;
+}
+
+/**
+ * LAYER 4.3 — Composition Scaffold Rotation
+ * Per-slide composition archetype to break monotony. Slide 1 = hero left,
+ * Last = single icon + negative space, middle slides rotate through 4 archetypes.
+ */
+function pickCompositionScaffold(slideNum: number, totalSlides: number): string {
+  if (slideNum === 1) {
+    return 'COMPOSITION: Hero focal subject anchored on the LEFT third, generous breathing space on the RIGHT half (kept visually quiet — for later text overlay). Strong single focal point.';
+  }
+  if (slideNum === totalSlides) {
+    return 'COMPOSITION: Single strong icon or object centered, surrounded by GENEROUS negative space (~60% of frame). Calm, decisive, CTA-ready.';
+  }
+  const archetypes = [
+    'COMPOSITION: Split 60/40 layout — primary subject on one side, supporting visual element (small data viz / accent shape) on the other.',
+    'COMPOSITION: Full-width centered metaphor — subject occupies center 50%, edges fade to soft background, breathing space top + bottom.',
+    'COMPOSITION: Top-down flat-lay arrangement — multiple small elements arranged with grid-like rhythm, equal spacing.',
+    'COMPOSITION: Asymmetric editorial — primary subject offset to one corner, secondary visual rhythm flowing diagonally across frame.',
+  ];
+  // Slides 2..N-1 rotate through archetypes deterministically
+  return archetypes[(slideNum - 2) % archetypes.length];
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -163,6 +273,9 @@ Deno.serve(async (req) => {
     // Locked color palette (top hex colors) extracted from anchor slide once,
     // then injected into seamlessContext.colorPalette for slides 2..N.
     let lockedPalette: string[] | null = null;
+    // LAYER 4.1: Visual lexicon extracted from anchor slide (metaphor, lighting,
+    // medium, perspective). Locks visual world for slides 2..N beyond just palette.
+    let visualLexicon: string | null = null;
     // Rolling window of last 4 slides' descriptions to limit drift on long carousels.
     const recentScenes: string[] = [];
 
@@ -242,11 +355,16 @@ Deno.serve(async (req) => {
           if (slideNum === 1 && seriesBible) parts.push(seriesBible);
           if (slideNum > 1) {
             if (seriesBible) parts.push(`SERIES BIBLE: ${seriesBible.slice(0, 600)}`);
+            // LAYER 4.1: inject visual lexicon (metaphor + lighting + medium + perspective)
+            // — strongest cohesion lock, replaces vague "same visual world" hand-waving.
+            if (visualLexicon) parts.push(`VISUAL LEXICON (lock from slide 1 — match exactly): ${visualLexicon}`);
             if (anchorSceneDescription) parts.push(`ANCHOR (slide 1): ${anchorSceneDescription.slice(0, 300)}`);
             if (previousSceneDescription && previousSceneDescription !== anchorSceneDescription && previousSceneDescription !== seriesBible) {
               parts.push(`PREVIOUS (slide ${slideNum - 1}): ${previousSceneDescription.slice(0, 300)}`);
             }
           }
+          // LAYER 4.3: composition scaffold rotation — break monotony, force per-slide variety.
+          parts.push(pickCompositionScaffold(slideNum, totalSlides));
           return parts.length > 0 ? parts.join('\n\n') : previousSceneDescription;
         })();
 
@@ -445,18 +563,40 @@ Deno.serve(async (req) => {
             anchorImageUrl = slideImageUrl;
             anchorSceneDescription = slideSceneDescription || nextSceneDesc;
 
+            // Run palette + visual lexicon extraction in parallel — both are
+            // anchored on slide 1 image and unrelated, so we save ~10s on long batches.
             try {
-              const hexes = await extractLockedPalette(slideImageUrl, organizationId, traceId, supabase);
+              const [hexes, lexicon] = await Promise.all([
+                extractLockedPalette(slideImageUrl, organizationId, traceId, supabase).catch((e) => {
+                  console.warn('[batch] Palette extraction failed:', e);
+                  return null;
+                }),
+                extractVisualLexicon(slideImageUrl, organizationId, traceId, supabase).catch((e) => {
+                  console.warn('[batch] Lexicon extraction failed:', e);
+                  return null;
+                }),
+              ]);
               if (hexes && hexes.length >= 3) {
                 lockedPalette = hexes;
                 console.log(`[batch] Locked palette from anchor: ${hexes.join(', ')}`);
-                await supabase
-                  .from('carousels')
-                  .update({ locked_palette: hexes })
-                  .eq('id', carouselId);
               }
-            } catch (palErr) {
-              console.warn('[batch] Anchor palette extraction failed (non-fatal):', palErr);
+              if (lexicon) {
+                visualLexicon = lexicon;
+                console.log(`[batch] Locked visual lexicon from anchor: "${lexicon.slice(0, 120)}..."`);
+              }
+              if (hexes || lexicon) {
+                const updatePayload: Record<string, unknown> = {};
+                if (hexes) updatePayload.locked_palette = hexes;
+                if (lexicon) updatePayload.visual_lexicon = lexicon;
+                try {
+                  await supabase.from('carousels').update(updatePayload).eq('id', carouselId);
+                } catch (uErr) {
+                  // visual_lexicon column may not exist yet — non-fatal, lexicon still in-memory
+                  console.warn('[batch] Persist anchor metadata partial:', uErr);
+                }
+              }
+            } catch (anchorErr) {
+              console.warn('[batch] Anchor extraction step failed (non-fatal):', anchorErr);
             }
           }
 
