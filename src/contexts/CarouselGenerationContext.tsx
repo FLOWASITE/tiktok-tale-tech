@@ -284,6 +284,8 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 phase,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
+            } else if (event.type === 'carousel_saved') {
+              if (event.carouselId) savedCarouselId = String(event.carouselId);
             } else if (event.type === 'slide_start') {
               const newSlide = event.slideNumber ?? 0;
               const prevMeta = job.revealingSlideMeta;
