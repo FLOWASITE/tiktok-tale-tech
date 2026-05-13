@@ -250,6 +250,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         const decoder = new TextDecoder();
         let buffer = '';
         let finalCarousel: Carousel | null = null;
+        let savedCarouselId: string | null = null;
         const partial: CarouselSlide[] = [];
 
         while (true) {
