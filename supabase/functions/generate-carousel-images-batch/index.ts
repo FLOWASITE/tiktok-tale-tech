@@ -493,6 +493,7 @@ Deno.serve(async (req) => {
                 // and lets multi-image providers (Lovable Gateway) layer logo+anchor+previous.
                 anchorImageUrl: slideNum > 1 ? anchorImageUrl : null,
                 seamlessContext: slideSeamlessContext,
+                creativeDirection: slideCreativeDirection,
               }),
               signal: controller.signal,
             });
