@@ -197,6 +197,7 @@ Deno.serve(async (req) => {
                 slideNumber: slideNum,
                 textContent: slide.textContent,
                 platform: platform || 'facebook',
+                aspectRatio: lockedAspectRatio,
                 brandColors,
                 carouselStyle: carouselStyle || 'educational',
                 totalSlides,
@@ -205,6 +206,9 @@ Deno.serve(async (req) => {
                 carouselTopic,
                 // Pass previous slide image for img2img continuity (slide 2..N only)
                 previousImageUrl: slideNum > 1 ? previousImageUrl : null,
+                // Anchor (slide 1) — gives single-slot providers a stable visual reference
+                // and lets multi-image providers (Lovable Gateway) layer logo+anchor+previous.
+                anchorImageUrl: slideNum > 1 ? anchorImageUrl : null,
                 seamlessContext: slideSeamlessContext,
               }),
               signal: controller.signal,
