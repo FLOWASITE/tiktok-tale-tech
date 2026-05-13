@@ -856,7 +856,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] PoYo model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- KIE routing ---
-    else if (isKieModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    else if (!forceLovableGateway && isKieModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
