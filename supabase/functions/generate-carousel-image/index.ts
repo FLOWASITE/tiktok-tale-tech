@@ -1056,7 +1056,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           : imageModel;
 
         if (gatewayAttempt === 0) {
-          console.log(`[generate-carousel-image] Gateway payload: model=${gatewayModel} (requested=${imageModel}), refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
+          console.log(`[generate-carousel-image] Gateway payload: model=${gatewayModel} (requested=${imageModel}), refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, anchor=${!!anchorImageUrl}, prev=${!!previousImageUrl})`);
         }
 
         const bgResponse = await fetch(
