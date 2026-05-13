@@ -193,8 +193,42 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         abortReason: null,
         revealingSlide: null,
         revealingSlideMeta: null,
+        kind: 'prompt',
+        taskId: null,
+        carouselId: null,
       };
       setJobs((prev) => [job, ...prev]);
+
+      // Persist task row up front so it survives reload / tab close
+      let dbTaskId: string | null = null;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: taskRow, error: taskErr } = await (supabase.from('generation_tasks') as any)
+          .insert({
+            user_id: user.id,
+            organization_id: currentOrganization?.id || null,
+            task_type: 'carousel_prompt',
+            status: 'generating',
+            progress: 0,
+            progress_message: 'Đang khởi tạo...',
+            current_step: 'init',
+            input_params: {
+              ...formData,
+              jobId,
+              startedAt,
+            },
+          })
+          .select('id')
+          .single();
+        if (!taskErr && taskRow?.id) {
+          dbTaskId = taskRow.id as string;
+          updateJob(jobId, { taskId: dbTaskId });
+        } else if (taskErr) {
+          console.warn('[CarouselGen] Could not persist task row:', taskErr);
+        }
+      } catch (err) {
+        console.warn('[CarouselGen] Persist task error:', err);
+      }
 
       try {
         const { data: sessionData } = await supabase.auth.getSession();
