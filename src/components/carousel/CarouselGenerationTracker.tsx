@@ -160,18 +160,25 @@ export function CarouselGenerationTracker({
     },
     onTaskProgress: (task) => {
       if (task.id === backgroundTaskId || task.input_params?.carouselId === carousel?.id) {
-        // Update slide statuses from progress
+        // Backend writes either `slide_5` (in progress) or `slide_5_done` (just finished).
+        // Old logic parsed both as "generating" → last slide stuck on the spinner
+        // until the task-complete event arrived.
         const step = task.current_step;
-        if (step?.startsWith('slide_')) {
-          const slideNum = parseInt(step.replace('slide_', ''));
+        const m = step?.match(/^slide_(\d+)(_done)?$/);
+        if (m) {
+          const slideNum = parseInt(m[1], 10);
+          const isDone = !!m[2];
           if (!isNaN(slideNum)) {
             setSlideStatuses(prev => {
               const next = [...prev];
-              // Mark previous slides as done if they aren't error
               for (let i = 0; i < slideNum - 1; i++) {
                 if (next[i] !== 'error') next[i] = 'done';
               }
-              next[slideNum - 1] = 'generating';
+              if (isDone) {
+                if (next[slideNum - 1] !== 'error') next[slideNum - 1] = 'done';
+              } else {
+                next[slideNum - 1] = 'generating';
+              }
               return next;
             });
           }
