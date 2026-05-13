@@ -329,9 +329,25 @@ Deno.serve(async (req) => {
       // Mark task COMPLETED BEFORE validation so user sees images immediately.
       // Validation runs as best-effort with a tight timeout.
       if (successCount === 0) {
+        // Aggregate top-2 distinct errors for actionable diagnostics.
+        // Without this, error_message is a generic "Tất cả N slide đều thất bại"
+        // and operators cannot tell whether it was 402, timeout, or schema.
+        const errorCounts = new Map<string, number>();
+        for (const r of results) {
+          if (r.success || !r.error) continue;
+          const key = String(r.error).slice(0, 160);
+          errorCounts.set(key, (errorCounts.get(key) || 0) + 1);
+        }
+        const topErrors = Array.from(errorCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([msg, count]) => `${count}× ${msg}`)
+          .join(' | ');
         const failMsg = batchCreditsExhausted
           ? 'Provider ảnh hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.'
-          : `Tất cả ${totalSlides} slide đều thất bại`;
+          : (topErrors
+              ? `Tất cả ${totalSlides} slide thất bại — ${topErrors}`
+              : `Tất cả ${totalSlides} slide đều thất bại`);
         await failTask(supabase, taskId, failMsg);
       } else {
         await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
