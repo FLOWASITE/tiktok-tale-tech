@@ -130,10 +130,10 @@ export const CAROUSEL_STYLE_OPTIONS: { value: CarouselStyleType; label: string; 
 ];
 
 export const VISUAL_PRESET_OPTIONS: { value: VisualPresetType; label: string; description: string; icon: string }[] = [
-  { value: 'minimalist', label: 'Clean Modern', description: 'Tối giản, nhiều khoảng trắng, font Inter', icon: 'Minus' },
-  { value: 'flat_design', label: 'Bold Infographic', description: 'Blocky, data-driven, font Montserrat', icon: 'BarChart3' },
-  { value: 'gradient', label: 'Gradient Flow', description: 'Neon glow, glassmorphism, hiện đại', icon: 'Blend' },
-  { value: 'geometric', label: 'Corporate', description: 'Navy gold, chuyên nghiệp, font Playfair', icon: 'Hexagon' },
-  { value: 'illustration', label: 'Story Visual', description: 'Ấm áp, hand-drawn feel, font Nunito', icon: 'Paintbrush' },
-  { value: 'product_only', label: 'Product Focus', description: 'Studio quality, sản phẩm trung tâm', icon: 'Focus' },
+  { value: 'minimalist', label: 'Editorial Minimal', description: 'Aesop · Kinfolk — paper, ink, Fraunces serif', icon: 'Minus' },
+  { value: 'flat_design', label: 'Bold Flat', description: 'Stripe · Linear — block màu, Archivo Black', icon: 'BarChart3' },
+  { value: 'gradient', label: 'Aurora Mesh', description: 'Linear · Arc — mesh gradient + glassmorphism', icon: 'Blend' },
+  { value: 'geometric', label: 'Editorial Corporate', description: 'Pentagram · NYT Mag — navy + ivory + gold', icon: 'Hexagon' },
+  { value: 'illustration', label: 'Warm Illustration', description: 'Notion · Headspace — cream + terracotta + sage', icon: 'Paintbrush' },
+  { value: 'product_only', label: 'Studio Product', description: 'Aesop · Apple Store — paper backdrop, hero shot', icon: 'Focus' },
 ];
