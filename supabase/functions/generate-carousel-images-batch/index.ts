@@ -371,7 +371,7 @@ Deno.serve(async (req) => {
       }
 
       // === Post-batch: persist metadata ===
-      const metadata = { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2' };
+      const metadata = { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2', cancelled: userCancelled };
 
       try {
         await supabase
@@ -380,6 +380,20 @@ Deno.serve(async (req) => {
           .eq('id', taskId);
       } catch (e) {
         console.warn('[batch] Failed to save result_metadata:', e);
+      }
+
+      // === Early-exit branch: user cancelled via UI ===
+      if (userCancelled) {
+        await updateTaskProgress(
+          supabase,
+          taskId,
+          Math.round((successCount / totalSlides) * 100),
+          `Đã dừng theo yêu cầu — ${successCount}/${totalSlides} ảnh đã tạo`,
+          'cancelled',
+          'cancelled'
+        );
+        console.log(`[batch] User cancelled: ${successCount}/${totalSlides} success, ${failCount} failed before stop`);
+        return; // skip validation
       }
 
       // === AUTO seamless validation (anti silent-failure) ===
