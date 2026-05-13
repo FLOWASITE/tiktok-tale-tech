@@ -788,7 +788,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const singleRefImage = singleSlotRef || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
-    if (isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+    if (!forceLovableGateway && isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
