@@ -295,6 +295,7 @@ Deno.serve(async (req) => {
                 content_id: carouselId,
                 action_type: 'carousel_image_slide',
                 channels: ['carousel'],
+                models_used: attemptModel ? [attemptModel] : null,
               });
             } catch (mErr) {
               console.warn('[batch] ai_metrics insert failed (non-fatal):', mErr);
