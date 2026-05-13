@@ -29,12 +29,21 @@ export function useCarouselImages(carouselId: string | null) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Defense-in-depth: filter by organization_id in addition to RLS so we
+      // never display images that leaked due to mis-set org context (legacy
+      // rows may have organization_id = null — keep those visible to owner).
+      let query = supabase
         .from('carousel_images')
         .select('*')
         .eq('carousel_id', carouselId)
         .eq('is_selected', true)
         .order('slide_number', { ascending: true });
+
+      if (currentOrganization?.id) {
+        query = query.or(`organization_id.eq.${currentOrganization.id},organization_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setImages((data || []) as CarouselImage[]);
@@ -43,7 +52,7 @@ export function useCarouselImages(carouselId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [carouselId, user]);
+  }, [carouselId, user, currentOrganization?.id]);
 
   const saveImage = useCallback(async (
     slideNumber: number,

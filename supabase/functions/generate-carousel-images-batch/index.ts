@@ -41,6 +41,10 @@ Deno.serve(async (req) => {
     );
   }
 
+  // trace_id ties together every per-slide ai_metrics row + carousel/task — so
+  // ops can grep one ID across logs to reconstruct the whole batch.
+  const traceId = `carousel-batch-${taskId}`;
+
   // Return immediately — processing happens in the background
   const responsePromise = (async () => {
     const totalSlides = slides.length;
@@ -131,6 +135,9 @@ Deno.serve(async (req) => {
           // burned the whole batch budget before any slide could succeed.
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 240_000);
+          const attemptStartedAt = Date.now();
+          let attemptExitReason = 'success';
+          let attemptError: string | null = null;
 
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
@@ -173,6 +180,8 @@ Deno.serve(async (req) => {
               } catch { /* ignore */ }
               creditsExhausted = true;
               slideError = parsedMsg;
+              attemptExitReason = 'credits_exhausted';
+              attemptError = parsedMsg;
               console.error(`[batch] Slide ${slideNum} hit 402 — aborting remaining ${totalSlides - slideNum} slides`);
               break;
             }
@@ -187,6 +196,8 @@ Deno.serve(async (req) => {
               if (data.errorCode === 'CREDITS_EXHAUSTED') {
                 creditsExhausted = true;
                 slideError = data.error;
+                attemptExitReason = 'credits_exhausted';
+                attemptError = data.error;
                 console.error(`[batch] Slide ${slideNum} CREDITS_EXHAUSTED — aborting batch`);
                 break;
               }
@@ -227,18 +238,46 @@ Deno.serve(async (req) => {
             slideError = isAbort
               ? `Timeout sau 240s (provider treo) — attempt ${attempt}`
               : (err instanceof Error ? err.message : String(err));
+            attemptExitReason = isAbort ? 'timeout' : 'error';
+            attemptError = slideError;
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
 
             // Skip retry for non-retryable code-level bugs (ReferenceError,
             // TypeError, "is not defined") — retrying just wastes provider credits.
             const isCodeBug = /ReferenceError|TypeError|is not defined|SyntaxError/i.test(slideError);
             if (isCodeBug) {
+              attemptExitReason = 'code_bug';
               console.warn(`[batch] Slide ${slideNum}: non-retryable code bug detected — aborting retries`);
               break;
             }
 
             if (attempt < MAX_ATTEMPTS) {
               await new Promise(r => setTimeout(r, 3000 * attempt));
+            }
+          } finally {
+            // Per-attempt telemetry — without this, ops have zero visibility
+            // into which provider/timeout combination is failing. Best-effort,
+            // never throws back into the batch loop.
+            try {
+              await supabase.from('ai_metrics').insert({
+                trace_id: traceId,
+                span_id: `slide-${slideNum}-attempt-${attempt}`,
+                function_name: 'generate-carousel-images-batch',
+                organization_id: organizationId || null,
+                user_id: body.userId || null,
+                total_duration_ms: Date.now() - attemptStartedAt,
+                ai_call_duration_ms: Date.now() - attemptStartedAt,
+                exit_reason: attemptExitReason,
+                had_error: attemptExitReason !== 'success',
+                error_type: attemptExitReason !== 'success' ? attemptExitReason : null,
+                error_message: attemptError,
+                retry_count: attempt - 1,
+                content_id: carouselId,
+                action_type: 'carousel_image_slide',
+                channels: ['carousel'],
+              });
+            } catch (mErr) {
+              console.warn('[batch] ai_metrics insert failed (non-fatal):', mErr);
             }
           }
         }
