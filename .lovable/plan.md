@@ -1,70 +1,44 @@
-## Mục tiêu
+# Phát hiện từ record thực tế
 
-Nâng tầm thẩm mỹ (màu sắc + typography) cho **TẤT CẢ 6 visual preset** carousel: `minimalist`, `flat_design`, `gradient`, `geometric`, `illustration`, `product_only`. Hết generic Inter / màu chung chung — mỗi preset có DNA design riêng, có reference editorial cụ thể.
+Pull `carousel_style_presets` từ DB → **xác nhận root cause** ảnh tạo ra vẫn xấu dù đã code Preset DNA:
 
-## Phân tích vấn đề hiện tại
-
-1. `image-prompt-data.ts` keywords quá generic (vd: "minimalist, clean, soft palette") → AI render kiểu PowerPoint.
-2. `carousel-creative-direction.ts` `ARCHETYPE_SPECS` hardcode `Inter` cho 3/5 archetype — mâu thuẫn với chính FORBIDDEN block "no Inter, no Helvetica".
-3. Không có **tonal palette** theo preset — chỉ inject 1 brand color, AI tự bịa các màu còn lại.
-4. Không có **reference language** (Aesop / Kinfolk / Pentagram / Stripe…) → AI không có "neo" thẩm mỹ.
-
-## Thiết kế mới — 6 Preset DNA
-
-| Preset | Color philosophy | Display font | Body font | Reference |
+| preset | accent (DB) | bg (DB) | heading font (DB) | DNA mới (code) |
 |---|---|---|---|---|
-| **minimalist** | Off-white `#F8F6F2` + ink `#1A1A1A` + warm grey `#8A8A87` + 1 brand accent ≤5% | Fraunces / GT Sectra (modern serif) | Söhne / GT America (neo-grotesk) | Aesop, Kinfolk, Apple Notes |
-| **flat_design** | 2 màu primary tương phản cao + 1 accent saturated, no gradient | Archivo Black / Druk Wide | IBM Plex Sans | Stripe, Linear, Vercel |
-| **gradient** | Mesh gradient 3-4 stop từ brand accent → analogous, glassmorphism | Migra / Editorial New | Inter Display / Geist | Linear changelog, Arc browser, Rauno |
-| **geometric** | Navy `#0B1F3A` + ivory `#F4EFE6` + gold `#C9A961` | Domaine Display / Canela | Söhne / Sohne Breit | Pentagram, NYT Magazine, Aesthete |
-| **illustration** | Warm cream `#FDF6EC` + terracotta `#E07A5F` + sage `#83A275` + ink | Recoleta / Tiempos Headline | Nunito / Outfit | Notion illustrations, Headspace |
-| **product_only** | Studio neutral (paper white, contact shadow) + brand accent on product only | Tiempos Headline / Editorial New | Söhne | Aesop product page, Apple Store |
+| minimalist | `#2563EB` xanh generic | `#FFFFFF` trắng | Inter / Helvetica | paper `#F8F6F2` + ink `#1A1A1A`, **Fraunces / Söhne** |
+| flat_design | `#E94560` | `#1A1A2E` navy | Montserrat | Stripe palette, **Archivo Black / IBM Plex** |
+| gradient | `#00f2fe` | mesh `#667eea→#764ba2` | Plus Jakarta | Aurora mesh từ brand, **Migra / Geist** |
+| geometric | `#C9A84C` | `#0A1628` | Playfair | navy `#0B1F3A` + ivory `#F4EFE6` + gold, **Domaine / Söhne** |
+| illustration | `#E07A5F` | `#FFF8F0` | Playfair | warm cream + terracotta + sage, **Recoleta / Nunito** |
+| product_only | `#E53E3E` | `#FFFFFF` | Montserrat | Studio neutral + brand accent on product, **Tiempos / Söhne** |
 
-Mỗi preset gắn thêm:
-- `negativeKeywords` cụ thể (vd minimalist cấm "tech UI / centered text / gradient"; flat_design cấm "Inter / pastel / shadow")
-- `compositionRule` (grid, alignment, negative space %)
-- `referenceCue` (1 dòng "in the editorial language of …")
+**Pipeline đang inject 2 nguồn xung đột vào prompt:**
+1. `buildBackgroundPrompt(... blendedTokens ...)` — lấy hex + font cụ thể từ DB tokens (cũ)
+2. `buildPresetDirective()` — block "PRESET DNA" mới (Fraunces, paper, …)
 
-## Refactor plan
+Model thấy mâu thuẫn → bám theo hex/font cụ thể của DB (Inter, white, generic blue) → ảnh ra "PowerPoint" như user phàn nàn.
 
-### File 1: `supabase/functions/_shared/image-prompt-data.ts`
-Refactor 6 entries trong `IMAGE_STYLE_PRESETS`: thay `keywords` flat thành object `{ palette, typography, composition, reference, negative }`. Giữ backward-compat: vẫn export 1 `keywords[]` flatten cho các caller cũ.
+## Kế hoạch
 
-### File 2: `supabase/functions/_shared/carousel-creative-direction.ts`
-- Thêm `PRESET_TYPOGRAPHY: Record<VisualPreset, {display, body}>` map preset → font character.
-- Sửa `buildTypographyDirective` nhận thêm `visualPreset`, override `spec.displayFont` / `spec.bodyFont` từ `PRESET_TYPOGRAPHY` (preset wins over archetype default).
-- Bỏ `Inter` khỏi `ARCHETYPE_SPECS` — thay bằng "neo-grotesk with refined letter spacing" làm fallback chung.
-- Thêm function `buildPaletteDirective(visualPreset, brandPrimary, brandSecondary?)` trả 5-6 dòng "Palette: paper #F8F6F2 (60%), ink #1A1A1A (30%), brand accent #XXX (5%)…" — inject vào prompt.
+**1 migration duy nhất** update 6 row trong `carousel_style_presets` để `tokens.colors` + `tokens.typography` khớp với DNA trong `_shared/carousel-preset-dna.ts`. Layout/spacing/safeZone giữ nguyên (các field này tốt rồi).
 
-### File 3: `supabase/functions/_shared/image-prompt-style-computer.ts`
-Khi brand chưa có secondary color → dùng tonal palette từ preset (không để AI bịa).
+### Mapping cụ thể
 
-### File 4: `supabase/functions/generate-carousel-image/index.ts`
-- Gọi `buildPaletteDirective(visualPreset, …)` và `buildTypographyDirective(archetype, …, visualPreset)` (truyền thêm preset).
-- Thêm 1 dòng `referenceCue` của preset vào cuối prompt: `"Editorial reference: ${reference}"`.
+- **minimalist** → bg `#F8F6F2`, text.primary `#1A1A1A`, text.secondary `#8A8A87`, accent `#1A1A1A`; heading `'Fraunces', 'GT Sectra', Georgia, serif`; body `'Söhne', 'GT America', 'Inter', sans-serif`
+- **flat_design** → bg `#FFFFFF`, text `#0A2540`, accent `#635BFF` (Stripe purple); heading `'Archivo Black', 'Druk Wide', Impact, sans-serif`; body `'IBM Plex Sans', sans-serif`
+- **gradient** → bg `linear-gradient(135deg, brand 0%, brand-dark 100%)`, text `#FFFFFF`, accent `#A78BFA`; heading `'Migra', 'Editorial New', serif`; body `'Inter Display', 'Geist', sans-serif`
+- **geometric** → bg `#F4EFE6` ivory, text `#0B1F3A` navy, accent `#C9A961` gold; heading `'Domaine Display', 'Canela', 'Playfair Display', serif`; body `'Söhne', 'Inter', sans-serif`
+- **illustration** → bg `#FDF6EC` cream, text `#2D2A26`, secondary terracotta `#E07A5F`, accent sage `#83A275`; heading `'Recoleta', 'Tiempos Headline', serif`; body `'Nunito', 'Outfit', sans-serif`
+- **product_only** → bg `#F5F2ED` studio neutral, text `#1A1A1A`, accent = brand (filled in via `blendBrandColors`); heading `'Tiempos Headline', 'Editorial New', serif`; body `'Söhne', 'Inter', sans-serif`
 
-### File 5: `supabase/functions/_shared/carousel-image-batch-payload.ts`
-Truyền `visualPreset` xuyên suốt nếu chưa có.
+### File thay đổi
+- **New**: `supabase/migrations/<timestamp>_sync_carousel_preset_tokens_with_dna.sql` (6× UPDATE jsonb_set)
+- **No code change** — `buildPresetDirective` + `blendBrandColors` đã đúng; chỉ cần "single source of truth" giữa DB tokens và DNA file là khớp nhau.
 
-### File 6 (UI — chỉ label/description, KHÔNG đổi value):
-`src/components/carousel/VisualPresetSelector.tsx` + `src/types/carousel.ts`
-- Cập nhật `PRESET_PREVIEW` colors + font name đúng với preset DNA mới (vd minimalist → `["#F8F6F2","#1A1A1A","#8A8A87"]`, font `Fraunces`).
-- Cập nhật `description` ngắn gọn theo DNA mới (vd "Editorial Aesop-like" thay vì "tối giản, font Inter").
+### QA sau migration
+1. `psql` verify 6 row có hex + font mới
+2. Test 1 carousel mỗi preset trên `/carousel`
+3. Spot check: minimalist phải ra warm paper (không trắng tinh + xanh), geometric ra navy/ivory/gold (không black/Playfair generic)
 
-## QA
-
-1. Generate 1 carousel 5 slide × 6 preset (test matrix).
-2. Spot-check log `[creative-direction]` confirm prompt chứa: hex codes cụ thể + tên font theo bảng + reference cue.
-3. Visual diff trước/sau: text crisp, palette consistent, không còn "AI generic".
-
-## Ngoài phạm vi (không làm trong plan này)
-
-- Đổi cấu trúc DB `carousel_style_presets` (giữ nguyên schema)
-- Đổi routing provider (GeminiGen vẫn là primary)
-- Đổi UI selector layout — chỉ refresh nội dung mô tả
-- Migration cho carousel cũ — preset mới chỉ áp cho generate-mới
-
-## Câu hỏi xác nhận
-
-1. **Tên font có hợp pháp không?** Các font Fraunces/Söhne/Druk/Domaine/Recoleta là tên gọi mô tả character cho AI image gen — **không phải embed font thật vào app**. AI sẽ render theo character. OK?
-2. **Có muốn giữ tên hiển thị cũ** trong UI ("Clean Modern", "Bold Infographic"…) hay đổi theo DNA mới ("Editorial Aesop", "Stripe Flat"…)? Mặc định plan này **giữ tên cũ**, chỉ đổi description + preview swatch.
+### Lưu ý
+- Font names như Fraunces/Söhne/Domaine vẫn là "character names" cho image model — model không có font thật, nhưng giờ chỉ còn **1 nguồn** font name → không bị Inter/Montserrat từ DB ghi đè nữa.
+- Nếu user đã có brand color, `blendBrandColors` sẽ override `accent` → vẫn hoạt động đúng vì logic blend không đổi.
