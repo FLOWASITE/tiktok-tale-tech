@@ -1,44 +1,36 @@
-# Phát hiện từ record thực tế
+# Gộp "Nhân vật" vào Video Studio
 
-Pull `carousel_style_presets` từ DB → **xác nhận root cause** ảnh tạo ra vẫn xấu dù đã code Preset DNA:
+## Mục tiêu
+Bỏ mục "Nhân vật" độc lập trên sidebar và đưa nó vào trong **Video Studio** dưới dạng một tab — vì Character Profiles chỉ dùng cho video generation (giữ nhất quán ngoại hình giữa các scene).
 
-| preset | accent (DB) | bg (DB) | heading font (DB) | DNA mới (code) |
-|---|---|---|---|---|
-| minimalist | `#2563EB` xanh generic | `#FFFFFF` trắng | Inter / Helvetica | paper `#F8F6F2` + ink `#1A1A1A`, **Fraunces / Söhne** |
-| flat_design | `#E94560` | `#1A1A2E` navy | Montserrat | Stripe palette, **Archivo Black / IBM Plex** |
-| gradient | `#00f2fe` | mesh `#667eea→#764ba2` | Plus Jakarta | Aurora mesh từ brand, **Migra / Geist** |
-| geometric | `#C9A84C` | `#0A1628` | Playfair | navy `#0B1F3A` + ivory `#F4EFE6` + gold, **Domaine / Söhne** |
-| illustration | `#E07A5F` | `#FFF8F0` | Playfair | warm cream + terracotta + sage, **Recoleta / Nunito** |
-| product_only | `#E53E3E` | `#FFFFFF` | Montserrat | Studio neutral + brand accent on product, **Tiempos / Söhne** |
+## Thay đổi
 
-**Pipeline đang inject 2 nguồn xung đột vào prompt:**
-1. `buildBackgroundPrompt(... blendedTokens ...)` — lấy hex + font cụ thể từ DB tokens (cũ)
-2. `buildPresetDirective()` — block "PRESET DNA" mới (Fraunces, paper, …)
+### 1. `src/components/AppSidebar.tsx`
+- Bỏ dòng `{ title: 'Nhân vật', url: '/characters', icon: Users }` (line 281) khỏi `contentItems`.
 
-Model thấy mâu thuẫn → bám theo hex/font cụ thể của DB (Inter, white, generic blue) → ảnh ra "PowerPoint" như user phàn nàn.
+### 2. `src/pages/VideoStudioPage.tsx`
+- Thêm tab mới `characters` vào mảng `TABS` (đặt sau `gallery`, trước `costs`):
+  - label: "Nhân vật", icon: `Users`, hint: "Quản lý nhân vật cho video"
+- `TabsList`: đổi `md:grid-cols-5` → `md:grid-cols-6`.
+- Thêm `<TabsContent value="characters">` render nội dung của `CharactersPage` (extract phần body — không cần Helmet/layout).
+- Xoá Card "Nhân vật → Mở trang quản lý" (lines 109-123) vì giờ đã có tab ngay tại đây.
 
-## Kế hoạch
+### 3. `src/pages/CharactersPage.tsx`
+- Refactor nhẹ: tách phần content (list + actions) thành component `<CharactersPanel />` export riêng để Video Studio import. Page cũ `CharactersPage` vẫn tồn tại như wrapper (Helmet + layout container) bọc `<CharactersPanel />`.
 
-**1 migration duy nhất** update 6 row trong `carousel_style_presets` để `tokens.colors` + `tokens.typography` khớp với DNA trong `_shared/carousel-preset-dna.ts`. Layout/spacing/safeZone giữ nguyên (các field này tốt rồi).
+### 4. Route `/characters`
+- **Giữ nguyên** route để backward-compat (links cũ, deep-link từ scripts, banner cũ vẫn dùng được). Không redirect để tránh phá vỡ bookmark/email.
 
-### Mapping cụ thể
+### 5. i18n
+- Không xoá key `app.sidebar.characters` (có thể dùng lại cho tab label nếu muốn).
 
-- **minimalist** → bg `#F8F6F2`, text.primary `#1A1A1A`, text.secondary `#8A8A87`, accent `#1A1A1A`; heading `'Fraunces', 'GT Sectra', Georgia, serif`; body `'Söhne', 'GT America', 'Inter', sans-serif`
-- **flat_design** → bg `#FFFFFF`, text `#0A2540`, accent `#635BFF` (Stripe purple); heading `'Archivo Black', 'Druk Wide', Impact, sans-serif`; body `'IBM Plex Sans', sans-serif`
-- **gradient** → bg `linear-gradient(135deg, brand 0%, brand-dark 100%)`, text `#FFFFFF`, accent `#A78BFA`; heading `'Migra', 'Editorial New', serif`; body `'Inter Display', 'Geist', sans-serif`
-- **geometric** → bg `#F4EFE6` ivory, text `#0B1F3A` navy, accent `#C9A961` gold; heading `'Domaine Display', 'Canela', 'Playfair Display', serif`; body `'Söhne', 'Inter', sans-serif`
-- **illustration** → bg `#FDF6EC` cream, text `#2D2A26`, secondary terracotta `#E07A5F`, accent sage `#83A275`; heading `'Recoleta', 'Tiempos Headline', serif`; body `'Nunito', 'Outfit', sans-serif`
-- **product_only** → bg `#F5F2ED` studio neutral, text `#1A1A1A`, accent = brand (filled in via `blendBrandColors`); heading `'Tiempos Headline', 'Editorial New', serif`; body `'Söhne', 'Inter', sans-serif`
+## Không thay đổi
+- Logic CRUD nhân vật, hooks `useCharacterProfiles`, `CharacterPicker`, `MultiCharacterPicker`.
+- DB schema, edge functions.
+- Trang `/characters` standalone vẫn truy cập được.
 
-### File thay đổi
-- **New**: `supabase/migrations/<timestamp>_sync_carousel_preset_tokens_with_dna.sql` (6× UPDATE jsonb_set)
-- **No code change** — `buildPresetDirective` + `blendBrandColors` đã đúng; chỉ cần "single source of truth" giữa DB tokens và DNA file là khớp nhau.
-
-### QA sau migration
-1. `psql` verify 6 row có hex + font mới
-2. Test 1 carousel mỗi preset trên `/carousel`
-3. Spot check: minimalist phải ra warm paper (không trắng tinh + xanh), geometric ra navy/ivory/gold (không black/Playfair generic)
-
-### Lưu ý
-- Font names như Fraunces/Söhne/Domaine vẫn là "character names" cho image model — model không có font thật, nhưng giờ chỉ còn **1 nguồn** font name → không bị Inter/Montserrat từ DB ghi đè nữa.
-- Nếu user đã có brand color, `blendBrandColors` sẽ override `accent` → vẫn hoạt động đúng vì logic blend không đổi.
+## QA
+- Sidebar: không còn mục "Nhân vật".
+- Video Studio: tab "Nhân vật" mới hiện cuối hàng, click → list characters + nút tạo mới hoạt động như trang cũ.
+- Mở trực tiếp `/characters` vẫn render đúng.
+- Responsive 707px (viewport user): `grid-cols-3` mobile vẫn ổn (6 tab xuống 2 hàng).
