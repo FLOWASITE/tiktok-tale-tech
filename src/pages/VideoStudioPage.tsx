@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Film, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users } from 'lucide-react';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
