@@ -4,18 +4,20 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Film, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users, ArrowRight } from 'lucide-react';
+import { Film, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users } from 'lucide-react';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
 import { VideoGalleryTab } from '@/components/video/VideoGalleryTab';
 import { VideoCostTracker } from '@/components/video/VideoCostTracker';
 import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
 import { ScriptsTab } from '@/components/video/ScriptsTab';
+import { CharactersPanel } from '@/components/characters/CharactersPanel';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
 
 const TABS = [
   { value: 'scripts', label: 'Kịch bản & Quay', icon: Clapperboard, hint: 'Tạo kịch bản → quay từng scene' },
   { value: 'storyboard', label: 'Từ Storyboard', icon: Film, hint: 'Storyboard rời → video dài' },
+  { value: 'characters', label: 'Nhân vật', icon: Users, hint: 'Giữ nhất quán ngoại hình' },
   { value: 'audio', label: 'Audio Studio', icon: Music4, hint: 'Voiceover · Music · Subtitle' },
   { value: 'gallery', label: 'Thư viện', icon: GalleryHorizontalEnd, hint: 'Tất cả video đã tạo' },
   { value: 'costs', label: 'Chi phí', icon: DollarSign, hint: 'Theo dõi credit & spend' },
