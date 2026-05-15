@@ -148,6 +148,14 @@ function VideoStudioInner() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="characters" className="mt-0">
+            <Card className="border-border/60">
+              <CardContent className="p-4 md:p-6">
+                <CharactersPanel embedded />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="audio" className="mt-0">
             <Card className="border-border/60">
               <CardContent className="p-4 md:p-6">
