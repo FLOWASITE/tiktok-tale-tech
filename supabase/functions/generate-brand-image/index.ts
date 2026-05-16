@@ -230,6 +230,38 @@ const DEFAULT_IMAGE_MODELS = {
   fallback: "google/gemini-2.5-flash-image",
 } as const;
 
+// Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
+// 150s. Keep provider polling well below that and use fast fallback paths.
+const EXTERNAL_PROVIDER_POLL_BUDGET = {
+  geminigenAttempts: 15, // 15 × 3s = 45s
+} as const;
+
+function isProviderCreditOrAuthError(message: string): boolean {
+  return /AUTH_ERROR|CREDITS_EXHAUSTED|RATE_LIMIT|insufficient_credits|402|429/i.test(message);
+}
+
+function buildProviderFailureResponse(params: {
+  error: string;
+  errorCode?: string;
+  provider?: string;
+  providerTimeout?: boolean;
+  fallbackTried?: boolean;
+  fallbackProvider?: string | null;
+}) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: params.error,
+      errorCode: params.errorCode || 'PROVIDER_ERROR',
+      provider: params.provider,
+      providerTimeout: params.providerTimeout ?? false,
+      fallbackTried: params.fallbackTried ?? false,
+      fallbackProvider: params.fallbackProvider ?? null,
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
+
 // Image quality validation thresholds
 const QUALITY_THRESHOLDS = {
   minFileSizeBytes: 10000,    // 10KB minimum
