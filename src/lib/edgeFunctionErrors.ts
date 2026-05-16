@@ -3,6 +3,7 @@ export type EdgeFunctionErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'ALL_PR
 interface EdgeFunctionErrorPayload {
   error?: string;
   errorCode?: string;
+  code?: string;
 }
 
 export interface ParsedEdgeFunctionError {
