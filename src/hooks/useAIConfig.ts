@@ -1497,6 +1497,14 @@ export const isDashScopeModel = (modelId: string): boolean => {
   return DASHSCOPE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
 };
 
+// 9Router (self-hosted OpenAI-compatible gateway) prefix
+export const NINEROUTER_MODEL_PREFIXES = ['9router/'];
+
+// Check if a model is a 9Router model
+export const isNineRouterModel = (modelId: string): boolean => {
+  return NINEROUTER_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
+};
+
 // Lovable AI model prefixes - models that are served through Lovable AI gateway
 export const LOVABLE_MODEL_PREFIXES = [
   'google/gemini-2.5',
