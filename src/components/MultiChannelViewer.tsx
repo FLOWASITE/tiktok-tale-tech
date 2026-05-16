@@ -70,6 +70,7 @@ import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 import { SimpleImageGenerator, ImageGenProgressInfo } from '@/components/multichannel/SimpleImageGenerator';
 import { FloatingImageProgress } from '@/components/multichannel/FloatingImageProgress';
+import { EmptyImageCTA } from '@/components/multichannel/EmptyImageCTA';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
