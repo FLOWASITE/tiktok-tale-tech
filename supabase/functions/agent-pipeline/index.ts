@@ -11,7 +11,30 @@ const corsHeaders = {
 const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
 
 const MAX_RETRIES = 3;
-const MAX_CONCURRENT_PIPELINES = 10;
+const MAX_CONCURRENT_PIPELINES_DEFAULT = 10;
+
+// C4: Tier-based concurrent pipeline quota
+const TIER_PIPELINE_QUOTA: Record<string, number> = {
+  free: 3,
+  starter: 5,
+  pro: 15,
+  enterprise: 50,
+};
+
+async function getOrgPipelineQuota(supabase: any, orgId: string): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from("organization_subscriptions")
+      .select("tier")
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .maybeSingle();
+    const tier = (data?.tier || "free").toLowerCase();
+    return TIER_PIPELINE_QUOTA[tier] ?? MAX_CONCURRENT_PIPELINES_DEFAULT;
+  } catch {
+    return MAX_CONCURRENT_PIPELINES_DEFAULT;
+  }
+}
 
 // ========== Phase 1a: Complexity Assessment ==========
 type ComplexityLevel = 'simple' | 'medium' | 'complex';
@@ -83,21 +106,40 @@ const STAGE_TIME_ESTIMATES: Record<string, number> = {
   strategy: 30000,
   create: 60000,
   quality: 45000,
-  approval: 300000,
+  approval: 7 * 24 * 60 * 60 * 1000, // M1: 7 days (human-driven, not AI-driven)
   publish: 120000,
   analyze: 10000,
 };
 
-/** Helper: call another edge function internally */
-async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: string, body: Record<string, unknown>) {
-  const res = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `${fnName} returned ${res.status}`);
-  return data;
+/** Helper: call another edge function internally with abort timeout (C1) */
+async function callFunction(
+  supabaseUrl: string,
+  supabaseKey: string,
+  fnName: string,
+  body: Record<string, unknown>,
+  options: { timeoutMs?: number } = {},
+) {
+  const timeoutMs = options.timeoutMs ?? 120_000; // C1: default 120s abort
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `${fnName} returned ${res.status}`);
+    return data;
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") {
+      throw new Error(`${fnName} timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Fire-and-forget: trigger next stage as a NEW Edge Function invocation */
@@ -142,17 +184,25 @@ function resolveContentId(pipeline: any, pState: any): string | null {
     || null;
 }
 
+// H1: Direct schedule support for all channels with a publish-* edge function
 const DIRECT_SCHEDULE_CHANNEL_CONFIG: Record<string, {
   action: string;
   contentColumn: string;
   connectionPlatform: string;
 }> = {
-  facebook: {
-    action: "facebook",
-    contentColumn: "facebook_content",
-    connectionPlatform: "facebook",
-  },
+  facebook:    { action: "facebook",    contentColumn: "facebook_content",    connectionPlatform: "facebook" },
+  instagram:   { action: "instagram",   contentColumn: "instagram_content",   connectionPlatform: "instagram" },
+  linkedin:    { action: "linkedin",    contentColumn: "linkedin_content",    connectionPlatform: "linkedin" },
+  twitter:     { action: "twitter",     contentColumn: "twitter_content",     connectionPlatform: "twitter" },
+  threads:     { action: "threads",     contentColumn: "threads_content",     connectionPlatform: "threads" },
+  tiktok:      { action: "tiktok",      contentColumn: "tiktok_content",      connectionPlatform: "tiktok" },
+  youtube:     { action: "youtube",     contentColumn: "youtube_content",     connectionPlatform: "youtube" },
+  zalo_oa:     { action: "zalo_oa",     contentColumn: "zalo_oa_content",     connectionPlatform: "zalo" },
+  telegram:    { action: "telegram",    contentColumn: "telegram_content",    connectionPlatform: "telegram" },
+  google_maps: { action: "google_maps", contentColumn: "google_maps_content", connectionPlatform: "google_business" },
+  website:     { action: "website",     contentColumn: "website_content",     connectionPlatform: "website" },
 };
+const DIRECT_SCHEDULE_CHANNELS = Object.keys(DIRECT_SCHEDULE_CHANNEL_CONFIG);
 
 async function processDirectContentSchedule(
   supabase: any,
@@ -425,24 +475,35 @@ Deno.serve(async (req) => {
       const nextStage = STAGE_ORDER[currentIdx + 1];
       const now = new Date().toISOString();
 
-      // If advancing to approval + human_in_loop → create approval record
+      // If advancing to approval + human_in_loop → create approval record (H3: dedup check, H6: schema sync)
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const pState = (pipeline.pipeline_state as any) || {};
         const createOutput = pState.stages?.create?.output;
         const qualityOutput = pState.stages?.quality?.output;
 
-        await supabase.from("agent_approvals").insert({
-          pipeline_id: pipeline.id,
-          organization_id: pipeline.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: {},
-          scores: {
-            seo: qualityOutput?.seo_score || null,
-            geo: qualityOutput?.geo_score || null,
-            compliance: qualityOutput?.compliance_status || null,
-          },
-          status: "pending",
-        } as any);
+        const { data: existingApproval } = await supabase
+          .from("agent_approvals")
+          .select("id")
+          .eq("pipeline_id", pipeline.id)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (!existingApproval) {
+          await supabase.from("agent_approvals").insert({
+            pipeline_id: pipeline.id,
+            organization_id: pipeline.organization_id,
+            content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
+            channel_versions: {},
+            scores: {
+              geo: qualityOutput?.geo?.overall_score ?? null,
+              compliance: qualityOutput?.compliance?.status ?? null,
+              persona_fit: qualityOutput?.persona_fit?.overall ?? null,
+              overall: qualityOutput?.overall ?? null,
+              self_review: qualityOutput?.self_review?.overall ?? null,
+            },
+            status: "pending",
+          } as any);
+        }
       }
 
       const pipelineState = (pipeline.pipeline_state as any) || { stages: {} };
@@ -517,22 +578,24 @@ Deno.serve(async (req) => {
 
       let triggered = 0;
       for (const goal of sortedGoals) {
-        // Phase 4a: Quota check — max concurrent pipelines per org
+        // Phase 4a: Quota check — tier-based concurrent pipelines per org (C4)
+        const orgQuota = await getOrgPipelineQuota(supabase, goal.organization_id);
         const { count: orgRunningCount } = await supabase
           .from("agent_pipelines")
           .select("id", { count: "exact", head: true })
           .eq("organization_id", goal.organization_id)
           .is("completed_at", null)
-          .eq("is_flagged", false);
+          .eq("is_flagged", false)
+          .neq("current_stage", "approval"); // C3: don't count human-waiting approvals
 
-        if ((orgRunningCount || 0) >= MAX_CONCURRENT_PIPELINES) {
-          console.log(`[check_scheduled_goals] Org ${goal.organization_id} at quota (${orgRunningCount}/${MAX_CONCURRENT_PIPELINES}), skipping goal ${goal.id}`);
+        if ((orgRunningCount || 0) >= orgQuota) {
+          console.log(`[check_scheduled_goals] Org ${goal.organization_id} at quota (${orgRunningCount}/${orgQuota}), skipping goal ${goal.id}`);
           await supabase.from("agent_pipeline_logs").insert({
             pipeline_id: null,
             agent_name: "quota_manager",
             action: "quota_exceeded",
             input_summary: `Goal: ${goal.name}, org running: ${orgRunningCount}`,
-            output_summary: `Skipped: quota ${MAX_CONCURRENT_PIPELINES} reached`,
+            output_summary: `Skipped: quota ${orgQuota} reached`,
           } as any);
           continue;
         }
@@ -627,12 +690,12 @@ Deno.serve(async (req) => {
         await new Promise((r) => setTimeout(r, 1000));
       }
 
-      // 2) Direct schedules created in Multi-channel viewer (no pipeline)
+      // 2) Direct schedules created in Multi-channel viewer (no pipeline) — H1: all supported channels
       const { data: dueDirectSchedules } = await supabase
         .from("content_schedules")
         .select("id, content_id, channel, organization_id")
         .eq("publish_status", "scheduled")
-        .eq("channel", "facebook")
+        .in("channel", DIRECT_SCHEDULE_CHANNELS)
         .lte("scheduled_at", now)
         .order("scheduled_at", { ascending: true })
         .limit(20);
@@ -966,15 +1029,17 @@ Deno.serve(async (req) => {
       const pieces = plan.plan_data as any[];
       if (!pieces?.length) throw new Error("Plan has no content pieces");
 
-      // Phase 4a: Quota check before creating pipelines
+      // Phase 4a: Quota check before creating pipelines (C4: tier-based)
+      const orgQuota = await getOrgPipelineQuota(supabase, plan.organization_id);
       const { count: orgRunning } = await supabase
         .from("agent_pipelines")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", plan.organization_id)
         .is("completed_at", null)
-        .eq("is_flagged", false);
+        .eq("is_flagged", false)
+        .neq("current_stage", "approval"); // C3: exclude human-waiting
 
-      const availableSlots = Math.max(0, MAX_CONCURRENT_PIPELINES - (orgRunning || 0));
+      const availableSlots = Math.max(0, orgQuota - (orgRunning || 0));
       const quotaLimited = pieces.length > availableSlots;
 
       let goalData: any = null;
@@ -1237,8 +1302,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   // Fetch agent model config for this stage
   const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
   const fallbackModel = agentConfig?.fallback_model || undefined;
-  const agentTemperature = agentConfig?.temperature || undefined;
-  const agentMaxTokens = agentConfig?.max_tokens || undefined;
+  const agentTemperature = agentConfig?.temperature ?? undefined; // H4: ?? preserves 0
+  const agentMaxTokens = agentConfig?.max_tokens ?? undefined;
 
   // Phase 1a: Dynamic model selection — use agent config override, or complexity-based model
   const complexity = meta.complexity || assessComplexity(pipeline);
@@ -1337,7 +1402,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         await supabase.from("agent_pipelines").update({ pipeline_state: pState } as any).eq("id", pipeline.id);
       }
 
-      // ===== Delegate to agent-creator-v2 =====
+      // ===== Delegate to agent-creator-v2 with retry-aware tuning (C1, C2) =====
+      const createRetryCount = pState.stages?.create?.retry_count || 0;
+
+      // C1: on 504/timeout retries, downgrade model to flash-lite to fit Edge 150s limit
+      let effectiveModel = modelOverride;
+      const lastCreateError = (pState.stages?.create?.last_error || '').toLowerCase();
+      const isPriorTimeout = lastCreateError.includes('timeout') || lastCreateError.includes('504');
+      if (createRetryCount >= 1 && isPriorTimeout) {
+        effectiveModel = 'google/gemini-2.5-flash-lite';
+        console.log(`[create] Retry ${createRetryCount} after timeout → downgrade model to ${effectiveModel}`);
+      }
+
+      // C2: on empty-content retries, bump temperature to break determinism
+      let effectiveTemp = agentTemperature;
+      const isPriorEmpty = lastCreateError.includes('empty content');
+      if (createRetryCount >= 1 && isPriorEmpty) {
+        effectiveTemp = Math.min(1.2, (agentTemperature ?? 0.7) + 0.2);
+        console.log(`[create] Retry ${createRetryCount} after empty → bump temperature to ${effectiveTemp}`);
+      }
+
       const creatorResult = await callFunction(supabaseUrl, supabaseKey, "agent-creator-v2", {
         pipeline_id: pipeline.id,
         content_type: contentType,
@@ -1351,10 +1435,10 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         content_role: meta.content_role || undefined,
         length_mode: meta.content_length || undefined,
         campaign_id: meta.campaign_id || pipeline.campaign_id || null,
-        ...(modelOverride && { model_override: modelOverride }),
-        ...(agentTemperature && { temperature: agentTemperature }),
-        ...(agentMaxTokens && { max_tokens: agentMaxTokens }),
-      });
+        ...(effectiveModel && { model_override: effectiveModel }),
+        ...(effectiveTemp !== undefined && { temperature: effectiveTemp }),
+        ...(agentMaxTokens !== undefined && { max_tokens: agentMaxTokens }),
+      }, { timeoutMs: 140_000 }); // C1: explicit 140s under Edge 150s limit
 
       result.output = creatorResult.output || creatorResult;
 
