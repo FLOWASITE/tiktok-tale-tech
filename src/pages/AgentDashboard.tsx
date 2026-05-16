@@ -4,7 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users, Radar } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users, Radar, Settings } from 'lucide-react';
+import { AgentAutonomyDefaultCard } from '@/components/AgentAutonomyDefaultCard';
+import { canEditOrganization } from '@/types/organization';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -30,7 +32,8 @@ import AgentTelegramPage from '@/pages/AgentTelegramPage';
 import AgentDirectoryPage from '@/pages/AgentDirectoryPage';
 
 export default function AgentDashboard() {
-  const { currentOrganization } = useOrganizationContext();
+  const { currentOrganization, currentRole } = useOrganizationContext();
+  const canEditOrg = currentRole ? canEditOrganization(currentRole) : false;
   const { pipelines, isLoading: pipelinesLoading, updateStage, deletePipeline, bulkDeletePipelines, retryPipeline } = useAgentPipelines();
   const { plans } = useCampaignPlans();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
@@ -236,6 +239,9 @@ export default function AgentDashboard() {
             <TabsTrigger value="telegram" className="gap-1.5 text-xs">
               <Bot className="w-3.5 h-3.5" /> Telegram
             </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5 text-xs">
+              <Settings className="w-3.5 h-3.5" /> Cài đặt
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4 space-y-6">
@@ -416,6 +422,10 @@ export default function AgentDashboard() {
 
           <TabsContent value="telegram" className="mt-4">
             <AgentTelegramPage />
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-4 space-y-4">
+            <AgentAutonomyDefaultCard canEdit={canEditOrg} />
           </TabsContent>
         </Tabs>
 
