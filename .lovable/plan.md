@@ -1,71 +1,111 @@
-## Vấn đề phát hiện
+## Mục tiêu
+Thêm 9Router làm **image provider thứ 4** (sau PoYo, KIE, GeminiGen), tái dùng pattern hiện có (circuit breaker, fallback, async polling). Admin có thể chọn `9router/<provider>/<model>` cho các image functions và carousel pipeline.
 
-Sau khi rà lại trang **Admin → AI** (Functions / Channel / Agent / Group Defaults), 9Router mới chỉ có mặt ở:
-- `AI_PROVIDERS` (card Providers tab)
-- `MODELS_BY_PROVIDER.ninerouter` (16 model IDs)
-- `getModelInfo()` nhận prefix `9router/`
-- Edge function `test-ai-connection`
+## Phạm vi
+- ✅ Adapter `_shared/ninerouter-image-generator.ts` (sync + async polling)
+- ✅ Đăng ký vào `generate-carousel-image`, `generate-brand-image`, `generate-character-image`, `generate-product-image`, `edit-image-background`
+- ✅ Admin UI: image models tab nhận 9Router (model picker + circuit breaker view)
+- ✅ Fallback chain mở rộng (PoYo → KIE → 9Router → GeminiGen → Lovable Gateway)
+- ❌ KHÔNG tự fetch realtime `/v1/models/image` ở client (giữ allowlist hard-code, refresh thủ công)
+- ❌ KHÔNG enable `codex/gpt-5.4-image` (yêu cầu ChatGPT Plus, không stable)
+- ❌ KHÔNG đổi cost-estimator / quota logic ở bước này
 
-Nhưng **chưa thể chọn model 9Router cho bất kỳ Function/Channel/Agent nào** vì 5 lỗ hổng sau:
+## Kiến trúc
 
-### 1. `MODELS_BY_TYPE.text` thiếu 16 model `9router/*`
-File `src/hooks/useAIConfig.ts` (line 151). Cả `ModelSelector` lẫn `InlineModelPicker` đều đọc `MODELS_BY_TYPE[functionType]` để render danh sách. Không có ở đây = không hiện ở đâu cả.
+```text
+Caller (generate-carousel-image / generate-*-image)
+        │
+        ▼
+detectProvider(model)  ── "9router/..." ──┐
+        │                                  ▼
+        │                          generateNineRouterImage()
+        │                                  │
+        │                       POST /v1/images/generations
+        │                       (Bearer NINE_ROUTER_API_KEY)
+        │                                  │
+        │              ┌──────── provider quirk router ────────┐
+        │              │ sync (openai/gemini/recraft/minimax)  │
+        │              │ async poll (flux/fal/nanobanana)      │
+        │              └───────────────────────────────────────┘
+        │                                  │
+        ▼                          { url | b64_json }
+  circuit-breaker.ts  ◄────────────  metrics + retry
+```
 
-### 2. Thiếu helper `isNineRouterModel()` + `NINEROUTER_MODEL_PREFIXES`
-Các picker phân nhóm provider bằng `isKieModel / isPoyoModel / isDashScopeModel / isGeminigenModel`. Không có helper cho 9router → models sẽ rớt vào nhóm "Lovable AI" sai.
+## Thay đổi cụ thể
 
-### 3. `ModelSelector.tsx` (Function tab)
-- `ProviderFilter` union (line 32) chưa có `'ninerouter'`
-- `lovableOnly` filter (line 84-86) chưa exclude 9router → model 9router hiển thị nhầm trong tab Lovable
-- Thiếu `<ProviderTab provider="ninerouter">` + filter branch
-- Thiếu render group cho ninerouter trong phần kết quả
+### 1. Adapter mới — `supabase/functions/_shared/ninerouter-image-generator.ts`
+- Export `generateNineRouterImage({ prompt, model, aspectRatio, inputImage, resolution }): Promise<{ url: string; b64?: string; modelUsed: string }>`
+- Strip prefix `9router/` → forward phần còn lại làm `model` field
+- Map `aspectRatio` → `size` (`1:1` → `1024x1024`, `16:9` → `1792x1024`, `9:16` → `1024x1792`, …); với gemini/nano-banana thì **bỏ size** (provider ignore)
+- Hỗ trợ `inputImage` (img2img) cho FLUX / Fal / Nano-banana edit qua field `image`
+- Detect async response (`status: "pending"` hoặc có `task_id`) → poll `/v1/tasks/{id}` mỗi 3s, timeout 90s
+- Sử dụng `?response_format=url` mặc định, không xử lý binary để khớp pipeline hiện tại
+- ENV bắt buộc: `NINE_ROUTER_BASE_URL`, `NINE_ROUTER_API_KEY` (đã có từ chat provider trước đó)
+- Error mapping: 401/403 → `AUTH`, 402 → `CREDITS_EXHAUSTED`, 429 → `RATE_LIMIT`, 5xx → throw để circuit breaker count
 
-### 4. `InlineModelPicker.tsx` (compact picker per-function)
-- `PROVIDER_DOTS` (line 51-58) thiếu entry `ninerouter`
-- `getProviderGroups()` (line 85-101): biến `lovable` filter (line 88) chưa exclude 9router; chưa push group `ninerouter`
+### 2. Allowlist model — `src/hooks/useAIConfig.ts`
+Thêm `NINEROUTER_IMAGE_MODELS` (~10 model curated):
+- `9router/gemini/gemini-3-pro-image-preview`
+- `9router/gemini/gemini-3.1-flash-image-preview`
+- `9router/openai/gpt-image-1`
+- `9router/openai/dall-e-3`
+- `9router/black-forest-labs/flux-1.1-pro`
+- `9router/black-forest-labs/flux-kontext-pro` (img2img)
+- `9router/fal-ai/flux-pro-1.1-ultra`
+- `9router/stability-ai/sd3.5-large`
+- `9router/recraft/recraft-v3`
+- `9router/minimax/image-01`
 
-### 5. `ModelCard.tsx` / provider badge styling
-`PROVIDER_DOTS` map dùng chung — cần icon/màu cho `ninerouter` để badge hiện đúng.
+Spread vào `MODELS_BY_TYPE.image`, thêm `isNineRouterImageModel(id)` helper.
 
----
+### 3. Router detection — `supabase/functions/_shared/image-provider-router.ts` *(file mới)*
+- Centralize logic `detectImageProvider(model)` trả về `'poyo' | 'kie' | 'geminigen' | 'ninerouter' | 'gateway'`
+- Export `generateImage(params)` switch theo provider — các function caller chỉ gọi 1 entry point này
+- Refactor `generate-carousel-image`, `generate-brand-image`, `generate-character-image`, `generate-product-image`, `edit-image-background` để dùng router (giảm if/else hiện có)
 
-## Kế hoạch sửa
+### 4. Fallback chain — `supabase/functions/_shared/circuit-breaker.ts` + carousel orchestrator
+- Thêm `'ninerouter'` vào danh sách provider được track
+- Cập nhật fallback chain mặc định cho carousel: `[primaryModel, '9router/gemini/gemini-3.1-flash-image-preview', 'poyo/nano-banana-pro', 'google/gemini-3-flash-image-preview']`
+- Khi PoYo + KIE đều open → 9Router làm cứu cánh trước khi rớt về Lovable Gateway
 
-### File 1: `src/hooks/useAIConfig.ts`
-- Thêm hằng `NINEROUTER_MODEL_PREFIXES = ['9router/']` + export `isNineRouterModel(id)` đặt cạnh `isDashScopeModel` (~line 1481).
-- Spread 16 model `MODELS_BY_PROVIDER.ninerouter` vào `MODELS_BY_TYPE.text` (sau block OpenRouter, ~line 200).
-- Thêm `MODEL_INFO` entries (rút gọn) cho 4-5 model phổ biến: `9router/glm-4.6`, `9router/kimi-k2-0905`, `9router/minimax-m2`, `9router/claude-sonnet-4.6`, `9router/gemini-3-flash-preview` (các model còn lại fallback qua `getModelInfo` default branch đã có).
+### 5. Admin UI
+**`src/components/admin/ai/ImageModelPicker.tsx`** (hoặc tương đương — check component tồn tại):
+- Thêm provider tab `9Router` (slate-600 dot, label "9R", helper text yêu cầu `NINE_ROUTER_API_KEY`)
+- Group `9router/*` models theo sub-provider (Gemini / OpenAI / FLUX / Fal / Stability / Recraft / MiniMax) bằng split `/`
+- Badge "img2img" cho models hỗ trợ edit (flux-kontext, nano-banana-edit, fal)
 
-### File 2: `src/components/admin/ai/ModelSelector.tsx`
-- Import `isNineRouterModel` từ `useAIConfig`.
-- Mở rộng `ProviderFilter` union: thêm `'ninerouter'`.
-- `useMemo` split: thêm `ninerouterModels`, sửa `lovableOnly` filter thêm `&& !isNineRouterModel(id)`.
-- Thêm `<ProviderTab provider="ninerouter">` (label "9Router", count = `availableNineRouterModels.length`) hiển thị khi `>0`.
-- Thêm nhánh filter `providerFilter === 'ninerouter'`.
-- Thêm group render giống Kie/Poyo trong phần kết quả (~line 449+).
-- Thêm `filteredModels.ninerouter` vào `totalModels`.
+**`AIProviderManager.tsx`** đã có 9Router card (từ task trước) — chỉ cần verify nó hiển thị badge "Image: ✓" sau khi adapter sẵn sàng.
 
-### File 3: `src/components/admin/ai/InlineModelPicker.tsx`
-- Import `isNineRouterModel`.
-- Thêm `ninerouter: { color: 'bg-slate-600', label: '9Router', emoji: '🔀' }` vào `PROVIDER_DOTS`.
-- Trong `getProviderGroups()`:
-  - Sửa `lovable` filter thêm `&& !isNineRouterModel(id)`
-  - Thêm `const ninerouter = allModels.filter(isNineRouterModel)`
-  - Push group `ninerouter` (đặt sau OpenRouter)
+### 6. Observability
+- `ai_metrics.provider` chấp nhận `'ninerouter'`
+- `cost-estimator.ts` thêm rough price stub `9router/*` = `null` (chưa track exact cost, log size + duration)
+- Circuit breaker panel `/admin/ai/observability` tự động pick up vì đọc từ Redis key prefix
 
-### File 4 (tùy chọn — chỉ chạm nếu thực sự hiển thị provider badge):
-`src/components/admin/ai/ModelCard.tsx` — kiểm tra có map provider→color riêng không; nếu có, thêm `ninerouter`.
+### 7. Test
+- `_shared/__tests__/ninerouter-image-generator.test.ts` — mock fetch, verify:
+  - prefix stripping
+  - aspect ratio → size mapping
+  - gemini bỏ size
+  - 402 → throw `CreditsExhaustedError`
+  - async polling success path
+- Smoke test thực tế (manual): gọi `generate-carousel-image` với `model: '9router/gemini/gemini-3.1-flash-image-preview'`, kiểm tra ảnh được upload Storage
 
----
+## Rủi ro & ghi chú
+- **Cost tracking lệch**: 9Router chưa expose token/cost trong response → log thời gian + size, để task riêng làm cost mapping sau
+- **Async timeout**: FLUX có thể > 60s → giữ pattern `EdgeRuntime.waitUntil` đã có ở carousel, không block client
+- **Self-hosted gateway**: nếu user chạy 9Router local (`localhost:20128`) thì edge function không reach được → Admin UI phải cảnh báo "Base URL phải public-accessible" (đã có helper text từ task trước)
+- **Provider quirks dày**: codex / nanobanana / fal có schema riêng → giai đoạn 1 chỉ support 10 models curated trong allowlist; mở rộng sau khi có usage data
 
-## Out of scope
-- Không sửa `AIChannelModelConfig` / `AIAgentModelConfig` / `GroupDefaultsPanel` (chúng nhúng `InlineModelPicker` nên auto hưởng).
-- Không thêm fetch model list realtime từ `/v1/models` của 9Router.
-- Không sửa edge functions backend (đã xong ở vòng trước).
-- Không động vào cost dashboard / per-token pricing cho 9router (chưa biết giá).
+## Acceptance criteria
+1. Admin chọn `9router/gemini/gemini-3-pro-image-preview` ở `/admin/ai → Image Functions` cho `generate-carousel-image` và save thành công
+2. Generate 1 slide carousel với model 9Router → ảnh xuất hiện trong UI, log có `provider=ninerouter`, `modelUsed=9router/gemini/...`
+3. Force kill PoYo (set circuit breaker open) → carousel tự fallback sang 9Router, vẫn ra ảnh
+4. Test với img2img: `flux-kontext-pro` + `previousImageUrl` → ra ảnh seamless chain
+5. Unit tests pass; không regress generate-brand/character/product-image
 
-## Acceptance
-1. Mở `/admin/ai → Functions → bất kỳ function text nào → Đổi model`: thấy tab **9Router** với badge count = 16, models hiển thị đúng nhóm.
-2. `InlineModelPicker` (compact): khi search "glm" / "kimi" / "minimax", thấy model có provider dot màu slate, label "9Router".
-3. Chọn `9router/glm-4.6` → save vào `ai_function_configs.model_override` thành công, không bị classify nhầm vào tab Lovable.
-4. Không có regression: tab Lovable AI count giảm đúng bằng số 9router models, các provider khác vẫn nguyên.
+## Out of scope (task sau)
+- Realtime model discovery từ `/v1/models/image`
+- Cost dashboard chi tiết cho 9Router
+- Support `codex/gpt-5.4-image` (SSE stream, OAuth subscription)
+- Video generation qua 9Router (Runway/Topaz)
