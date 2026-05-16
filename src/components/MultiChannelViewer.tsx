@@ -1338,7 +1338,7 @@ export function MultiChannelViewer({
                             setSelectedChannel(channel);
                           }
                         }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 cursor-pointer ${
+                        className={`w-full flex items-center gap-2 pl-2 pr-1.5 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 cursor-pointer ${
                           isRegenerating ? 'opacity-60 cursor-not-allowed' : ''
                         } ${
                           isActive 
@@ -1388,7 +1388,7 @@ export function MultiChannelViewer({
                             }}
                             title={`Tạo ảnh AI cho ${config.label}`}
                             aria-label={`Tạo ảnh AI cho ${config.label}`}
-                            className="shrink-0 h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all"
+                            className="shrink-0 h-6 w-6 rounded-md flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all"
                           >
                             <Wand2 className="w-3.5 h-3.5" />
                           </button>
