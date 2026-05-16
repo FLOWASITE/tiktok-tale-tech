@@ -8,7 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
+const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"] as const;
+type Stage = typeof STAGE_ORDER[number];
 
 const MAX_RETRIES = 3;
 const MAX_CONCURRENT_PIPELINES_DEFAULT = 10;
@@ -203,7 +204,20 @@ function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: str
       "Authorization": `Bearer ${supabaseKey}`,
     },
     body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId, stage: nextStage }),
-  }).catch(e => console.error("Fire-next-stage failed:", e));
+  }).then(r => {
+    if (!r.ok) {
+      console.error(`[fireNextStage] non-OK ${r.status} for pipeline ${pipelineId} stage ${nextStage}`);
+    }
+  }).catch(e => console.error(`[fireNextStage] failed for pipeline ${pipelineId} stage ${nextStage}:`, e?.message || e));
+}
+
+/** L2: Deterministic stagger 0-15s from pipelineId hash (replaces Math.random for reproducibility) */
+function deterministicStagger(pipelineId: string, maxMs = 15000): number {
+  let hash = 0;
+  for (let i = 0; i < pipelineId.length; i++) {
+    hash = ((hash << 5) - hash + pipelineId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % maxMs;
 }
 
 /**
@@ -292,6 +306,8 @@ function parseJsonFromLLM(text: string): any {
   try { return JSON.parse(stripped); } catch {}
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+  // L1: log preview of raw text on total parse failure
+  console.warn(`[parseJsonFromLLM] all attempts failed. Preview (first 300ch): ${text.slice(0, 300)}`);
   return null;
 }
 
@@ -2206,8 +2222,16 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
 
             // ─── Inject blog backlink into social channel content ───
             if (blogBacklinkUrl && channel !== 'website') {
-              // Append backlink before UTM processing so UTM params get added to it too
-              if (rawText && !rawText.includes(blogBacklinkUrl)) {
+              // M8: compare by hostname+pathname so query/shortened variants don't double-inject
+              let alreadyHasBacklink = false;
+              try {
+                const target = new URL(blogBacklinkUrl);
+                const needle = `${target.hostname}${target.pathname}`.replace(/\/$/, '');
+                alreadyHasBacklink = !!rawText && rawText.toLowerCase().includes(needle.toLowerCase());
+              } catch {
+                alreadyHasBacklink = !!rawText && rawText.includes(blogBacklinkUrl);
+              }
+              if (rawText && !alreadyHasBacklink) {
                 rawText = `${rawText}\n\n📖 Đọc thêm: ${blogBacklinkUrl}`;
               }
             }
@@ -2534,7 +2558,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
         // Stagger quality stage invocations to prevent concurrency overload
         if (nextStage === "quality") {
-          const staggerDelay = Math.floor(Math.random() * 15000); // 0-15s random delay
+          const staggerDelay = deterministicStagger(pipeline.id, 15000); // M5: deterministic 0-15s
           console.log(`[advance] Staggering quality stage fire by ${staggerDelay}ms for pipeline ${pipeline.id}`);
           setTimeout(() => {
             fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
