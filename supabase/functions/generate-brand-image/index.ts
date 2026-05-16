@@ -543,7 +543,7 @@ function structuredElementsToPromptText(
 }
 
 // Build marker — bump this string to force a clean redeploy and prove runtime is on the latest bundle.
-const BUILD_MARKER = '2026-04-23-fix-tdz-v2';
+const BUILD_MARKER = '2026-05-16-fix-image-idle-timeout-v1';
 
 Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
