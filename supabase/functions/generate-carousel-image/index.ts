@@ -1132,7 +1132,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         const isExternalProviderModel =
           imageModel.startsWith('poyo/') ||
           imageModel.startsWith('kie/') ||
-          imageModel.startsWith('geminigen/');
+          imageModel.startsWith('geminigen/') ||
+          imageModel.startsWith('9router/');
         const gatewayModel = isExternalProviderModel
           ? 'google/gemini-3.1-flash-image-preview'
           : imageModel;
