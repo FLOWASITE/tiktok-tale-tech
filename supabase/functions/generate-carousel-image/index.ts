@@ -718,7 +718,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     // (logo + previous + prompt) natively. Slide 1 still goes to the requested
     // provider since there's no `previousImageUrl` competing for the slot.
     const isSingleImageProvider =
-      isPoyoModel(requestedModel) || isKieModel(requestedModel) || isGeminiGenModel(requestedModel);
+      isPoyoModel(requestedModel) || isKieModel(requestedModel) || isGeminiGenModel(requestedModel) || isNineRouterImageModel(requestedModel);
     if (
       includeLogo && resolvedLogoUrl && previousImageUrl &&
       isSingleImageProvider && lovableApiKey
