@@ -91,6 +91,14 @@ export default function MultiChannel() {
     [selectedContentId, contents]
   );
 
+  // Hydrate full content (heavy fields: critique_details, *_seo_data, hooks)
+  // when user opens the viewer — list query is lightweight to avoid timeouts.
+  useEffect(() => {
+    if (viewerOpen && selectedContentId) {
+      fetchContentDetail(selectedContentId);
+    }
+  }, [viewerOpen, selectedContentId, fetchContentDetail]);
+
   // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
     if (prefillData?.prefillTopic || prefillData?.prefillGoal || prefillData?.contentPurpose) {
