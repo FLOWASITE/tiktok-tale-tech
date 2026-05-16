@@ -475,24 +475,35 @@ Deno.serve(async (req) => {
       const nextStage = STAGE_ORDER[currentIdx + 1];
       const now = new Date().toISOString();
 
-      // If advancing to approval + human_in_loop → create approval record
+      // If advancing to approval + human_in_loop → create approval record (H3: dedup check, H6: schema sync)
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const pState = (pipeline.pipeline_state as any) || {};
         const createOutput = pState.stages?.create?.output;
         const qualityOutput = pState.stages?.quality?.output;
 
-        await supabase.from("agent_approvals").insert({
-          pipeline_id: pipeline.id,
-          organization_id: pipeline.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: {},
-          scores: {
-            seo: qualityOutput?.seo_score || null,
-            geo: qualityOutput?.geo_score || null,
-            compliance: qualityOutput?.compliance_status || null,
-          },
-          status: "pending",
-        } as any);
+        const { data: existingApproval } = await supabase
+          .from("agent_approvals")
+          .select("id")
+          .eq("pipeline_id", pipeline.id)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (!existingApproval) {
+          await supabase.from("agent_approvals").insert({
+            pipeline_id: pipeline.id,
+            organization_id: pipeline.organization_id,
+            content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
+            channel_versions: {},
+            scores: {
+              geo: qualityOutput?.geo?.overall_score ?? null,
+              compliance: qualityOutput?.compliance?.status ?? null,
+              persona_fit: qualityOutput?.persona_fit?.overall ?? null,
+              overall: qualityOutput?.overall ?? null,
+              self_review: qualityOutput?.self_review?.overall ?? null,
+            },
+            status: "pending",
+          } as any);
+        }
       }
 
       const pipelineState = (pipeline.pipeline_state as any) || { stages: {} };
