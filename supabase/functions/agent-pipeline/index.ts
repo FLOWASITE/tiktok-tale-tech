@@ -8,7 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
+const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"] as const;
+type Stage = typeof STAGE_ORDER[number];
 
 const MAX_RETRIES = 3;
 const MAX_CONCURRENT_PIPELINES_DEFAULT = 10;
