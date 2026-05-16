@@ -1322,12 +1322,25 @@ export function MultiChannelViewer({
                     const isActive = selectedChannel === channel;
                     const status = content.channel_statuses?.[channel] || 'draft';
                     
+                    const hasText = !!(channelText && channelText.trim());
+                    const showCreateImage = hasText && !hasImage && !isRegenerating;
                     return (
-                      <button
+                      <div
                         key={channel}
-                        onClick={() => setSelectedChannel(channel)}
-                        disabled={isRegenerating}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 ${
+                        role="button"
+                        tabIndex={isRegenerating ? -1 : 0}
+                        aria-disabled={isRegenerating}
+                        onClick={() => !isRegenerating && setSelectedChannel(channel)}
+                        onKeyDown={(e) => {
+                          if (isRegenerating) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedChannel(channel);
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 cursor-pointer ${
+                          isRegenerating ? 'opacity-60 cursor-not-allowed' : ''
+                        } ${
                           isActive 
                             ? 'bg-primary/10 text-primary border border-primary/20' 
                             : 'text-foreground/80'
@@ -1364,7 +1377,23 @@ export function MultiChannelViewer({
                             {wordCount} từ
                           </span>
                         </div>
-                      </button>
+                        {showCreateImage && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedChannel(channel);
+                              setActiveImageChannel(channel);
+                              setShowImageGenerator(true);
+                            }}
+                            title={`Tạo ảnh AI cho ${config.label}`}
+                            aria-label={`Tạo ảnh AI cho ${config.label}`}
+                            className="shrink-0 h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all"
+                          >
+                            <Wand2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
