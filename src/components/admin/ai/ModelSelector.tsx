@@ -30,7 +30,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'ninerouter' | 'openrouter';
 
 const isGeminigenModel = (modelId: string) => modelId.startsWith('geminigen/');
 
