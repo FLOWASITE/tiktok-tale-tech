@@ -26,6 +26,9 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+  // 9Router: self-hosted OpenAI-compatible gateway routing to 60+ providers
+  // Base URL is configurable per org via ai_provider_configs.base_url OR env NINE_ROUTER_BASE_URL
+  ninerouter: "", // resolved dynamically in callNineRouter
 };
 
 // Model prefix to provider mapping
