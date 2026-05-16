@@ -345,6 +345,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (open && currentBrand && !brandTemplateId) setBrandTemplateId(currentBrand.id);
   }, [open, currentBrand]);
 
+  // Apply workspace default autonomy on open (only when creating new, not editing)
+  useEffect(() => {
+    if (open && !initialData && defaultAutonomyLevel) {
+      setAutonomyLevel(defaultAutonomyLevel);
+      setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel] || 'full_auto');
+    }
+  }, [open, initialData, defaultAutonomyLevel]);
+
   // ─── Handlers ───
   const resetForm = () => {
     setStep(0);
@@ -356,7 +364,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_each');
+    setAutonomyLevel(defaultAutonomyLevel || 'full_auto'); setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel || 'full_auto'] || 'full_auto');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
