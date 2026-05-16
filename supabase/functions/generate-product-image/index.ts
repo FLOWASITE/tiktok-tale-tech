@@ -157,6 +157,13 @@ Style: high-end commercial product photography, soft studio lighting, neutral li
           prompt, model, aspectRatio: mapAspectRatioToKie('1:1'),
           inputImage: hasRef ? reference_image_url : undefined,
         }, KIE_KEY);
+      } else if (isNineRouterImageModel(model)) {
+        const NR_KEY = Deno.env.get("NINE_ROUTER_API_KEY");
+        if (!NR_KEY) throw new Error("NINE_ROUTER_API_KEY chưa cấu hình");
+        imageUrl = await generateImageViaNineRouter({
+          prompt, model, aspectRatio: '1:1',
+          inputImage: hasRef ? reference_image_url : undefined,
+        }, NR_KEY);
       } else {
         const userContent: any = hasRef
           ? [
