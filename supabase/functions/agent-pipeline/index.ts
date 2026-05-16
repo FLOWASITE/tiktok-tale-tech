@@ -1018,15 +1018,17 @@ Deno.serve(async (req) => {
       const pieces = plan.plan_data as any[];
       if (!pieces?.length) throw new Error("Plan has no content pieces");
 
-      // Phase 4a: Quota check before creating pipelines
+      // Phase 4a: Quota check before creating pipelines (C4: tier-based)
+      const orgQuota = await getOrgPipelineQuota(supabase, plan.organization_id);
       const { count: orgRunning } = await supabase
         .from("agent_pipelines")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", plan.organization_id)
         .is("completed_at", null)
-        .eq("is_flagged", false);
+        .eq("is_flagged", false)
+        .neq("current_stage", "approval"); // C3: exclude human-waiting
 
-      const availableSlots = Math.max(0, MAX_CONCURRENT_PIPELINES - (orgRunning || 0));
+      const availableSlots = Math.max(0, orgQuota - (orgRunning || 0));
       const quotaLimited = pieces.length > availableSlots;
 
       let goalData: any = null;
