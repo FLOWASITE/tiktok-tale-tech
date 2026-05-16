@@ -1,54 +1,31 @@
-# Tạo ảnh AI trực quan hơn khi bài đã có nội dung
-
-## Hiện trạng (đã verify trong `src/components/MultiChannelViewer.tsx`)
-
-- **Toolbar top** (line ~1129): nút `Tạo ảnh AI` là một outline button nhỏ, viền `primary/30`, label ẩn dưới `lg`. Không khác biệt khi bài đã/chưa có ảnh.
-- **Sidebar kênh** (line ~1316): mỗi kênh chỉ có 1 chấm xanh nhỏ 1.5px khi đã có ảnh, không có CTA cho kênh chưa có.
-- **Khu vực mockup** (line ~1722): `ContentMockupToggle` render với `channelImage` undefined khi chưa có — mockup hiện ô trống/placeholder mặc định, **không có CTA nào** mời tạo ảnh.
-- **Action bar dưới mockup** (line ~1752): chỉ hiện khi đã có ảnh (Xem ảnh / Sửa chữ / …). Khi chưa có ảnh → khoảng trống hoàn toàn.
-
-→ Hệ quả: user đọc xong text, scroll xuống thấy mockup trống nhưng không biết bấm đâu để tạo ảnh; phải tìm lên toolbar và đoán nút `Wand2` nhỏ là gì.
-
 ## Mục tiêu
+Thêm nút **"Tạo ảnh"** ngay trên mỗi item kênh trong sidebar (chỗ khoanh đỏ: Facebook 532 từ, Instagram 202 từ) — chỉ hiện khi kênh đã có nội dung nhưng chưa có ảnh.
 
-Khi bài đã có text cho kênh nhưng `content.channel_images?.[channel]?.url` rỗng → hiển thị **CTA tạo ảnh nổi bật**, đặt đúng chỗ user đang nhìn (ngay dưới mockup), kèm tín hiệu phụ ở sidebar + toolbar.
+## Vị trí
+`src/components/MultiChannelViewer.tsx` — sidebar channel list (dòng 1313–1371).
 
-## Thay đổi UI (chỉ frontend, không đụng logic generate)
+## UX
+Mỗi row kênh hiện tại: `[icon] [tên kênh • dots] [N từ]`
+Sau update: `[icon] [tên kênh • dots] [N từ]    [✨ Tạo ảnh]`
 
-### 1. CTA chính — `EmptyImageCTA` mới, đặt dưới mockup
-File mới: `src/components/multichannel/EmptyImageCTA.tsx`
+- Nút icon-only `Wand2`/`Sparkles` (kích thước 7×7, bg `primary/10`, text `primary`, hover bg `primary/20`), tooltip "Tạo ảnh AI cho {kênh}"
+- Chỉ hiện khi: `channelText` không rỗng **và** `!hasImage` **và** `!isRegenerating`
+- Khi đang generate cho kênh đó → spinner thay icon, disabled
+- Click → `setActiveImageChannel(channel)` + `setShowImageGenerator(true)` + `setSelectedChannel(channel)` (giống logic `EmptyImageCTA`), `e.stopPropagation()` để không bubble lên row
 
-Render trong `MultiChannelViewer.tsx` tại vị trí line ~1750 — thay điều kiện hiện tại `{(hasImage) && <action bar>}` thành:
-```tsx
-{hasImage ? <ActionBar/> : <EmptyImageCTA channel={channel} onClick={openGenerator}/>}
-```
+## Vấn đề kỹ thuật
+Row hiện tại là `<button>` → nested button = invalid HTML. Đổi outer `<button>` → `<div role="button" tabIndex={0}>` với `onClick` + `onKeyDown` (Enter/Space) giữ nguyên a11y. Nút con là `<button>` thật với `stopPropagation`.
 
-Design (theo `mem://Soft Luxury` + tham khảo `AIReadyCard.tsx` đã có):
-- Card bo `rounded-xl` width full, padding gọn, **gradient subtle** `from-primary/8 via-purple-500/4 to-blue-500/6`, viền `border-primary/25`, shimmer animation nhẹ (reuse class `animate-[shimmer_...]` đã có).
-- Layout 1 hàng: icon `Sparkles` trong ô bo tròn `bg-primary/15` 36px · text 2 dòng (`"Bài này chưa có ảnh cho {channel.label}"` + sub `"AI sẽ tự chọn phong cách, tỉ lệ và bố cục tối ưu"`) · nút primary `gradient` `from-primary to-primary/80` label **"Tạo ảnh AI ngay"** + icon `Wand2`.
-- Hover: `-translate-y-0.5` + glow shadow primary.
-- Click → gọi `setActiveImageChannel(channel); setShowImageGenerator(true);` (cùng handler nút toolbar).
+## Thay đổi file
+**Chỉ 1 file:** `src/components/MultiChannelViewer.tsx`
+- Đổi outer `<button>` (line 1326) → `<div role="button">` + keyboard handler
+- Thêm icon button bên phải `flex-1` block (sau line 1366), conditional render
+- Import `Wand2` từ `lucide-react` (kiểm tra đã import chưa)
 
-### 2. Nâng cấp nút toolbar (line ~1129)
-Đếm số kênh chưa có ảnh `missingCount = selected_channels.filter(ch => !channel_images?.[ch]?.url).length`:
-- Nếu `missingCount > 0`: đổi variant `outline` → `default` (primary solid), thêm badge `secondary` hiển thị `{missingCount}` bên phải label, thêm class `animate-pulse-slow` (1 nhịp 2s).
-- Nếu `missingCount === 0`: giữ outline như cũ, label đổi thành "Tạo lại ảnh".
-- Trên mobile (label ẩn) vẫn thấy badge số.
+## Không thay đổi
+- Toolbar "Tạo ảnh hàng loạt" giữ nguyên
+- `EmptyImageCTA` dưới mockup giữ nguyên (CTA lớn, khác use-case)
+- Logic generate, hooks, edge functions — không động vào
 
-### 3. Sidebar kênh (line ~1316)
-Thay chấm xanh nhỏ bằng badge nhỏ hơn nhưng rõ hơn:
-- Có ảnh: chip `bg-emerald-500/10 text-emerald-600` text `✓ Ảnh`.
-- Chưa có ảnh **và có text**: chip `bg-amber-500/10 text-amber-600` text `Cần ảnh`, click vào chip → mở image generator với `activeImageChannel = channel` (stop propagation khỏi button chọn kênh).
-
-### 4. Tooltip & a11y
-- Nút toolbar: tooltip "Còn {missingCount} kênh chưa có ảnh — bấm để tạo hàng loạt".
-- CTA: `aria-label="Tạo ảnh AI cho kênh {channel.label}"`.
-
-## File touch (dự kiến)
-- ✏️ `src/components/MultiChannelViewer.tsx` — sửa toolbar button (3 dòng), sửa sidebar badge (~5 dòng), thêm `<EmptyImageCTA/>` ở else-branch dưới mockup.
-- 🆕 `src/components/multichannel/EmptyImageCTA.tsx` — component mới (~60 dòng).
-
-## Out of scope
-- Không đổi flow generate, không đụng edge function, không đổi `useImageGeneration` hook.
-- Không sửa `SocialPostCard` (list view) — phạm vi user nói là "trong bài" tức viewer chi tiết.
-- Không đụng `MultiChannelCreate` (flow tạo mới đã có `AIReadyCard` riêng).
+## Ước lượng
+~25 dòng diff, 1 file.
