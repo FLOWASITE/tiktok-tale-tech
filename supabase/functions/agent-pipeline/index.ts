@@ -679,12 +679,12 @@ Deno.serve(async (req) => {
         await new Promise((r) => setTimeout(r, 1000));
       }
 
-      // 2) Direct schedules created in Multi-channel viewer (no pipeline)
+      // 2) Direct schedules created in Multi-channel viewer (no pipeline) — H1: all supported channels
       const { data: dueDirectSchedules } = await supabase
         .from("content_schedules")
         .select("id, content_id, channel, organization_id")
         .eq("publish_status", "scheduled")
-        .eq("channel", "facebook")
+        .in("channel", DIRECT_SCHEDULE_CHANNELS)
         .lte("scheduled_at", now)
         .order("scheduled_at", { ascending: true })
         .limit(20);
