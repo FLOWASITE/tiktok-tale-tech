@@ -10,6 +10,7 @@ import {
   isKieModel,
   isPoyoModel,
   isDashScopeModel,
+  isNineRouterModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
@@ -29,7 +30,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'ninerouter' | 'openrouter';
 
 const isGeminigenModel = (modelId: string) => modelId.startsWith('geminigen/');
 
@@ -69,20 +70,22 @@ export function ModelSelector({
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
 
-  // Split Lovable/KIE/PoYo/GeminiGen/DashScope models
+  // Split Lovable/KIE/PoYo/GeminiGen/DashScope/9Router models
   const {
     kieModels: availableKieModels,
     poyoModels: availablePoyoModels,
     geminigenModels: availableGeminigenModels,
     dashscopeModels: availableDashScopeModels,
+    ninerouterModels: availableNineRouterModels,
     lovableOnlyModels: availableLovableOnlyModels,
   } = useMemo(() => {
     const kie = availableModels.lovable.filter(id => isKieModel(id));
     const poyo = availableModels.lovable.filter(id => isPoyoModel(id));
     const geminigen = availableModels.lovable.filter(id => isGeminigenModel(id));
     const dashscope = availableModels.lovable.filter(id => isDashScopeModel(id));
+    const ninerouter = availableModels.lovable.filter(id => isNineRouterModel(id));
     const lovableOnly = availableModels.lovable.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -90,6 +93,7 @@ export function ModelSelector({
       poyoModels: poyo,
       geminigenModels: geminigen,
       dashscopeModels: dashscope,
+      ninerouterModels: ninerouter,
       lovableOnlyModels: lovableOnly,
     };
   }, [availableModels.lovable]);
@@ -165,7 +169,7 @@ export function ModelSelector({
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(
-        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
       );
     } else if (providerFilter === 'kie') {
       openrouterFiltered = [];
@@ -179,6 +183,9 @@ export function ModelSelector({
     } else if (providerFilter === 'dashscope') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    } else if (providerFilter === 'ninerouter') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
     } else if (providerFilter === 'openrouter') {
       lovableFiltered = [];
     }
@@ -188,8 +195,9 @@ export function ModelSelector({
     const poyoFiltered = lovableFiltered.filter(id => isPoyoModel(id));
     const geminigenFiltered = lovableFiltered.filter(id => isGeminigenModel(id));
     const dashscopeFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    const ninerouterFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
     const lovableOnlyFiltered = lovableFiltered.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -198,6 +206,7 @@ export function ModelSelector({
       poyo: poyoFiltered,
       geminigen: geminigenFiltered,
       dashscope: dashscopeFiltered,
+      ninerouter: ninerouterFiltered,
       openrouter: openrouterFiltered,
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
@@ -212,7 +221,7 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.ninerouter.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
   const hasDashScope = availableDashScopeModels.length > 0;
   const hasGeminigen = availableGeminigenModels.length > 0;
@@ -228,7 +237,7 @@ export function ModelSelector({
         </DialogHeader>
 
         {/* Provider Tabs */}
-        {(hasOpenRouter || functionType === 'image' || hasDashScope || hasGeminigen) && (
+        {(hasOpenRouter || functionType === 'image' || hasDashScope || hasGeminigen || availableNineRouterModels.length > 0) && (
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <ProviderTab
               active={providerFilter === 'all'}
@@ -276,6 +285,17 @@ export function ModelSelector({
               >
                 <span className="hidden sm:inline">DashScope</span>
                 <span className="sm:hidden">DS</span>
+              </ProviderTab>
+            )}
+            {availableNineRouterModels.length > 0 && (
+              <ProviderTab
+                active={providerFilter === 'ninerouter'}
+                onClick={() => setProviderFilter('ninerouter')}
+                provider="ninerouter"
+                count={availableNineRouterModels.length}
+              >
+                <span className="hidden sm:inline">9Router</span>
+                <span className="sm:hidden">9R</span>
               </ProviderTab>
             )}
             {hasOpenRouter && (
@@ -612,6 +632,42 @@ export function ModelSelector({
               </>
             )}
 
+            {/* 9Router Models (self-hosted OpenAI-compatible gateway) */}
+            {filteredModels.ninerouter.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-slate-600" />
+                  <Key className="h-4 w-4 text-slate-600" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-slate-700 dark:text-slate-300">9Router (Self-hosted)</h3>
+                    <p className="text-[10px] sm:text-xs text-slate-600/70 dark:text-slate-400/70 truncate">
+                      60+ providers qua 1 endpoint: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-slate-500/10 text-slate-700 border-slate-500/30">
+                    {filteredModels.ninerouter.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-500/5 border border-slate-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-slate-600 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-slate-600/80 dark:text-slate-400/80">
+                    Yêu cầu <code className="font-mono font-medium">NINE_ROUTER_API_KEY</code> + <code className="font-mono font-medium">NINE_ROUTER_BASE_URL</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.ninerouter.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Lovable AI Models */}
             {filteredModels.lovable.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
@@ -661,7 +717,7 @@ interface ProviderTabProps {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-  provider?: 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'openrouter';
+  provider?: 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'ninerouter' | 'openrouter';
   count?: number;
   isLoading?: boolean;
 }
@@ -673,6 +729,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     poyo: 'text-teal-600 bg-teal-500/10',
     geminigen: 'text-emerald-600 bg-emerald-500/10',
     dashscope: 'text-orange-600 bg-orange-500/10',
+    ninerouter: 'text-slate-700 bg-slate-500/10',
     openrouter: 'text-orange-600 bg-orange-500/10',
   };
 
@@ -682,6 +739,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     poyo: 'bg-teal-500',
     geminigen: 'bg-emerald-500',
     dashscope: 'bg-orange-500',
+    ninerouter: 'bg-slate-600',
     openrouter: 'bg-orange-500',
   };
 
