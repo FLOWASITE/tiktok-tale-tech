@@ -714,6 +714,7 @@ export function useAutoImageGeneration() {
         return result;
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        const errCode = (err as Error & { errorCode?: string } | null)?.errorCode;
         console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
 
         const failedOverlayMode = imageContentType === 'with_text' && channelText ? 'with_text' : 'background_only';
@@ -764,6 +765,12 @@ export function useAutoImageGeneration() {
         };
         setGeneratedImages(prev => ({ ...prev, [channel]: failureDebug }));
         
+        if (isNonRetryableImageError(errCode, errMsg)) {
+          console.warn(`[Pipeline:${channel}] Non-retryable provider error, skipping retry:`, errCode || errMsg);
+          setProgress(prev => ({ ...prev, [channel]: 'error' }));
+          return null;
+        }
+
         if (attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
           console.log(`[Pipeline:${channel}] ⏳ Waiting ${delay}ms before retry...`);
