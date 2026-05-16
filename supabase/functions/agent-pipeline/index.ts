@@ -204,7 +204,20 @@ function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: str
       "Authorization": `Bearer ${supabaseKey}`,
     },
     body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId, stage: nextStage }),
-  }).catch(e => console.error("Fire-next-stage failed:", e));
+  }).then(r => {
+    if (!r.ok) {
+      console.error(`[fireNextStage] non-OK ${r.status} for pipeline ${pipelineId} stage ${nextStage}`);
+    }
+  }).catch(e => console.error(`[fireNextStage] failed for pipeline ${pipelineId} stage ${nextStage}:`, e?.message || e));
+}
+
+/** L2: Deterministic stagger 0-15s from pipelineId hash (replaces Math.random for reproducibility) */
+function deterministicStagger(pipelineId: string, maxMs = 15000): number {
+  let hash = 0;
+  for (let i = 0; i < pipelineId.length; i++) {
+    hash = ((hash << 5) - hash + pipelineId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % maxMs;
 }
 
 /**
