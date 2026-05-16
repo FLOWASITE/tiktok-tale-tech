@@ -203,6 +203,34 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     icon: '🌟',
   },
   {
+    id: 'ninerouter',
+    name: '9Router (Self-hosted)',
+    description: '60+ providers qua 1 endpoint OpenAI-compatible: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek, Groq, xAI… Cần self-host (https://9router.com).',
+    getKeyUrl: 'https://9router.com/',
+    models: [
+      // Cheap & strong (tier 2 của 9Router)
+      '9router/glm-4.6',
+      '9router/glm-4.6-air',
+      '9router/kimi-k2-0905',
+      '9router/kimi-k2-thinking',
+      '9router/minimax-m2',
+      '9router/minimax-text-01',
+      '9router/qwen3-coder-plus',
+      '9router/qwen3-max',
+      '9router/deepseek-v3.2',
+      '9router/deepseek-r1',
+      // Premium pass-through
+      '9router/claude-sonnet-4.6',
+      '9router/gpt-5.4',
+      '9router/gemini-3-flash',
+      '9router/grok-4',
+      // Free tier
+      '9router/iflow-pro',
+      '9router/qwen3-flash',
+    ],
+    icon: '🛰️',
+  },
+  {
     id: 'custom',
     name: 'Custom API',
     description: 'OpenAI-compatible endpoints',
