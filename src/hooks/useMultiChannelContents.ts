@@ -1125,5 +1125,6 @@ export function useMultiChannelContents() {
     bulkRejectContent,
     expandChannels,
     refetch: fetchContents,
+    fetchContentDetail,
   };
 }
