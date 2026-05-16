@@ -169,7 +169,7 @@ export function ModelSelector({
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(
-        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
       );
     } else if (providerFilter === 'kie') {
       openrouterFiltered = [];
@@ -183,6 +183,9 @@ export function ModelSelector({
     } else if (providerFilter === 'dashscope') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    } else if (providerFilter === 'ninerouter') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
     } else if (providerFilter === 'openrouter') {
       lovableFiltered = [];
     }
@@ -192,8 +195,9 @@ export function ModelSelector({
     const poyoFiltered = lovableFiltered.filter(id => isPoyoModel(id));
     const geminigenFiltered = lovableFiltered.filter(id => isGeminigenModel(id));
     const dashscopeFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    const ninerouterFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
     const lovableOnlyFiltered = lovableFiltered.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -202,6 +206,7 @@ export function ModelSelector({
       poyo: poyoFiltered,
       geminigen: geminigenFiltered,
       dashscope: dashscopeFiltered,
+      ninerouter: ninerouterFiltered,
       openrouter: openrouterFiltered,
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
