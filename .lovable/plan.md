@@ -1,44 +1,71 @@
+## Vấn đề phát hiện
 
-# Plan: Bổ sung 9Router vào UI Admin Provider Manager
+Sau khi rà lại trang **Admin → AI** (Functions / Channel / Agent / Group Defaults), 9Router mới chỉ có mặt ở:
+- `AI_PROVIDERS` (card Providers tab)
+- `MODELS_BY_PROVIDER.ninerouter` (16 model IDs)
+- `getModelInfo()` nhận prefix `9router/`
+- Edge function `test-ai-connection`
 
-## Bối cảnh
-Backend đã wire 9Router (provider id `ninerouter`, prefix `9router/`, ENV `NINE_ROUTER_BASE_URL` + `NINE_ROUTER_API_KEY`). Nhưng admin UI tại `/admin/ai → Providers` (`AIProviderManager.tsx`) chưa thấy 9Router → không thể bật/lưu/test/chọn model qua UI. Cần expose 4 chỗ.
+Nhưng **chưa thể chọn model 9Router cho bất kỳ Function/Channel/Agent nào** vì 5 lỗ hổng sau:
 
-## Files thay đổi
+### 1. `MODELS_BY_TYPE.text` thiếu 16 model `9router/*`
+File `src/hooks/useAIConfig.ts` (line 151). Cả `ModelSelector` lẫn `InlineModelPicker` đều đọc `MODELS_BY_TYPE[functionType]` để render danh sách. Không có ở đây = không hiện ở đâu cả.
 
-### 1. `src/hooks/useAIConfig.ts`
-- **`AIProviderConfig.providerType` union** (line 370): thêm `'ninerouter'`
-- **`AI_PROVIDERS` array** (line 1601, trước `custom`):
-  ```ts
-  { type: 'ninerouter', name: '9Router (Self-hosted)', description: '60+ providers qua 1 endpoint: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek, Groq…', hasKey: true, secretName: 'NINE_ROUTER_API_KEY' }
-  ```
-- **`MODELS_BY_PROVIDER`**: thêm key `ninerouter` với ~16 model (GLM-4.6, Kimi K2, MiniMax M2, Qwen3 Coder/Max, DeepSeek V3.2/R1, Claude Sonnet 4.6, GPT-5.4, Gemini 3 Flash, Grok-4, iFlow Pro)
-- **`getModelInfo()`** (line 1515): thêm branch nhận diện prefix `9router/` → trả `provider: 'ninerouter'`, description "9Router (self-hosted) model"
-- **`MODEL_INFO`** (optional): thêm 3-4 entry chính (`9router/glm-4.6`, `9router/kimi-k2-0905`, `9router/minimax-m2`) với shortName/speed/quality/cost để hiển thị badge đẹp
+### 2. Thiếu helper `isNineRouterModel()` + `NINEROUTER_MODEL_PREFIXES`
+Các picker phân nhóm provider bằng `isKieModel / isPoyoModel / isDashScopeModel / isGeminigenModel`. Không có helper cho 9router → models sẽ rớt vào nhóm "Lovable AI" sai.
 
-### 2. `src/components/admin/ai/AIProviderManager.tsx`
-- **`PROVIDER_ICONS`** (line 23-37): thêm `ninerouter: <Workflow className="h-5 w-5 text-indigo-500" />` (hoặc `Router` icon từ lucide)
-- **`PROVIDER_KEY_URLS`** (line 39-49): thêm `ninerouter: 'https://9router.com/'`
-- **Dialog Base URL field** (line 516): mở rộng condition từ `=== 'custom'` thành `=== 'custom' || === 'ninerouter'` + thêm helper text *"Endpoint self-hosted của 9Router, vd https://router.mydomain.com/v1"*
-- **Helper note** trong dialog khi chọn `ninerouter`: hiển thị 1 alert "Cần tự host 9Router (npm install -g 9router) trên VPS public và mở endpoint bằng API key"
+### 3. `ModelSelector.tsx` (Function tab)
+- `ProviderFilter` union (line 32) chưa có `'ninerouter'`
+- `lovableOnly` filter (line 84-86) chưa exclude 9router → model 9router hiển thị nhầm trong tab Lovable
+- Thiếu `<ProviderTab provider="ninerouter">` + filter branch
+- Thiếu render group cho ninerouter trong phần kết quả
 
-### 3. `supabase/functions/test-ai-connection/index.ts`
-- Thêm `case 'ninerouter'` trong switch → gọi `testNineRouter(apiKey, baseUrl)`
-- Viết `testNineRouter()`: GET `${baseUrl}/models` (OpenAI-compatible) với `Authorization: Bearer ${apiKey}`; 401 → invalid, 200 → đếm models
-- **Bổ sung**: body request cần truyền thêm `baseUrl` (frontend đã có `editingProvider.baseUrl`). Sửa client-side `handleTestConnection` để gửi `baseUrl: editingProvider.baseUrl` trong body
-- **Sửa lỗi sẵn có**: function `testGeminiGen` hiện bị nest sai (line 263 `}` đóng test-poyo, làm testGeminiGen trở thành nested) — không touch trừ khi test fail. Skip nếu không phát sinh lỗi build.
+### 4. `InlineModelPicker.tsx` (compact picker per-function)
+- `PROVIDER_DOTS` (line 51-58) thiếu entry `ninerouter`
+- `getProviderGroups()` (line 85-101): biến `lovable` filter (line 88) chưa exclude 9router; chưa push group `ninerouter`
 
-## Tóm tắt UX sau khi xong
-Admin vào `/admin/ai → Providers` thấy card **9Router (Self-hosted)** → bấm "Thêm" → nhập Base URL + API Key → "Test kết nối" → "Lưu" → từ giờ có thể chọn `9router/glm-4.6` trong tab Functions/Channels/Agents.
+### 5. `ModelCard.tsx` / provider badge styling
+`PROVIDER_DOTS` map dùng chung — cần icon/màu cho `ninerouter` để badge hiện đúng.
+
+---
+
+## Kế hoạch sửa
+
+### File 1: `src/hooks/useAIConfig.ts`
+- Thêm hằng `NINEROUTER_MODEL_PREFIXES = ['9router/']` + export `isNineRouterModel(id)` đặt cạnh `isDashScopeModel` (~line 1481).
+- Spread 16 model `MODELS_BY_PROVIDER.ninerouter` vào `MODELS_BY_TYPE.text` (sau block OpenRouter, ~line 200).
+- Thêm `MODEL_INFO` entries (rút gọn) cho 4-5 model phổ biến: `9router/glm-4.6`, `9router/kimi-k2-0905`, `9router/minimax-m2`, `9router/claude-sonnet-4.6`, `9router/gemini-3-flash-preview` (các model còn lại fallback qua `getModelInfo` default branch đã có).
+
+### File 2: `src/components/admin/ai/ModelSelector.tsx`
+- Import `isNineRouterModel` từ `useAIConfig`.
+- Mở rộng `ProviderFilter` union: thêm `'ninerouter'`.
+- `useMemo` split: thêm `ninerouterModels`, sửa `lovableOnly` filter thêm `&& !isNineRouterModel(id)`.
+- Thêm `<ProviderTab provider="ninerouter">` (label "9Router", count = `availableNineRouterModels.length`) hiển thị khi `>0`.
+- Thêm nhánh filter `providerFilter === 'ninerouter'`.
+- Thêm group render giống Kie/Poyo trong phần kết quả (~line 449+).
+- Thêm `filteredModels.ninerouter` vào `totalModels`.
+
+### File 3: `src/components/admin/ai/InlineModelPicker.tsx`
+- Import `isNineRouterModel`.
+- Thêm `ninerouter: { color: 'bg-slate-600', label: '9Router', emoji: '🔀' }` vào `PROVIDER_DOTS`.
+- Trong `getProviderGroups()`:
+  - Sửa `lovable` filter thêm `&& !isNineRouterModel(id)`
+  - Thêm `const ninerouter = allModels.filter(isNineRouterModel)`
+  - Push group `ninerouter` (đặt sau OpenRouter)
+
+### File 4 (tùy chọn — chỉ chạm nếu thực sự hiển thị provider badge):
+`src/components/admin/ai/ModelCard.tsx` — kiểm tra có map provider→color riêng không; nếu có, thêm `ninerouter`.
+
+---
 
 ## Out of scope
-- Quota/cost panel riêng cho 9Router
-- Realtime model list từ 9Router `/models` endpoint (giờ hard-code 16 model)
-- Sửa nested function `testGeminiGen` (bug có sẵn, không liên quan)
+- Không sửa `AIChannelModelConfig` / `AIAgentModelConfig` / `GroupDefaultsPanel` (chúng nhúng `InlineModelPicker` nên auto hưởng).
+- Không thêm fetch model list realtime từ `/v1/models` của 9Router.
+- Không sửa edge functions backend (đã xong ở vòng trước).
+- Không động vào cost dashboard / per-token pricing cho 9router (chưa biết giá).
 
 ## Acceptance
-- [ ] `AIProviderManager` hiển thị card 9Router với icon + description
-- [ ] Dialog cho phép nhập Base URL khi chọn 9Router (giống Custom)
-- [ ] Test kết nối thành công với endpoint self-hosted hợp lệ
-- [ ] Lưu thành công vào `ai_provider_configs` (provider_type='ninerouter', base_url, encrypted_api_key)
-- [ ] Tab Functions cho phép chọn `9router/glm-4.6` từ ModelSelector
+1. Mở `/admin/ai → Functions → bất kỳ function text nào → Đổi model`: thấy tab **9Router** với badge count = 16, models hiển thị đúng nhóm.
+2. `InlineModelPicker` (compact): khi search "glm" / "kimi" / "minimax", thấy model có provider dot màu slate, label "9Router".
+3. Chọn `9router/glm-4.6` → save vào `ai_function_configs.model_override` thành công, không bị classify nhầm vào tab Lovable.
+4. Không có regression: tab Lovable AI count giảm đúng bằng số 9router models, các provider khác vẫn nguyên.
