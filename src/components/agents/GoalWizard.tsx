@@ -19,6 +19,7 @@ import {
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
@@ -223,6 +224,7 @@ interface GoalWizardProps {
 
 export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy, onComplete, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
+  const { defaultAutonomyLevel } = useOrganizationSettings();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
   
