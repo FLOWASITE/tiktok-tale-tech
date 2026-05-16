@@ -1016,6 +1016,33 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     return primaryResult;
   }
 
+  // 9Router env-only fallback (when no DB provider config row)
+  // Tier 1: requested 9router model. Tier 2: Lovable Gateway gemini-2.5-flash (if Lovable-compatible).
+  if (primaryProvider === "ninerouter") {
+    console.log("[ai-provider] Using 9Router (env config)");
+    const primaryResult = await callWithCircuitBreaker(
+      () => callNineRouter(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options,
+    );
+    if (primaryResult.success) return primaryResult;
+
+    const isCreditsExhausted = primaryResult.error?.includes("402") ||
+                               primaryResult.error?.includes("Payment");
+    if (!isCreditsExhausted) {
+      console.warn(`[ai-provider] 9Router failed, last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+      const tier2Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+      const tier2Result = await callWithCircuitBreaker(
+        () => callLovableGateway(messages, "google/gemini-2.5-flash", tier2Config, options),
+        "google/gemini-2.5-flash",
+        options,
+      );
+      tier2Result.fromFallback = true;
+      return tier2Result;
+    }
+    return primaryResult;
+  }
+
   // Default: Use Lovable Gateway
   console.log("[ai-provider] Using Lovable AI Gateway (default)");
   return callWithCircuitBreaker(
