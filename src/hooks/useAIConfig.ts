@@ -207,6 +207,23 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'bytedance-seed/seed-2.0-lite',
     'xiaomi/mimo-v2-flash',
     'perplexity/sonar-pro',
+    // 9Router (self-hosted OpenAI-compatible gateway)
+    '9router/glm-4.6',
+    '9router/glm-4.6-air',
+    '9router/kimi-k2-0905',
+    '9router/kimi-k2-turbo',
+    '9router/minimax-m2',
+    '9router/qwen3-coder-plus',
+    '9router/qwen3-max',
+    '9router/qwen3-flash',
+    '9router/deepseek-v3.2',
+    '9router/deepseek-r1',
+    '9router/claude-sonnet-4.6',
+    '9router/claude-haiku-4.5',
+    '9router/gpt-5.2',
+    '9router/gemini-3-flash-preview',
+    '9router/grok-4',
+    '9router/iflow-pro',
   ],
   image: [
     // Lovable AI models
