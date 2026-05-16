@@ -1451,7 +1451,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
   // Phase 1a: Dynamic model selection — use agent config override, or complexity-based model
   const complexity = meta.complexity || assessComplexity(pipeline);
-  const dynamicModel = getModelForComplexity(complexity);
+  const dynamicModel = await getModelForComplexity(supabase, complexity, orgId);
   const modelOverride = agentConfig?.model_override || meta.suggested_model || dynamicModel;
 
   console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, complexity: ${complexity}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
