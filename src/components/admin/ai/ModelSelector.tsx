@@ -287,6 +287,17 @@ export function ModelSelector({
                 <span className="sm:hidden">DS</span>
               </ProviderTab>
             )}
+            {availableNineRouterModels.length > 0 && (
+              <ProviderTab
+                active={providerFilter === 'ninerouter'}
+                onClick={() => setProviderFilter('ninerouter')}
+                provider="ninerouter"
+                count={availableNineRouterModels.length}
+              >
+                <span className="hidden sm:inline">9Router</span>
+                <span className="sm:hidden">9R</span>
+              </ProviderTab>
+            )}
             {hasOpenRouter && (
               <ProviderTab
                 active={providerFilter === 'openrouter'}
