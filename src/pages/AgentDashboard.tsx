@@ -211,14 +211,23 @@ export default function AgentDashboard() {
               <Bot className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">AI Content Agents</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xl font-bold">AI Content Agents</h1>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => setDirectoryOpen(true)}
+                  title="Danh sách Agent"
+                  aria-label="Danh sách Agent"
+                >
+                  <Radar className="w-3.5 h-3.5" />
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">Pipeline tự động tạo & tối ưu nội dung</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setDirectoryOpen(true)}>
-              <Radar className="w-3.5 h-3.5" /> Directory
-            </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => {
               goals.filter(g => g.is_active && !g.is_paused).forEach(g => updateGoal.mutate({ id: g.id, is_paused: true }));
             }}>
