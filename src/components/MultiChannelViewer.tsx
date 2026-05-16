@@ -1902,6 +1902,17 @@ export function MultiChannelViewer({
                                   </TooltipProvider>
                                 </div>
                               )}
+
+                              {/* Empty-state CTA when text exists but no image yet */}
+                              {!(content.channel_images?.[channel]?.url || generatedImages[channel]) && channelContent && (
+                                <EmptyImageCTA
+                                  channelLabel={config.label}
+                                  onClick={() => {
+                                    setActiveImageChannel(channel);
+                                    setShowImageGenerator(true);
+                                  }}
+                                />
+                              )}
                               
                               {/* SEO Preview for website channel */}
                               {(channel === 'website' || channel === 'blogger') && (content as any).website_seo_data && (
