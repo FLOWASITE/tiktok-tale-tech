@@ -70,6 +70,7 @@ import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
 import { SimpleImageGenerator, ImageGenProgressInfo } from '@/components/multichannel/SimpleImageGenerator';
 import { FloatingImageProgress } from '@/components/multichannel/FloatingImageProgress';
+import { EmptyImageCTA } from '@/components/multichannel/EmptyImageCTA';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
@@ -1126,15 +1127,48 @@ export function MultiChannelViewer({
                 <div className="h-6 w-px bg-border/30 mx-1 flex-shrink-0" />
 
                 {/* AI Actions */}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => { setActiveImageChannel(null); setShowImageGenerator(true); }}
-                  className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5 flex-shrink-0"
-                >
-                  <Wand2 className="w-4 h-4" />
-                  <span className="hidden lg:inline">Tạo ảnh AI</span>
-                </Button>
+                {(() => {
+                  const selected = content?.selected_channels ?? [];
+                  const missingCount = selected.filter(
+                    (ch) => !content.channel_images?.[ch]?.url,
+                  ).length;
+                  const hasMissing = missingCount > 0;
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={hasMissing ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => { setActiveImageChannel(null); setShowImageGenerator(true); }}
+                          className={cn(
+                            'h-8 gap-1.5 flex-shrink-0',
+                            hasMissing
+                              ? 'bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[0_0_16px_-4px_hsl(var(--primary)/0.5)] animate-pulse'
+                              : 'border-primary/30 hover:border-primary hover:bg-primary/5',
+                          )}
+                        >
+                          <Wand2 className="w-4 h-4" />
+                          <span className="hidden lg:inline">
+                            {hasMissing ? 'Tạo ảnh AI' : 'Tạo lại ảnh'}
+                          </span>
+                          {hasMissing && (
+                            <Badge
+                              variant="secondary"
+                              className="h-5 px-1.5 text-[10px] bg-background/90 text-primary font-bold"
+                            >
+                              {missingCount}
+                            </Badge>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {hasMissing
+                          ? `Còn ${missingCount} kênh chưa có ảnh — bấm để tạo`
+                          : 'Tạo lại ảnh AI cho các kênh'}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })()}
 
                 {/* Expand Channels */}
                 {onExpandChannels && (() => {
@@ -1867,6 +1901,17 @@ export function MultiChannelViewer({
                                     </Tooltip>
                                   </TooltipProvider>
                                 </div>
+                              )}
+
+                              {/* Empty-state CTA when text exists but no image yet */}
+                              {!(content.channel_images?.[channel]?.url || generatedImages[channel]) && channelContent && (
+                                <EmptyImageCTA
+                                  channelLabel={config.label}
+                                  onClick={() => {
+                                    setActiveImageChannel(channel);
+                                    setShowImageGenerator(true);
+                                  }}
+                                />
                               )}
                               
                               {/* SEO Preview for website channel */}
