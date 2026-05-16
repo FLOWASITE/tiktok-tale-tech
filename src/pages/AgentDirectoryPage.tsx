@@ -196,7 +196,7 @@ export default function AgentDirectoryPage() {
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Agent Directory</h1>
+        <h1 className="text-2xl font-bold text-foreground">Danh sách Agent</h1>
         <p className="text-sm text-muted-foreground mt-1">
           5 AI agents chuyên biệt trong pipeline — từ chiến lược đến đăng bài
         </p>
