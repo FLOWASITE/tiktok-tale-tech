@@ -8729,6 +8729,7 @@ export type Database = {
           approver_roles: string[] | null
           auto_submit_review: boolean | null
           created_at: string
+          default_autonomy_level: string
           id: string
           last_used_industry_pack_ids: string[]
           logo_url: string | null
@@ -8744,6 +8745,7 @@ export type Database = {
           approver_roles?: string[] | null
           auto_submit_review?: boolean | null
           created_at?: string
+          default_autonomy_level?: string
           id?: string
           last_used_industry_pack_ids?: string[]
           logo_url?: string | null
@@ -8759,6 +8761,7 @@ export type Database = {
           approver_roles?: string[] | null
           auto_submit_review?: boolean | null
           created_at?: string
+          default_autonomy_level?: string
           id?: string
           last_used_industry_pack_ids?: string[]
           logo_url?: string | null

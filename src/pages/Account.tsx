@@ -41,6 +41,7 @@ import { PaymentHistorySection } from "@/pages/PaymentHistory";
 import { OrganizationStats } from "@/components/OrganizationStats";
 import { OrganizationMembersList } from "@/components/OrganizationMembersList";
 import { ApprovalSettingsCard } from "@/components/ApprovalSettingsCard";
+import { AgentAutonomyDefaultCard } from "@/components/AgentAutonomyDefaultCard";
 import { toast } from "sonner";
 
 const CHANNEL_META: Record<Channel, { label: string; icon: React.ReactNode; color: string }> = {
@@ -782,6 +783,7 @@ export default function Account() {
                 </TabsContent>
 
                 <TabsContent value="settings" className="space-y-4">
+                  <AgentAutonomyDefaultCard canEdit={canEditOrg} />
                   <ApprovalSettingsCard canEdit={canEditOrg} />
 
                   <Card className="border-border/50">

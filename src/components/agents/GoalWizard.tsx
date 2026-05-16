@@ -19,6 +19,7 @@ import {
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
@@ -76,9 +77,14 @@ const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
   { icon: PieChart, label: 'Chiến lược' },
   { icon: Radio, label: 'Kênh' },
-  { icon: ShieldCheck, label: 'Tự động' },
   { icon: Eye, label: 'Xác nhận' },
 ];
+
+const AUTONOMY_TO_APPROVAL: Record<AgentAutonomyLevel, string> = {
+  human_in_loop: 'approve_each',
+  human_on_loop: 'approve_plan',
+  full_auto: 'full_auto',
+};
 
 const PILLAR_COLORS = [
   'hsl(var(--primary))',
@@ -218,6 +224,7 @@ interface GoalWizardProps {
 
 export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy, onComplete, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
+  const { defaultAutonomyLevel } = useOrganizationSettings();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
   
@@ -338,6 +345,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (open && currentBrand && !brandTemplateId) setBrandTemplateId(currentBrand.id);
   }, [open, currentBrand]);
 
+  // Apply workspace default autonomy on open (only when creating new, not editing)
+  useEffect(() => {
+    if (open && !initialData && defaultAutonomyLevel) {
+      setAutonomyLevel(defaultAutonomyLevel);
+      setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel] || 'full_auto');
+    }
+  }, [open, initialData, defaultAutonomyLevel]);
+
   // ─── Handlers ───
   const resetForm = () => {
     setStep(0);
@@ -349,7 +364,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_each');
+    setAutonomyLevel(defaultAutonomyLevel || 'full_auto'); setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel || 'full_auto'] || 'full_auto');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
@@ -1012,161 +1027,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             </div>
           )}
 
-          {/* ═══ Step 3: Tự động ═══ */}
-          {!isGenerating && step === 3 && (
-            <div className="space-y-5">
-              {/* Section header */}
-              <div className="space-y-1">
-                <h3 className="text-sm font-medium tracking-tight">AI hoạt động như thế nào?</h3>
-                <p className="text-xs text-muted-foreground">Chọn mức độ tự động mà AI được phép thực hiện.</p>
-              </div>
-
-              {/* Approval Mode Cards */}
-              <div className="space-y-2">
-                {APPROVAL_MODE_OPTIONS.map((opt) => {
-                  const isSelected = approvalMode === opt.value;
-                  const Icon = opt.icon;
-                  return (
-                    <motion.button
-                      key={opt.value}
-                      onClick={() => { setApprovalMode(opt.value); setAutonomyLevel(opt.autonomy); }}
-                      whileTap={{ scale: 0.985 }}
-                      className={cn(
-                        "w-full flex items-center gap-3.5 p-3.5 rounded-xl border text-left transition-all duration-200",
-                        isSelected
-                          ? "border-primary/40 bg-primary/[0.04] shadow-sm shadow-primary/5 ring-1 ring-primary/20"
-                          : "border-border/60 bg-background hover:border-muted-foreground/20 hover:bg-muted/30"
-                      )}
-                    >
-                      <div className={cn(
-                        "flex items-center justify-center w-10 h-10 rounded-xl shrink-0 transition-colors duration-200",
-                        isSelected ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground"
-                      )}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm font-medium transition-colors", isSelected && "text-foreground")}>{opt.label}</p>
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">{opt.description}</p>
-                      </div>
-                      <div className={cn(
-                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200",
-                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
-                      )}>
-                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />}
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
-
-              {/* Smart Auto-Approve */}
-              {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center justify-between py-1">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-medium">Smart Auto-Approve</span>
-                    </div>
-                    <button
-                      onClick={() => setAutoApproveEnabled(!autoApproveEnabled)}
-                      className={cn(
-                        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200",
-                        autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20"
-                      )}
-                    >
-                      <span className={cn(
-                        "inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200",
-                        autoApproveEnabled ? "translate-x-[22px]" : "translate-x-[3px]"
-                      )} />
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {autoApproveEnabled && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="space-y-3 p-3.5 rounded-xl bg-muted/30 border border-border/50">
-                          <p className="text-[11px] text-muted-foreground">Bài viết đạt đủ ngưỡng sẽ được tự động duyệt.</p>
-                          {[
-                            { label: 'Chất lượng tổng ≥', value: thresholdQuality, setter: setThresholdQuality, min: 50, max: 95 },
-                            { label: 'GEO Score ≥', value: thresholdGeo, setter: setThresholdGeo, min: 30, max: 90 },
-                            { label: 'Risk Score ≤', value: thresholdRiskMax, setter: setThresholdRiskMax, min: 0, max: 60 },
-                          ].map(t => (
-                            <div key={t.label} className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-muted-foreground">{t.label}</span>
-                                <span className="text-[11px] font-semibold tabular-nums text-foreground">{t.value}</span>
-                              </div>
-                              <Slider value={[t.value]} min={t.min} max={t.max} step={5} onValueChange={([v]) => t.setter(v)} />
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-
-              {/* Divider */}
-              <div className="border-t border-border/40" />
-
-              {/* Advanced Settings */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">Cài đặt nâng cao</span>
-                </div>
-
-                {/* Brand Voice Threshold — Dual-tone gradient slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-foreground">Mức độ giữ giọng thương hiệu</span>
-                    <span className="text-xs font-semibold tabular-nums text-primary">{brandVoiceThreshold}%</span>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-0 h-2 top-[9px] rounded-full overflow-hidden pointer-events-none">
-                      <div 
-                        className="h-full bg-gradient-to-r from-primary to-[hsl(var(--chart-3))]" 
-                        style={{ width: `${((brandVoiceThreshold - 30) / 70) * 100}%` }} 
-                      />
-                    </div>
-                    <Slider value={[brandVoiceThreshold]} min={30} max={100} step={5} onValueChange={([v]) => setBrandVoiceThreshold(v)} className="relative" />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">Cao = giữ đúng tone thương hiệu. Thấp = sáng tạo tự do hơn.</p>
-                </div>
-
-                {/* Learning Speed */}
-                <div className="space-y-2">
-                  <span className="text-xs text-foreground">Tốc độ học hỏi</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {LEARNING_SPEED_OPTIONS.map(opt => {
-                      const isActive = learningSpeed === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => setLearningSpeed(opt.value)}
-                          className={cn(
-                            "p-2.5 rounded-xl border text-center transition-all duration-200",
-                            isActive
-                              ? "border-primary/40 bg-primary/[0.04] shadow-sm ring-1 ring-primary/20"
-                              : "border-border/60 bg-background hover:border-muted-foreground/20 hover:bg-muted/30"
-                          )}
-                        >
-                          <p className={cn("text-[11px] font-medium", isActive ? "text-foreground" : "text-muted-foreground")}>{opt.label}</p>
-                          <p className="text-[9px] text-muted-foreground mt-0.5">{opt.description}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* (Step "Tự động" removed — autonomy is now configured globally in Workspace Settings) */}
 
           {/* ═══ Step 4: Xác nhận ═══ */}
           {!isGenerating && step === confirmStep && (
@@ -1287,7 +1148,33 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   <div className="space-y-1.5 text-xs border-t pt-3">
                     <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
                     <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
+                    <div className="flex justify-between items-center py-1 border-b gap-2">
+                      <span className="text-muted-foreground">Chế độ AI</span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span>
+                        {defaultAutonomyLevel && autonomyLevel === defaultAutonomyLevel ? (
+                          <Badge variant="outline" className="text-[9px] gap-0.5"><Bot className="w-2.5 h-2.5" />theo cài đặt chung</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[9px]">đã đổi riêng</Badge>
+                        )}
+                        <Select
+                          value={approvalMode}
+                          onValueChange={(v) => {
+                            const opt = APPROVAL_MODE_OPTIONS.find(o => o.value === v);
+                            if (opt) { setApprovalMode(opt.value); setAutonomyLevel(opt.autonomy); }
+                          }}
+                        >
+                          <SelectTrigger className="h-6 w-auto text-[10px] px-2 gap-1 border-dashed">
+                            <SelectValue placeholder="Đổi" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APPROVAL_MODE_OPTIONS.map(o => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     {totalBudget > 0 && (
                       <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
                     )}
