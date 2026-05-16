@@ -1,23 +1,23 @@
 ## Mục tiêu
-Di chuyển card "AI Agent — Mức tự động mặc định" từ trang **Tài khoản → Workspace** sang trang **AI Agent** (`/agents`), để cài đặt Agent nằm gọn trong khu vực Agent.
+Thay form xác nhận xóa campaign từ `window.confirm()` mặc định của trình duyệt (đang hiển thị xấu, lộ domain `id-preview--...lovable.app`) bằng `AlertDialog` của shadcn — đồng bộ với design system Soft Luxury.
 
 ## Thay đổi
 
-### 1. `src/pages/AgentDashboard.tsx`
-- Thêm tab mới **"Cài đặt"** (value=`settings`) vào `TabsList` (sau tab `telegram`).
-- Thêm `TabsContent value="settings"` render `<AgentAutonomyDefaultCard canEdit={canEditOrg} />`.
-- Lấy `canEditOrg` từ `useOrganization()` (role `owner`/`admin`), tương tự logic ở `Account.tsx`.
-- Import `AgentAutonomyDefaultCard` + icon `Settings` từ `lucide-react`.
+### `src/pages/AgentDashboard.tsx`
+- Thêm state `deletingGoal: AgentGoal | null`.
+- `handleDeleteGoal(goal)` → chỉ `setDeletingGoal(goal)` (không gọi `confirm()` nữa).
+- Render `<AlertDialog>` ở cuối page:
+  - **Title**: "Xóa campaign?"
+  - **Description**: `Bạn có chắc muốn xóa campaign "{name}"? Các pipeline đang chạy sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.`
+  - **Cancel**: "Huỷ"
+  - **Action** (destructive style: `bg-destructive text-destructive-foreground hover:bg-destructive/90`): "Xóa campaign" → gọi `deleteGoal.mutate(deletingGoal.id)` rồi `setDeletingGoal(null)`.
+  - Disable nút khi `deleteGoal.isPending`, hiện `Loader2` spin.
+- Import `AlertDialog*` từ `@/components/ui/alert-dialog` và icon `Trash2`/`Loader2`.
 
-### 2. `src/pages/Account.tsx`
-- Xóa block render `<AgentAutonomyDefaultCard />` (dòng ~786) khỏi tab Workspace.
-- Xóa import `AgentAutonomyDefaultCard` (dòng 44).
+### Không đổi
+- Logic `useAgentGoals.deleteGoal` mutation.
+- Các nơi khác dùng `confirm()` (vd `CampaignPlanReview.tsx`) — ngoài scope yêu cầu.
 
-### 3. Không đổi
-- `src/components/AgentAutonomyDefaultCard.tsx` giữ nguyên (chỉ đổi nơi gọi).
-- Hook `useOrganizationSettings` giữ nguyên.
-- Logic `GoalWizard` (đọc default autonomy) giữ nguyên.
-
-## Ghi chú
-- Nếu user không phải owner/admin, card vẫn render ở read-only (component đã handle `canEdit`).
-- Tab "Cài đặt" sẽ là nơi mở rộng cho các cài đặt Agent khác trong tương lai (quota, model override, …).
+## Ghi chú UX
+- Icon cảnh báo `AlertTriangle` màu `text-destructive` ở header (giống pattern `UnlinkIndustryDialog`).
+- Dialog `max-w-md`, dùng semantic tokens, không hardcode màu.

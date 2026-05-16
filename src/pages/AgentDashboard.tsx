@@ -4,7 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users, Radar, Settings } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users, Radar, Settings, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AgentAutonomyDefaultCard } from '@/components/AgentAutonomyDefaultCard';
 import { canEditOrganization } from '@/types/organization';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -47,6 +57,7 @@ export default function AgentDashboard() {
   const [autoSelectPlan, setAutoSelectPlan] = useState<{ planId: string; goalName: string } | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [campaignSubTab, setCampaignSubTab] = useState<'list' | 'plans'>('list');
+  const [deletingGoal, setDeletingGoal] = useState<AgentGoal | null>(null);
 
   const goalNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -119,9 +130,14 @@ export default function AgentDashboard() {
   };
 
   const handleDeleteGoal = (goal: AgentGoal) => {
-    if (confirm(`Xóa campaign "${goal.name}"? Các pipeline đang chạy sẽ không bị ảnh hưởng.`)) {
-      deleteGoal.mutate(goal.id);
-    }
+    setDeletingGoal(goal);
+  };
+
+  const confirmDeleteGoal = () => {
+    if (!deletingGoal) return;
+    deleteGoal.mutate(deletingGoal.id, {
+      onSettled: () => setDeletingGoal(null),
+    });
   };
 
   const handleRunNow = async (goal: AgentGoal) => {
@@ -451,6 +467,42 @@ export default function AgentDashboard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deletingGoal} onOpenChange={(open) => { if (!open && !deleteGoal.isPending) setDeletingGoal(null); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <AlertDialogTitle>Xóa campaign?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+                <p>
+                  Bạn có chắc muốn xóa campaign{' '}
+                  <span className="font-medium text-foreground">"{deletingGoal?.name}"</span>?
+                </p>
+                <p>Các pipeline đang chạy sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={deleteGoal.isPending}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDeleteGoal(); }}
+              disabled={deleteGoal.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteGoal.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang xóa...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-2" /> Xóa campaign</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
