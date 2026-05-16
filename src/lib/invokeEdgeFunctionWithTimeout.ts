@@ -136,9 +136,14 @@ export async function invokeWithTimeout<T = unknown>(
     clearTimeout(timer);
 
     if (!response.ok) {
+      const error = new Error(`Edge Function error (${response.status}): ${responseText}`);
+      (error as Error & { context?: { status: number; body: string } }).context = {
+        status: response.status,
+        body: responseText,
+      };
       return {
         data: null,
-        error: new Error(`Edge Function error (${response.status}): ${responseText}`),
+        error,
       };
     }
 
