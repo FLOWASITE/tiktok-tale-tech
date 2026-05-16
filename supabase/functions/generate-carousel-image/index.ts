@@ -1037,6 +1037,70 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     } else if (isGeminiGenModel(requestedModel)) {
       console.warn(`[circuit-breaker] GeminiGen model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
+    // --- 9Router routing ---
+    else if (!forceLovableGateway && isNineRouterImageModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
+      const NR_KEY = Deno.env.get('NINE_ROUTER_API_KEY');
+      if (!NR_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'NINE_ROUTER_API_KEY chưa được cấu hình. Vui lòng thêm trong project secrets.', errorCode: 'MISSING_API_KEY' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log(`[generate-carousel-image] Routing to 9Router: ${requestedModel} (img2img=${previousImageUrl ? 'yes' : 'no'})`);
+      try {
+        externalImageUrl = await generateImageViaNineRouter({
+          prompt: finalPrompt,
+          model: requestedModel,
+          aspectRatio: resolvedAspect,
+          inputImage: singleRefImage,
+        }, NR_KEY);
+        modelUsed = requestedModel;
+        recordSuccess(requestedModel).catch(() => {});
+      } catch (nrErr) {
+        recordFailure(requestedModel, undefined, supabase).catch(() => {});
+        const errMsg = nrErr instanceof Error ? nrErr.message : String(nrErr);
+        console.error(`[generate-carousel-image] 9Router failed: ${errMsg}`);
+
+        if (errMsg.includes('NINEROUTER_AUTH_ERROR') || errMsg.includes('NINEROUTER_CREDITS_EXHAUSTED') || errMsg.includes('NINEROUTER_RATE_LIMIT')) {
+          const isCredits = errMsg.includes('CREDITS_EXHAUSTED');
+          return new Response(
+            JSON.stringify({
+              error: isCredits ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.' : errMsg,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              fallback: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fallback to PoYo nano-banana-pro if available
+        const POYO_KEY_FOR_NR = Deno.env.get('POYO_API_KEY');
+        const poyoFallbackModel = 'poyo/nano-banana-pro';
+        if (POYO_KEY_FOR_NR && !(await isCircuitOpen(poyoFallbackModel))) {
+          console.log('[generate-carousel-image] 9Router failed, falling back to PoYo (nano-banana-pro)...');
+          try {
+            externalImageUrl = await generateImageViaPoyo({
+              prompt: finalPrompt,
+              model: poyoFallbackModel,
+              aspectRatio: mapAspectRatioToPoyo(resolvedAspect),
+              inputImage: singleRefImage,
+            }, POYO_KEY_FOR_NR);
+            modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
+            usedFallback = true;
+            fallbackFromModel = requestedModel;
+            recordSuccess(poyoFallbackModel).catch(() => {});
+          } catch (poyoFallbackErr) {
+            recordFailure(poyoFallbackModel, undefined, supabase).catch(() => {});
+            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+            console.log('[generate-carousel-image] 9Router+PoYo failed → falling through to Lovable Gateway');
+          }
+        } else {
+          console.log('[generate-carousel-image] 9Router failed and PoYo fallback unavailable → falling through to Lovable Gateway');
+        }
+      }
+    } else if (isNineRouterImageModel(requestedModel)) {
+      console.warn(`[circuit-breaker] 9Router model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
+    }
 
     // --- Lovable AI Gateway (default or fallback) ---
     if (!externalImageUrl) {
