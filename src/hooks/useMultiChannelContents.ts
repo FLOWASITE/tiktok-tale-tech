@@ -152,6 +152,32 @@ export function useMultiChannelContents() {
     }).catch(err => console.warn('[geo] Auto-score failed:', err));
   }, [currentOrganization?.id, queryClient]);
 
+  // Lightweight column set for list view — excludes heavy fields:
+  // content_embedding (vector), critique_details (~1MB total), *_seo_data (~450KB),
+  // hook_evaluations / global_hook / selected_hooks. These are loaded on-demand
+  // via fetchContentDetail when a user opens a single content item.
+  const LIST_COLUMNS = [
+    'id','title','topic','industry','content_goal','selected_channels',
+    'brand_template_id','brand_name','brand_guideline','primary_color',
+    'website_content','blogger_content','wordpress_content','shopify_content',
+    'wix_content','medium_content',
+    'facebook_content','instagram_content','twitter_content','google_maps_content',
+    'linkedin_content','email_content','youtube_content','zalo_oa_content',
+    'telegram_content','tiktok_content','threads_content','pinterest_content',
+    'bluesky_content',
+    'pinterest_title','pinterest_pin_type','pinterest_post_id','pinterest_post_url',
+    'website_post_url','website_post_id','blogger_post_url','blogger_post_id',
+    'wordpress_post_url','wordpress_post_id','flowa_blog_post_url','flowa_blog_post_id',
+    'shopify_post_url','shopify_post_id','wix_post_url','wix_post_id',
+    'medium_post_url','medium_post_id','bluesky_post_url','bluesky_post_id',
+    'channel_images','channel_statuses','tags','status','priority','deadline',
+    'campaign_id','user_id','organization_id',
+    'industry_template_version','core_content_id','content_role',
+    'critique_score','was_refined','refinement_count',
+    'target_keyword_ids','cluster_id',
+    'created_at','updated_at',
+  ].join(',');
+
   const fetchContents = async () => {
     if (!user || !currentOrganization) {
       setContents([]);
@@ -162,23 +188,46 @@ export function useMultiChannelContents() {
     try {
       const { data, error } = await supabase
         .from('multi_channel_contents')
-        .select('*')
+        .select(LIST_COLUMNS)
         .eq('organization_id', currentOrganization.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (error) throw error;
-      
+
       const transformedData = (data || []).map(transformContent);
       setContents(transformedData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching contents:', error);
+      const isTimeout = error?.code === '57014' || /timeout|canceling statement/i.test(error?.message || '');
       toast({
-        title: 'Lỗi',
-        description: 'Không thể tải danh sách nội dung',
+        title: isTimeout ? '⏱️ Tải quá lâu' : 'Lỗi tải danh sách',
+        description: isTimeout
+          ? 'Danh sách nội dung quá lớn. Vui lòng thử lại hoặc lọc theo brand/chiến dịch.'
+          : (error?.message || 'Không thể tải danh sách nội dung'),
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Hydrate a single content with full row (heavy fields included)
+  const fetchContentDetail = async (id: string): Promise<MultiChannelContent | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('multi_channel_contents')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const full = transformContent(data);
+      setContents(prev => prev.map(c => c.id === id ? { ...c, ...full } : c));
+      return full;
+    } catch (error) {
+      console.error('Error fetching content detail:', error);
+      return null;
     }
   };
 
