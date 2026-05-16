@@ -3,6 +3,7 @@ import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
+import { generateImageViaNineRouter, isNineRouterImageModel } from "../_shared/ninerouter-image-generator.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateImageCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
