@@ -63,6 +63,9 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "x-ai/": "openrouter",         // xAI/Grok models via OpenRouter
   "nvidia/": "openrouter",       // NVIDIA models via OpenRouter
   "01-ai/": "openrouter",        // Yi models via OpenRouter
+
+  // 9Router models (self-hosted gateway → 60+ providers)
+  "9router/": "ninerouter",      // 9Router explicit prefix (e.g. 9router/glm-4.6, 9router/kimi-k2)
 };
 
 export type AIMessage = {
