@@ -47,8 +47,19 @@ type: feature
 - Replace 4 sites duplicate (advance_stage, backfill_approvals, runStage approval pending, auto-advance after stage completed).
 - `auto_approved` insert ở smart-auto-approve + human_on_loop giữ raw insert (status khác).
 
-## TODO sprint 3
-- H5: `ai_function_configs` per-complexity-tier override (`getModelForComplexity`).
-- M3: Tách 2613 LOC monolith thành sub-modules (`stages/`, `actions/`).
-- M4: `getAgentModelConfig` LRU cache 5min.
+## Sprint 3 (đã ship)
+
+### H5 — Per-complexity model override
+- `getModelForComplexity(supabase, complexity, orgId)` đọc `ai_function_configs` với `function_name` IN `agent-pipeline-complexity-{simple|medium|complex}`.
+- Org-specific override thắng global; fallback `COMPLEXITY_MODEL_DEFAULTS` (gemini-2.5-pro / flash / flash-lite).
+- Admin có thể đổi model cho từng tier complexity từ Admin AI Management mà không cần redeploy.
+
+### M4 — In-memory cache
+- Module-scoped `Map<string, {value, expiresAt}>` TTL 5 phút, soft cap 500 entries.
+- Áp cho `getAgentModelConfig` (key `agent-cfg:{org}:{agent}`) và `getModelForComplexity` (key `complexity:{org}`).
+- Giảm DB hit khi `runStage` gọi liên tục cho cùng org/agent.
+
+## TODO sprint 4
+- M3: Tách 2646 LOC monolith thành sub-modules (`stages/`, `actions/`, `helpers/`).
+- Cache invalidation hook khi admin update `ai_function_configs` / `ai_agent_model_configs` (Realtime channel).
 - Edge function logs → centralized observability table.
