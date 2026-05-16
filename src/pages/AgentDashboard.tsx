@@ -252,9 +252,6 @@ export default function AgentDashboard() {
             <TabsTrigger value="team" className="gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5" /> Team
             </TabsTrigger>
-            <TabsTrigger value="telegram" className="gap-1.5 text-xs">
-              <Bot className="w-3.5 h-3.5" /> Telegram
-            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs">
               <Settings className="w-3.5 h-3.5" /> Cài đặt
             </TabsTrigger>
@@ -436,12 +433,24 @@ export default function AgentDashboard() {
             <AgentTeamPage />
           </TabsContent>
 
-          <TabsContent value="telegram" className="mt-4">
-            <AgentTelegramPage />
-          </TabsContent>
+          <TabsContent value="settings" className="mt-4 space-y-8">
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold">Mức tự động mặc định</h2>
+                <p className="text-xs text-muted-foreground">Áp dụng cho mọi campaign mới.</p>
+              </div>
+              <AgentAutonomyDefaultCard canEdit={canEditOrg} />
+            </section>
 
-          <TabsContent value="settings" className="mt-4 space-y-4">
-            <AgentAutonomyDefaultCard canEdit={canEditOrg} />
+            <div className="border-t" />
+
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold">Telegram Agent</h2>
+                <p className="text-xs text-muted-foreground">Kết nối bot Telegram để chat trực tiếp với AI Agent.</p>
+              </div>
+              <AgentTelegramPage />
+            </section>
           </TabsContent>
         </Tabs>
 

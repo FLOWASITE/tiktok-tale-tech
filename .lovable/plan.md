@@ -1,23 +1,19 @@
 ## Mục tiêu
-Thay form xác nhận xóa campaign từ `window.confirm()` mặc định của trình duyệt (đang hiển thị xấu, lộ domain `id-preview--...lovable.app`) bằng `AlertDialog` của shadcn — đồng bộ với design system Soft Luxury.
+Gộp tab **Telegram** vào tab **Cài đặt** trong AI Agent Dashboard để giảm số lượng tab và gom các cấu hình vào một chỗ.
 
-## Thay đổi
+## Thay đổi trong `src/pages/AgentDashboard.tsx`
 
-### `src/pages/AgentDashboard.tsx`
-- Thêm state `deletingGoal: AgentGoal | null`.
-- `handleDeleteGoal(goal)` → chỉ `setDeletingGoal(goal)` (không gọi `confirm()` nữa).
-- Render `<AlertDialog>` ở cuối page:
-  - **Title**: "Xóa campaign?"
-  - **Description**: `Bạn có chắc muốn xóa campaign "{name}"? Các pipeline đang chạy sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.`
-  - **Cancel**: "Huỷ"
-  - **Action** (destructive style: `bg-destructive text-destructive-foreground hover:bg-destructive/90`): "Xóa campaign" → gọi `deleteGoal.mutate(deletingGoal.id)` rồi `setDeletingGoal(null)`.
-  - Disable nút khi `deleteGoal.isPending`, hiện `Loader2` spin.
-- Import `AlertDialog*` từ `@/components/ui/alert-dialog` và icon `Trash2`/`Loader2`.
+1. **Xoá `TabsTrigger value="telegram"`** (dòng 255-257) khỏi `TabsList`.
 
-### Không đổi
-- Logic `useAgentGoals.deleteGoal` mutation.
-- Các nơi khác dùng `confirm()` (vd `CampaignPlanReview.tsx`) — ngoài scope yêu cầu.
+2. **Xoá `TabsContent value="telegram"`** (dòng 439-441).
 
-## Ghi chú UX
-- Icon cảnh báo `AlertTriangle` màu `text-destructive` ở header (giống pattern `UnlinkIndustryDialog`).
-- Dialog `max-w-md`, dùng semantic tokens, không hardcode màu.
+3. **Mở rộng `TabsContent value="settings"`** (dòng 443-445) thành 2 section:
+   - **Section 1: "Mức tự động mặc định"** — giữ nguyên `<AgentAutonomyDefaultCard canEdit={canEditOrg} />`.
+   - **Section 2: "Telegram Agent"** — render `<AgentTelegramPage />` bên dưới, có heading phân cách nhẹ (h2 hoặc divider) để rõ ranh giới giữa 2 nhóm cài đặt.
+
+4. **Giữ nguyên** import `AgentTelegramPage` (vẫn dùng trong tab Settings).
+
+## Kết quả
+- Số tab giảm từ 7 → 6: Tổng quan / Pipeline / Duyệt / Campaigns / Team / **Cài đặt**.
+- Trong tab Cài đặt, user thấy lần lượt: Mức tự động mặc định → Telegram Agent.
+- Không thay đổi business logic, chỉ tái sắp xếp UI.
