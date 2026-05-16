@@ -237,7 +237,7 @@ export function ModelSelector({
         </DialogHeader>
 
         {/* Provider Tabs */}
-        {(hasOpenRouter || functionType === 'image' || hasDashScope || hasGeminigen) && (
+        {(hasOpenRouter || functionType === 'image' || hasDashScope || hasGeminigen || availableNineRouterModels.length > 0) && (
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <ProviderTab
               active={providerFilter === 'all'}
