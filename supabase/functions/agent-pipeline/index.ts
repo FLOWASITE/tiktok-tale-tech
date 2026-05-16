@@ -606,8 +606,59 @@ Deno.serve(async (req) => {
         return json({ status: 'skipped', reason: 'stage_mismatch' });
       }
 
-      const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
-      return json(result);
+      // H2: Atomic CAS claim — prevent concurrent run_stage on same pipeline
+      const claimToken = await claimPipelineStage(supabase, pipeline_id, pipeline.current_stage);
+      if (!claimToken) {
+        console.log(`[run_stage] Pipeline ${pipeline_id} stage ${pipeline.current_stage} already claimed. Skipping.`);
+        return json({ status: 'skipped', reason: 'already_claimed' });
+      }
+
+      try {
+        const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
+        return json(result);
+      } finally {
+        await releasePipelineClaim(supabase, pipeline_id, claimToken);
+      }
+    }
+
+    // ========== ACTION: expire_approvals (C3 full) ==========
+    // Cron: auto-reject pending approvals past their expires_at and flag the pipeline.
+    if (action === "expire_approvals") {
+      const { data: expired, error: expErr } = await supabase
+        .from("agent_approvals")
+        .select("id, pipeline_id, organization_id")
+        .eq("status", "pending")
+        .lt("expires_at", new Date().toISOString())
+        .limit(200);
+      if (expErr) throw expErr;
+      if (!expired?.length) return json({ success: true, expired: 0 });
+
+      const now = new Date().toISOString();
+      const ids = expired.map((a: any) => a.id);
+      const pipelineIds = Array.from(new Set(expired.map((a: any) => a.pipeline_id).filter(Boolean)));
+
+      await supabase
+        .from("agent_approvals")
+        .update({
+          status: "rejected",
+          decided_at: now,
+          reviewer_notes: "Auto-rejected by system: approval expired (>7 days pending).",
+        } as any)
+        .in("id", ids);
+
+      if (pipelineIds.length) {
+        await supabase
+          .from("agent_pipelines")
+          .update({
+            is_flagged: true,
+            flag_reason: "approval_expired",
+            updated_at: now,
+          } as any)
+          .in("id", pipelineIds);
+      }
+
+      console.log(`[expire_approvals] auto-rejected ${ids.length} approvals across ${pipelineIds.length} pipelines`);
+      return json({ success: true, expired: ids.length, pipelines_flagged: pipelineIds.length });
     }
 
     // ========== ACTION: check_scheduled_goals ==========
