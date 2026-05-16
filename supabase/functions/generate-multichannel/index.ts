@@ -796,7 +796,7 @@ function resolveBundleTitle({
 
   const prioritizedCandidates = useTopicAsTitle
     ? [cleanedTopic, cleanedExplicitTitle]
-    : [cleanedTopic, cleanedExplicitTitle];
+    : [cleanedExplicitTitle, cleanedTopic];
 
   const preferred = prioritizedCandidates.find((candidate) => candidate.length >= 4)
     || prioritizedCandidates.find(Boolean)
@@ -4029,6 +4029,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 // Prepare content object for critique (match normal mode structure)
                 const contentForCritique: Record<string, any> = {
                   title: resolveBundleTitle({
+                    explicitTitle: (channelResults as any)?.title || (channelResults as any)?.seo_title || null,
                     topic: formData.topic,
                     useTopicAsTitle: formData.useTopicAsTitle,
                   }),
@@ -4286,6 +4287,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   user_id: userId,
                   organization_id: organizationId || null,
                   title: resolveBundleTitle({
+                    explicitTitle: (channelResults as any)?.title || (channelResults as any)?.seo_title || null,
                     topic: formData.topic,
                     useTopicAsTitle: formData.useTopicAsTitle,
                   }),
