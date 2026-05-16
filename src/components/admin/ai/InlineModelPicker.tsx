@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel, isDashScopeModel } from '@/hooks/useAIConfig';
+import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel, isDashScopeModel, isNineRouterModel } from '@/hooks/useAIConfig';
 import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Turtle, Clock } from 'lucide-react';
 
 interface InlineModelPickerProps {
