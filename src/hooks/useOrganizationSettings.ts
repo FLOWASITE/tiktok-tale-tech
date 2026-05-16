@@ -161,16 +161,39 @@ export function useOrganizationSettings() {
     }
   };
 
+  const updateDefaultAutonomyLevel = async (level: DefaultAutonomyLevel): Promise<boolean> => {
+    if (!currentOrganization?.id) return false;
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({ default_autonomy_level: level } as any)
+        .eq('id', currentOrganization.id);
+      if (error) throw error;
+      setSettings(prev => ({ ...prev, default_autonomy_level: level }));
+      toast.success('Đã cập nhật mức tự động mặc định');
+      return true;
+    } catch (error: any) {
+      console.error('Error updating default_autonomy_level:', error);
+      toast.error('Lỗi khi cập nhật: ' + error.message);
+      return false;
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return {
     skipApproval: settings.skip_approval,
     approverRoles: settings.approver_roles,
     useSpecificApprovers: settings.use_specific_approvers,
     autoSubmitReview: settings.auto_submit_review,
+    defaultAutonomyLevel: settings.default_autonomy_level,
     loading,
     updating,
     updateApprovalSettings,
     updateUseSpecificApprovers,
     updateAutoSubmitReview,
+    updateDefaultAutonomyLevel,
     refetch: fetchSettings,
   };
 }
