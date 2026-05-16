@@ -1388,7 +1388,7 @@ export function MultiChannelViewer({
                             }}
                             title={`Tạo ảnh AI cho ${config.label}`}
                             aria-label={`Tạo ảnh AI cho ${config.label}`}
-                            className="shrink-0 h-7 w-7 rounded-md flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all"
+                            className="shrink-0 h-6 w-6 rounded-md flex items-center justify-center bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 transition-all"
                           >
                             <Wand2 className="w-3.5 h-3.5" />
                           </button>
