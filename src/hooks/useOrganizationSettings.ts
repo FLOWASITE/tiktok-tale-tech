@@ -4,11 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { OrgRole } from '@/types/organization';
 
+export type DefaultAutonomyLevel = 'human_in_loop' | 'human_on_loop' | 'full_auto';
+
 interface OrganizationApprovalSettings {
   skip_approval: boolean;
   approver_roles: OrgRole[];
   use_specific_approvers: boolean;
   auto_submit_review: boolean;
+  default_autonomy_level: DefaultAutonomyLevel;
 }
 
 export function useOrganizationSettings() {
