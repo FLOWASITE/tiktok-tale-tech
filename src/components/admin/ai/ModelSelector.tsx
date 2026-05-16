@@ -70,20 +70,22 @@ export function ModelSelector({
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
 
-  // Split Lovable/KIE/PoYo/GeminiGen/DashScope models
+  // Split Lovable/KIE/PoYo/GeminiGen/DashScope/9Router models
   const {
     kieModels: availableKieModels,
     poyoModels: availablePoyoModels,
     geminigenModels: availableGeminigenModels,
     dashscopeModels: availableDashScopeModels,
+    ninerouterModels: availableNineRouterModels,
     lovableOnlyModels: availableLovableOnlyModels,
   } = useMemo(() => {
     const kie = availableModels.lovable.filter(id => isKieModel(id));
     const poyo = availableModels.lovable.filter(id => isPoyoModel(id));
     const geminigen = availableModels.lovable.filter(id => isGeminigenModel(id));
     const dashscope = availableModels.lovable.filter(id => isDashScopeModel(id));
+    const ninerouter = availableModels.lovable.filter(id => isNineRouterModel(id));
     const lovableOnly = availableModels.lovable.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -91,6 +93,7 @@ export function ModelSelector({
       poyoModels: poyo,
       geminigenModels: geminigen,
       dashscopeModels: dashscope,
+      ninerouterModels: ninerouter,
       lovableOnlyModels: lovableOnly,
     };
   }, [availableModels.lovable]);
