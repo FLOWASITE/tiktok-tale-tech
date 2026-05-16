@@ -2440,28 +2440,9 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         pState.stages[nextStage] = { ...(pState.stages[nextStage] || {}), status: "in_progress", started_at: now };
       }
 
-      // If next stage is approval + human_in_loop, create approval record
+      // If next stage is approval + human_in_loop, create approval record via H3 helper (auto dedup + H6 schema)
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
-        const createOutput = pState.stages?.create?.output;
-        const qualityOutput = pState.stages?.quality?.output;
-
-        const { error: autoApprovalErr } = await supabase.from("agent_approvals").insert({
-          pipeline_id: pipeline.id,
-          organization_id: pipeline.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: {},
-          scores: {
-            geo: qualityOutput?.geo?.overall_score || null,
-            compliance: qualityOutput?.compliance?.status || null,
-            persona_fit: qualityOutput?.persona_fit?.overall || null,
-            overall: qualityOutput?.overall || null,
-          },
-          status: "pending",
-        } as any);
-
-        if (autoApprovalErr) {
-          console.error(`[auto-advance] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(autoApprovalErr));
-        }
+        await createApprovalRecord(supabase, pipeline, pState);
       }
 
       const advanceUpdate: any = {
