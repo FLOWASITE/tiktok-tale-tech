@@ -1,63 +1,83 @@
-## Nguyên nhân
 
-`useMultiChannelContents.fetchContents` đang chạy `SELECT *` trên `multi_channel_contents` — bảng có **81 cột**, bao gồm những cột rất nặng:
+# Plan: Thêm 9Router làm AI Provider
 
-- `content_embedding` (vector 384-dim) — PostgREST serialize thành chuỗi JSON ~6-8KB/row
-- `critique_details`, `global_hook`, `hook_evaluations`, `*_seo_data` (jsonb lớn)
-- 18+ cột `*_content` (mỗi long-form 5-15KB)
+## Bối cảnh
+9Router (`9router.com`, OSS `github.com/decolua/9router`) là **local AI gateway** OpenAI-compatible chạy `localhost:20128`, route sang 60+ providers (Claude, OpenAI, Gemini, GLM, Kimi, MiniMax, Groq, xAI, DeepSeek, Qwen, iFlow…) với 3-tier fallback và bộ tiết kiệm token RTK/Caveman.
 
-Với 717 row trong DB (org hiện tại), payload trả về có thể lên 6-10MB, cộng vector serialization → chậm/timeout/network error trên mobile (Galaxy Fold đang dùng), đúng như session replay show skeleton mãi rồi báo lỗi.
+**Vì Flowa chạy edge function trên Lovable Cloud (không thể gọi `localhost`)**, để dùng 9Router làm provider backend, **user/admin phải tự host 9Router trên VPS public** và cung cấp:
+- `NINE_ROUTER_BASE_URL` (vd `https://9router.mydomain.com/v1`)
+- `NINE_ROUTER_API_KEY` (key bảo vệ endpoint do user tự đặt)
 
-## Giải pháp: 2-tier loading
+Pattern này giống hệt cách add OpenRouter/DashScope đã có sẵn — clone nguyên cấu trúc.
 
-**Tier 1 — Danh sách (sidebar):** chỉ select những cột cần để render row trong list
+## Phạm vi
+- ✅ Text/Chat (LLM) — endpoint `/chat/completions` OpenAI-compatible
+- ✅ Embeddings — endpoint `/embeddings` (optional, phase 2)
+- ❌ Image/Video/TTS/STT — để phase 2, hiện chỉ wire Chat (đủ phủ 90% use case)
+- ❌ MITM Bridge / OAuth subscription intercept — không phù hợp server-side
 
-**Tier 2 — Chi tiết (viewer):** khi user click 1 item, fetch full row bằng `id`
+## Files thay đổi
 
-### Thay đổi
+### Backend (Edge Functions)
+1. **`supabase/functions/_shared/ai-provider.ts`**
+   - Thêm `nineRouter: "<base-url>/chat/completions"` vào `PROVIDER_ENDPOINTS`
+   - Thêm prefix routing `"9router/": "ninerouter"` vào provider map → models gọi dạng `9router/glm-4.6`, `9router/kimi-k2`, `9router/claude-sonnet-4.6`
+   - Viết `callNineRouter()` clone từ `callOpenRouter()` (~30 LOC): header `Authorization: Bearer ${NINE_ROUTER_API_KEY}`, body OpenAI format, strip prefix `9router/` trước khi gửi
+   - Thêm `case "ninerouter"` trong switch dispatcher (line ~850)
+   - Circuit breaker: thêm `ninerouter` vào danh sách provider được track (cùng nhánh OpenRouter)
 
-**1. `src/hooks/useMultiChannelContents.ts`**
+2. **`supabase/functions/_shared/ai-config.ts`**
+   - Thêm `'9router/glm-4.6'`, `'9router/kimi-k2-0905'`, `'9router/minimax-m2'`, `'9router/qwen3-coder'` vào danh sách model hợp lệ cho `text` group
+   - Cập nhật `getProviderFromModel()` để nhận diện prefix `9router/`
 
-- `fetchContents()` đổi `select('*')` → explicit list cột nhẹ:
-  ```
-  id, title, topic, industry, content_goal, selected_channels,
-  brand_template_id, brand_name, primary_color,
-  channel_images, channel_statuses, tags, status, priority, deadline,
-  campaign_id, user_id, core_content_id, content_role, content_angle,
-  critique_score, was_refined, refinement_count,
-  cluster_id, pillar_id, target_keyword_ids,
-  website_post_url, blogger_post_url, wordpress_post_url,
-  shopify_post_url, wix_post_url, medium_post_url, pinterest_post_url, bluesky_post_url,
-  created_at, updated_at
-  ```
-  → loại bỏ tất cả `*_content`, `*_seo_data`, `content_embedding`, `critique_details`, `global_hook`, `hook_evaluations`, `selected_hooks`.
+### Frontend
+3. **`src/types/aiProvider.ts`**
+   - Thêm `'9router'` vào `AIProviderType` union
+   - Thêm entry vào `AI_PROVIDERS`:
+     ```ts
+     {
+       id: '9router',
+       name: '9Router (Self-hosted)',
+       description: '60+ providers qua 1 endpoint: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek, Groq, xAI…',
+       getKeyUrl: 'https://9router.com/',
+       models: [
+         '9router/glm-4.6', '9router/glm-4.6-air',
+         '9router/kimi-k2-0905', '9router/kimi-k2-thinking',
+         '9router/minimax-m2', '9router/minimax-text-01',
+         '9router/qwen3-coder-plus', '9router/qwen3-max',
+         '9router/deepseek-v3.2', '9router/deepseek-r1',
+         '9router/claude-sonnet-4.6', '9router/gpt-5.4', '9router/gemini-3-flash',
+         '9router/iflow-pro', '9router/grok-4',
+       ],
+       icon: '🛰️',
+     }
+     ```
 
-- `transformContent` cho phép các cột content `undefined` (xử lý như chưa load), giữ nguyên type signature.
+4. **`src/components/admin/ai/AIProviderManager.tsx`** (nếu có UI add/edit)
+   - Hiển thị field `Base URL` + `API Key` cho provider `9router` (khác OpenRouter ở chỗ base URL custom)
 
-- Thêm hàm mới `fetchContentDetail(id)` → `select('*')` cho 1 row, dùng để hydrate khi user mở viewer.
+### Secrets
+5. Add 2 secret runtime qua `secrets--add_secret`:
+   - `NINE_ROUTER_BASE_URL` — vd `https://router.mydomain.com/v1`
+   - `NINE_ROUTER_API_KEY` — token do user self-host đặt
 
-- Thêm `.limit(500)` làm safety net (717 row đã sát giới hạn PostgREST 1000 mặc định).
+### Docs / Memory
+6. Tạo `mem://ai-system/providers/9router-integration-vn.md`:
+   - Self-hosted requirement + ENV vars
+   - Prefix `9router/` routing
+   - Khuyến nghị model rẻ: GLM-4.6 ($0.60/M), Kimi K2, MiniMax M2
 
-- Tăng timeout/abort signal 15s cho fetchContents để fail nhanh hơn thay vì spinner mãi.
+## Out of scope (phase 2)
+- Embeddings endpoint
+- Image gen qua 9Router (Fal/Flux/Recraft)
+- Quota/cost tracking riêng cho 9Router (tạm dùng circuit breaker chung)
+- UI trong `/admin/ai → Providers` để admin nhập Base URL trực tiếp (hiện dùng secret env)
 
-**2. `src/components/MultiChannelViewer.tsx` (hoặc nơi consume)**
+## Acceptance criteria
+- [ ] Admin có thể chọn model `9router/glm-4.6` trong `/admin/ai → Functions` cho function `generate-multichannel`
+- [ ] Edge function gọi thành công, log thấy `provider: "ninerouter"` trong `ai_metrics`
+- [ ] Khi `NINE_ROUTER_BASE_URL` không set → graceful error "9Router chưa cấu hình", fallback về Lovable Gateway
+- [ ] 429/402 từ 9Router được surface đúng (cùng cơ chế OpenRouter)
 
-- Khi `setSelectedChannel`/mở 1 content, nếu content thiếu các field `*_content` thì gọi `fetchContentDetail(id)` để load đầy đủ rồi merge vào state.
-- Add tiny loading state trong viewer khi đang hydrate.
-
-**3. Thông báo lỗi rõ hơn**
-
-- Trong `catch` của `fetchContents`: log cụ thể `error.code` (timeout vs network vs RLS), hiển thị toast với nút "Thử lại" gọi lại `fetchContents`.
-
-### Tác động
-
-- Payload list giảm từ ~6-10MB → ~200-400KB (giảm ~95%)
-- Hết timeout/network error trên mobile
-- Viewer load chi tiết on-demand (mất thêm ~200ms khi click 1 item, chấp nhận được)
-- Không đổi schema DB, không cần migration
-
-### Không làm
-
-- Không thay đổi logic generate/regenerate/save
-- Không đổi RLS hay backend
-- Không thêm tính năng mới
+## Ước lượng
+~150 LOC backend + 30 LOC frontend + 1 memory file. Tổng ~1 giờ implement nếu user đã có 9Router instance chạy public.
