@@ -1932,27 +1932,9 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           shouldAutoAdvance = false;
           result.output = { waiting_for: "human_approval", approval_id: existingApproval.id };
         } else {
-          // Create new approval record
-          const createOutput = pState.stages?.create?.output;
-
-          const { data: newApproval, error: approvalInsertErr } = await supabase.from("agent_approvals").insert({
-            pipeline_id: pipeline.id,
-            organization_id: pipeline.organization_id,
-            content_preview: createOutput?.title || pipeline.content_title || `Content: ${pipeline.content_title}`,
-            channel_versions: {},
-            scores: {
-              geo: qualityOutput?.geo?.overall_score || null,
-              compliance: qualityOutput?.compliance?.status || null,
-              persona_fit: qualityOutput?.persona_fit?.overall || null,
-              overall: qualityOutput?.overall || null,
-              self_review: qualityOutput?.self_review?.overall || null,
-            },
-            status: "pending",
-          } as any).select("id").single();
-
-          if (approvalInsertErr) {
-            console.error(`[approval] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(approvalInsertErr));
-          }
+          // Create new approval record via H3 helper
+          const { id: newApprovalId } = await createApprovalRecord(supabase, pipeline, pState);
+          const newApproval = newApprovalId ? { id: newApprovalId } : null;
 
           shouldAutoAdvance = false;
           result.output = { waiting_for: "human_approval", approval_id: newApproval?.id };
