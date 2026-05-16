@@ -154,6 +154,84 @@ function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: str
   }).catch(e => console.error("Fire-next-stage failed:", e));
 }
 
+/**
+ * H2: Atomic CAS claim for pipeline stage execution. Prevents two concurrent
+ * run_stage invocations from running the same pipeline. Stale claims (>5min)
+ * are forcibly reclaimed (covers crashed executions).
+ * Returns claim token if acquired, null otherwise.
+ */
+async function claimPipelineStage(supabase: any, pipelineId: string, expectedStage?: string): Promise<string | null> {
+  const token = crypto.randomUUID();
+  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  let q = supabase
+    .from("agent_pipelines")
+    .update({ stage_claim_token: token, stage_claim_at: new Date().toISOString() } as any)
+    .eq("id", pipelineId)
+    .or(`stage_claim_token.is.null,stage_claim_at.lt.${staleBefore}`);
+  if (expectedStage) q = q.eq("current_stage", expectedStage);
+  const { data, error } = await q.select("id");
+  if (error) { console.warn("[claim] CAS error:", error.message); return null; }
+  return (data && data.length > 0) ? token : null;
+}
+
+async function releasePipelineClaim(supabase: any, pipelineId: string, token: string) {
+  await supabase
+    .from("agent_pipelines")
+    .update({ stage_claim_token: null, stage_claim_at: null } as any)
+    .eq("id", pipelineId)
+    .eq("stage_claim_token", token);
+}
+
+/**
+ * H3: Centralized approval record creation with built-in dedup.
+ * Replaces 4 duplicated insert sites. Always uses H6 unified score schema.
+ */
+async function createApprovalRecord(
+  supabase: any,
+  pipeline: any,
+  pState: any,
+  opts: { channel_versions?: any; allowDuplicate?: boolean } = {},
+): Promise<{ id: string | null; deduped: boolean; error?: any }> {
+  if (!opts.allowDuplicate) {
+    const { data: existing } = await supabase
+      .from("agent_approvals")
+      .select("id")
+      .eq("pipeline_id", pipeline.id)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (existing) return { id: existing.id, deduped: true };
+  }
+  const createOutput = pState?.stages?.create?.output;
+  const qualityOutput = pState?.stages?.quality?.output;
+  const { data, error } = await supabase
+    .from("agent_approvals")
+    .insert({
+      pipeline_id: pipeline.id,
+      organization_id: pipeline.organization_id,
+      content_preview:
+        createOutput?.content_preview ||
+        createOutput?.title ||
+        pipeline.content_title ||
+        "Content pending review",
+      channel_versions: opts.channel_versions ?? {},
+      scores: {
+        geo: qualityOutput?.geo?.overall_score ?? null,
+        compliance: qualityOutput?.compliance?.status ?? null,
+        persona_fit: qualityOutput?.persona_fit?.overall ?? null,
+        overall: qualityOutput?.overall ?? null,
+        self_review: qualityOutput?.self_review?.overall ?? null,
+      },
+      status: "pending",
+    } as any)
+    .select("id")
+    .single();
+  if (error) {
+    console.error(`[createApprovalRecord] insert failed for pipeline ${pipeline.id}:`, JSON.stringify(error));
+    return { id: null, deduped: false, error };
+  }
+  return { id: data?.id ?? null, deduped: false };
+}
+
 /** Parse JSON from LLM response that may be wrapped in markdown code fences */
 function parseJsonFromLLM(text: string): any {
   if (!text) return null;
