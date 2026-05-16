@@ -1,4 +1,4 @@
-export type EdgeFunctionErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'UNKNOWN';
+export type EdgeFunctionErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'ALL_PROVIDERS_DOWN' | 'IDLE_TIMEOUT' | 'UNKNOWN';
 
 interface EdgeFunctionErrorPayload {
   error?: string;
@@ -13,6 +13,7 @@ export interface ParsedEdgeFunctionError {
 
 const CREDITS_PATTERN = /credits|payment required|not enough credits|402/i;
 const RATE_LIMIT_PATTERN = /rate limit|too many requests|429/i;
+const IDLE_TIMEOUT_PATTERN = /IDLE_TIMEOUT|idle timeout|504|timed out/i;
 
 export function parseEdgeFunctionError(
   error: unknown,
@@ -39,6 +40,12 @@ export function parseEdgeFunctionError(
       if (body.errorCode === 'RATE_LIMIT' || body.errorCode === 'RATE_LIMITED') {
         code = 'RATE_LIMIT';
       }
+      if (body.errorCode === 'ALL_PROVIDERS_DOWN') {
+        code = 'ALL_PROVIDERS_DOWN';
+      }
+      if (body.errorCode === 'IDLE_TIMEOUT' || body.code === 'IDLE_TIMEOUT') {
+        code = 'IDLE_TIMEOUT';
+      }
     } catch {
       // Ignore non-JSON body
     }
@@ -49,6 +56,10 @@ export function parseEdgeFunctionError(
       code = 'CREDITS_EXHAUSTED';
     } else if (status === 429 || RATE_LIMIT_PATTERN.test(message)) {
       code = 'RATE_LIMIT';
+    } else if (status === 504 || IDLE_TIMEOUT_PATTERN.test(message)) {
+      code = 'IDLE_TIMEOUT';
+    } else if (/ALL_PROVIDERS_DOWN/i.test(message)) {
+      code = 'ALL_PROVIDERS_DOWN';
     }
   }
 
