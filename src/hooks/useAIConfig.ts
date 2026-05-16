@@ -284,6 +284,17 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'geminigen/nano-banana-pro',
     'geminigen/nano-banana-2',
     'geminigen/imagen-4',
+    // 9Router image models — OpenAI-compatible gateway over 60+ providers
+    '9router/gemini/gemini-3-pro-image-preview',
+    '9router/gemini/gemini-3.1-flash-image-preview',
+    '9router/openai/gpt-image-1',
+    '9router/openai/dall-e-3',
+    '9router/black-forest-labs/flux-1.1-pro',
+    '9router/black-forest-labs/flux-kontext-pro',
+    '9router/fal-ai/flux-pro-1.1-ultra',
+    '9router/stability-ai/sd3.5-large',
+    '9router/recraft/recraft-v3',
+    '9router/minimax/image-01',
     // DashScope Vision-Language (multimodal image understanding)
     'qwen3-vl-max',
     'qwen3-vl-plus',
@@ -1503,6 +1514,15 @@ export const NINEROUTER_MODEL_PREFIXES = ['9router/'];
 // Check if a model is a 9Router model
 export const isNineRouterModel = (modelId: string): boolean => {
   return NINEROUTER_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
+};
+
+/**
+ * Image-specific 9Router models nest the sub-provider: `9router/<provider>/<model>`
+ * (e.g. `9router/gemini/gemini-3-pro-image-preview`). Chat models are flat
+ * (`9router/glm-4.6`) and MUST NOT be routed to the image endpoint.
+ */
+export const isNineRouterImageModel = (modelId: string): boolean => {
+  return isNineRouterModel(modelId) && modelId.split('/').length >= 3;
 };
 
 // Lovable AI model prefixes - models that are served through Lovable AI gateway

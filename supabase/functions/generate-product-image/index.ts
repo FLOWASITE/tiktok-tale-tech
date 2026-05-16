@@ -8,6 +8,7 @@ import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
+import { generateImageViaNineRouter, isNineRouterImageModel } from "../_shared/ninerouter-image-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,6 +157,13 @@ Style: high-end commercial product photography, soft studio lighting, neutral li
           prompt, model, aspectRatio: mapAspectRatioToKie('1:1'),
           inputImage: hasRef ? reference_image_url : undefined,
         }, KIE_KEY);
+      } else if (isNineRouterImageModel(model)) {
+        const NR_KEY = Deno.env.get("NINE_ROUTER_API_KEY");
+        if (!NR_KEY) throw new Error("NINE_ROUTER_API_KEY chưa cấu hình");
+        imageUrl = await generateImageViaNineRouter({
+          prompt, model, aspectRatio: '1:1',
+          inputImage: hasRef ? reference_image_url : undefined,
+        }, NR_KEY);
       } else {
         const userContent: any = hasRef
           ? [
