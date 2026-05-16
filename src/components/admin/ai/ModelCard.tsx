@@ -298,6 +298,7 @@ const PROVIDER_DOT_COLORS: Record<string, string> = {
   poyo: 'bg-teal-500',
   dashscope: 'bg-orange-500',
   geminigen: 'bg-emerald-500',
+  ninerouter: 'bg-slate-600',
 };
 
 export function ProviderIndicator({ provider, className, showLabel }: ProviderIndicatorProps) {
