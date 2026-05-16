@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter';
 
 export interface AIProviderConfig {
   apiKey: string;
