@@ -1148,7 +1148,33 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   <div className="space-y-1.5 text-xs border-t pt-3">
                     <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
                     <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
+                    <div className="flex justify-between items-center py-1 border-b gap-2">
+                      <span className="text-muted-foreground">Chế độ AI</span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span>
+                        {defaultAutonomyLevel && autonomyLevel === defaultAutonomyLevel ? (
+                          <Badge variant="outline" className="text-[9px] gap-0.5"><Bot className="w-2.5 h-2.5" />theo cài đặt chung</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[9px]">đã đổi riêng</Badge>
+                        )}
+                        <Select
+                          value={approvalMode}
+                          onValueChange={(v) => {
+                            const opt = APPROVAL_MODE_OPTIONS.find(o => o.value === v);
+                            if (opt) { setApprovalMode(opt.value); setAutonomyLevel(opt.autonomy); }
+                          }}
+                        >
+                          <SelectTrigger className="h-6 w-auto text-[10px] px-2 gap-1 border-dashed">
+                            <SelectValue placeholder="Đổi" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APPROVAL_MODE_OPTIONS.map(o => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     {totalBudget > 0 && (
                       <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
                     )}
