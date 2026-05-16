@@ -97,7 +97,8 @@ export default function MultiChannel() {
     if (viewerOpen && selectedContentId) {
       fetchContentDetail(selectedContentId);
     }
-  }, [viewerOpen, selectedContentId, fetchContentDetail]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerOpen, selectedContentId]);
 
   // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
