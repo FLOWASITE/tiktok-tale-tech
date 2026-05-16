@@ -10,6 +10,7 @@ import {
   isKieModel,
   isPoyoModel,
   isDashScopeModel,
+  isNineRouterModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
