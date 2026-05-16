@@ -11,7 +11,30 @@ const corsHeaders = {
 const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
 
 const MAX_RETRIES = 3;
-const MAX_CONCURRENT_PIPELINES = 10;
+const MAX_CONCURRENT_PIPELINES_DEFAULT = 10;
+
+// C4: Tier-based concurrent pipeline quota
+const TIER_PIPELINE_QUOTA: Record<string, number> = {
+  free: 3,
+  starter: 5,
+  pro: 15,
+  enterprise: 50,
+};
+
+async function getOrgPipelineQuota(supabase: any, orgId: string): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from("organization_subscriptions")
+      .select("tier")
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .maybeSingle();
+    const tier = (data?.tier || "free").toLowerCase();
+    return TIER_PIPELINE_QUOTA[tier] ?? MAX_CONCURRENT_PIPELINES_DEFAULT;
+  } catch {
+    return MAX_CONCURRENT_PIPELINES_DEFAULT;
+  }
+}
 
 // ========== Phase 1a: Complexity Assessment ==========
 type ComplexityLevel = 'simple' | 'medium' | 'complex';
