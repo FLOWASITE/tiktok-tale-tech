@@ -1302,8 +1302,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   // Fetch agent model config for this stage
   const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
   const fallbackModel = agentConfig?.fallback_model || undefined;
-  const agentTemperature = agentConfig?.temperature || undefined;
-  const agentMaxTokens = agentConfig?.max_tokens || undefined;
+  const agentTemperature = agentConfig?.temperature ?? undefined; // H4: ?? preserves 0
+  const agentMaxTokens = agentConfig?.max_tokens ?? undefined;
 
   // Phase 1a: Dynamic model selection — use agent config override, or complexity-based model
   const complexity = meta.complexity || assessComplexity(pipeline);
