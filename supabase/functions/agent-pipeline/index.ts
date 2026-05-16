@@ -1297,7 +1297,7 @@ Deno.serve(async (req) => {
         // Phase 1a: Assess complexity for dynamic model selection
         const complexity = assessComplexity({ ...pipelineState, content_type: contentType, pipeline_state: pipelineState });
         (pipelineState as any).metadata.complexity = complexity;
-        (pipelineState as any).metadata.suggested_model = getModelForComplexity(complexity);
+        (pipelineState as any).metadata.suggested_model = await getModelForComplexity(supabase, complexity, plan.organization_id);
 
         const { data: pipeline, error: pipeErr } = await supabase
           .from("agent_pipelines")
