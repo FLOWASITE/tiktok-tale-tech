@@ -4,6 +4,7 @@ import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
+import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { isTrustedTextBakingModel } from '@/lib/trustedTextBakingModels';
 import { toast } from 'sonner';
@@ -36,6 +37,16 @@ export function autoSelectLogoPosition(
 }
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | '2:3' | 'auto';
 export type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
+
+function isNonRetryableImageError(errorCode?: string, message?: string): boolean {
+  return (
+    errorCode === 'CREDITS_EXHAUSTED' ||
+    errorCode === 'RATE_LIMIT' ||
+    errorCode === 'ALL_PROVIDERS_DOWN' ||
+    errorCode === 'IDLE_TIMEOUT' ||
+    /CREDITS_EXHAUSTED|RATE_LIMIT|ALL_PROVIDERS_DOWN|IDLE_TIMEOUT|idle timeout|504|402|429/i.test(message || '')
+  );
+}
 
 // Import from shared config - single source of truth
 import { CHANNEL_OPTIMAL_ASPECT_RATIO, CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
