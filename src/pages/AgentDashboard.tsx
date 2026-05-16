@@ -130,9 +130,14 @@ export default function AgentDashboard() {
   };
 
   const handleDeleteGoal = (goal: AgentGoal) => {
-    if (confirm(`Xóa campaign "${goal.name}"? Các pipeline đang chạy sẽ không bị ảnh hưởng.`)) {
-      deleteGoal.mutate(goal.id);
-    }
+    setDeletingGoal(goal);
+  };
+
+  const confirmDeleteGoal = () => {
+    if (!deletingGoal) return;
+    deleteGoal.mutate(deletingGoal.id, {
+      onSettled: () => setDeletingGoal(null),
+    });
   };
 
   const handleRunNow = async (goal: AgentGoal) => {
