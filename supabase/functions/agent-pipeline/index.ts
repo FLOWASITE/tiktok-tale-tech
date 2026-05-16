@@ -106,21 +106,40 @@ const STAGE_TIME_ESTIMATES: Record<string, number> = {
   strategy: 30000,
   create: 60000,
   quality: 45000,
-  approval: 300000,
+  approval: 7 * 24 * 60 * 60 * 1000, // M1: 7 days (human-driven, not AI-driven)
   publish: 120000,
   analyze: 10000,
 };
 
-/** Helper: call another edge function internally */
-async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: string, body: Record<string, unknown>) {
-  const res = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `${fnName} returned ${res.status}`);
-  return data;
+/** Helper: call another edge function internally with abort timeout (C1) */
+async function callFunction(
+  supabaseUrl: string,
+  supabaseKey: string,
+  fnName: string,
+  body: Record<string, unknown>,
+  options: { timeoutMs?: number } = {},
+) {
+  const timeoutMs = options.timeoutMs ?? 120_000; // C1: default 120s abort
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `${fnName} returned ${res.status}`);
+    return data;
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") {
+      throw new Error(`${fnName} timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Fire-and-forget: trigger next stage as a NEW Edge Function invocation */
