@@ -63,3 +63,18 @@ type: feature
 - M3: Tách 2646 LOC monolith thành sub-modules (`stages/`, `actions/`, `helpers/`).
 - Cache invalidation hook khi admin update `ai_function_configs` / `ai_agent_model_configs` (Realtime channel).
 - Edge function logs → centralized observability table.
+
+## Sprint 4 (đã ship)
+
+### Polish & resilience nhỏ
+- **L3**: `STAGE_ORDER as const` + `type Stage = typeof STAGE_ORDER[number]` cho type-safety.
+- **L2**: `fireNextStage` log non-OK HTTP status + message lỗi rõ ràng (kèm pipelineId+stage).
+- **L1**: `parseJsonFromLLM` log preview 300 ký tự đầu khi tất cả attempts fail (debug LLM output bị truncate / format lạ).
+- **M5**: Quality stage stagger từ `Math.random()` → `deterministicStagger(pipelineId, 15000)` (hash 32-bit). Reproducible khi debug, vẫn phân tán đều giữa pipelines.
+- **M8**: Backlink injection so sánh `hostname+pathname` qua `new URL()` thay vì `String.includes()` thuần. Tránh double-inject khi URL có query/UTM hoặc shortened.
+
+## TODO sprint 5
+- M3: Tách 2670 LOC monolith thành sub-modules (`stages/`, `actions/`, `helpers/`).
+- M6: `backfill_*` actions thêm `limit` + `dry_run` param.
+- M7: Notification digest hourly thay vì spam per-pipeline.
+- Cache invalidation hook khi admin update `ai_function_configs` (Realtime).
