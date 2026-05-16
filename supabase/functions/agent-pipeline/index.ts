@@ -94,6 +94,20 @@ function cacheSet(key: string, value: any) {
   }
 }
 
+/** Sprint 5: cache invalidation (call after admin updates ai_function_configs / ai_agent_model_configs) */
+function cacheInvalidate(prefix?: string): number {
+  if (!prefix) {
+    const n = _modelConfigCache.size;
+    _modelConfigCache.clear();
+    return n;
+  }
+  let n = 0;
+  for (const key of [..._modelConfigCache.keys()]) {
+    if (key.startsWith(prefix)) { _modelConfigCache.delete(key); n++; }
+  }
+  return n;
+}
+
 async function getModelForComplexity(supabase: any, complexity: ComplexityLevel, orgId?: string): Promise<string> {
   const cacheKey = `complexity:${orgId || 'global'}`;
   let overrides = cacheGet<Record<string, string>>(cacheKey);
