@@ -66,12 +66,64 @@ function assessComplexity(pipeline: any): ComplexityLevel {
   return 'simple';
 }
 
-function getModelForComplexity(complexity: ComplexityLevel): string {
-  switch (complexity) {
-    case 'complex': return 'google/gemini-2.5-pro';
-    case 'medium': return 'google/gemini-2.5-flash';
-    case 'simple': return 'google/gemini-2.5-flash-lite';
+// H5: Per-complexity model defaults — overridable per-org via `ai_function_configs`
+// with function_name = `agent-pipeline-complexity-{simple|medium|complex}` (model_override).
+const COMPLEXITY_MODEL_DEFAULTS: Record<ComplexityLevel, string> = {
+  complex: 'google/gemini-2.5-pro',
+  medium: 'google/gemini-2.5-flash',
+  simple: 'google/gemini-2.5-flash-lite',
+};
+
+// M4: In-memory cache (per edge-function instance) — 5 min TTL
+const _modelConfigCache = new Map<string, { value: any; expiresAt: number }>();
+const MODEL_CACHE_TTL_MS = 5 * 60_000;
+
+function cacheGet<T>(key: string): T | undefined {
+  const hit = _modelConfigCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expiresAt < Date.now()) { _modelConfigCache.delete(key); return undefined; }
+  return hit.value as T;
+}
+function cacheSet(key: string, value: any) {
+  _modelConfigCache.set(key, { value, expiresAt: Date.now() + MODEL_CACHE_TTL_MS });
+  // Soft cap — prevent unbounded growth
+  if (_modelConfigCache.size > 500) {
+    const firstKey = _modelConfigCache.keys().next().value;
+    if (firstKey) _modelConfigCache.delete(firstKey);
   }
+}
+
+async function getModelForComplexity(supabase: any, complexity: ComplexityLevel, orgId?: string): Promise<string> {
+  const cacheKey = `complexity:${orgId || 'global'}`;
+  let overrides = cacheGet<Record<string, string>>(cacheKey);
+  if (!overrides) {
+    overrides = {};
+    try {
+      const fnNames = [
+        'agent-pipeline-complexity-simple',
+        'agent-pipeline-complexity-medium',
+        'agent-pipeline-complexity-complex',
+      ];
+      let q = supabase
+        .from('ai_function_configs')
+        .select('function_name, model_override, organization_id')
+        .in('function_name', fnNames)
+        .eq('is_enabled', true)
+        .not('model_override', 'is', null);
+      if (orgId) q = q.or(`organization_id.eq.${orgId},organization_id.is.null`);
+      else q = q.is('organization_id', null);
+      const { data } = await q;
+      // Org-specific wins over global
+      for (const row of (data || []).sort((a: any, b: any) => (a.organization_id ? 1 : 0) - (b.organization_id ? 1 : 0))) {
+        const level = row.function_name.replace('agent-pipeline-complexity-', '');
+        if (row.model_override) overrides![level] = row.model_override;
+      }
+    } catch (e) {
+      console.warn('[getModelForComplexity] config fetch failed:', e);
+    }
+    cacheSet(cacheKey, overrides);
+  }
+  return overrides[complexity] || COMPLEXITY_MODEL_DEFAULTS[complexity];
 }
 
 // ========== Phase 1b: Priority stagger delays ==========
