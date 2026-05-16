@@ -76,9 +76,14 @@ const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
   { icon: PieChart, label: 'Chiến lược' },
   { icon: Radio, label: 'Kênh' },
-  { icon: ShieldCheck, label: 'Tự động' },
   { icon: Eye, label: 'Xác nhận' },
 ];
+
+const AUTONOMY_TO_APPROVAL: Record<AgentAutonomyLevel, string> = {
+  human_in_loop: 'approve_each',
+  human_on_loop: 'approve_plan',
+  full_auto: 'full_auto',
+};
 
 const PILLAR_COLORS = [
   'hsl(var(--primary))',
