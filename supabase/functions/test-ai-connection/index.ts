@@ -12,7 +12,7 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
   }
 
   try {
-    const { provider, apiKey } = await req.json();
+    const { provider, apiKey, baseUrl } = await req.json();
 
     if (!apiKey) {
       return new Response(
@@ -47,6 +47,9 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
         break;
       case 'geminigen':
         testResult = await testGemini(apiKey);
+        break;
+      case 'ninerouter':
+        testResult = await testNineRouter(apiKey, baseUrl);
         break;
       default:
         return new Response(
@@ -260,6 +263,7 @@ async function testPoyo(apiKey: string) {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+  }
 }
 
 async function testGeminiGen(apiKey: string) {
@@ -280,4 +284,36 @@ async function testGeminiGen(apiKey: string) {
     return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
   }
 }
+
+async function testNineRouter(apiKey: string, baseUrl?: string) {
+  if (!baseUrl) {
+    return { success: false, error: 'Base URL bắt buộc cho 9Router (vd https://router.mydomain.com/v1)' };
+  }
+  try {
+    const url = baseUrl.replace(/\/$/, '') + '/models';
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { success: false, error: 'API key không hợp lệ' };
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `9Router error (${response.status}): ${errorText.slice(0, 200)}` };
+    }
+
+    const data = await response.json().catch(() => ({}));
+    const modelCount = data?.data?.length ?? data?.models?.length ?? 0;
+    return {
+      success: true,
+      message: modelCount > 0
+        ? `Kết nối thành công với 9Router! Có ${modelCount} models khả dụng.`
+        : 'Kết nối thành công với 9Router!',
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+  }
 }
