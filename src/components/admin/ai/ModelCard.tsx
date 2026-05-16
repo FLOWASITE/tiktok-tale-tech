@@ -75,6 +75,12 @@ const PROVIDER_STYLES: Record<string, {
     icon: <Sparkles className="h-3 w-3" />,
     label: 'GeminiGen.ai',
   },
+  ninerouter: {
+    border: 'border-l-slate-600',
+    badge: 'bg-slate-500/10 text-slate-700 border-slate-500/30',
+    icon: <ExternalLink className="h-3 w-3" />,
+    label: '9Router',
+  },
 };
 
 export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact, pricing, contextLength }: ModelCardProps) {
