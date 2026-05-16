@@ -61,6 +61,7 @@ export default function MultiChannel() {
     deleteChannelImage,
     expandChannels,
     refetch,
+    fetchContentDetail,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -89,6 +90,15 @@ export default function MultiChannel() {
     selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
     [selectedContentId, contents]
   );
+
+  // Hydrate full content (heavy fields: critique_details, *_seo_data, hooks)
+  // when user opens the viewer — list query is lightweight to avoid timeouts.
+  useEffect(() => {
+    if (viewerOpen && selectedContentId) {
+      fetchContentDetail(selectedContentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerOpen, selectedContentId]);
 
   // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
