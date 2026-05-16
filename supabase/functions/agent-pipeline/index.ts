@@ -306,6 +306,8 @@ function parseJsonFromLLM(text: string): any {
   try { return JSON.parse(stripped); } catch {}
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+  // L1: log preview of raw text on total parse failure
+  console.warn(`[parseJsonFromLLM] all attempts failed. Preview (first 300ch): ${text.slice(0, 300)}`);
   return null;
 }
 
