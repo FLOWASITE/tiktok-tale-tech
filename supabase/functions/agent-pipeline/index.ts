@@ -2558,7 +2558,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
         // Stagger quality stage invocations to prevent concurrency overload
         if (nextStage === "quality") {
-          const staggerDelay = Math.floor(Math.random() * 15000); // 0-15s random delay
+          const staggerDelay = deterministicStagger(pipeline.id, 15000); // M5: deterministic 0-15s
           console.log(`[advance] Staggering quality stage fire by ${staggerDelay}ms for pipeline ${pipeline.id}`);
           setTimeout(() => {
             fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
