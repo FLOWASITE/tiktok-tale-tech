@@ -1077,25 +1077,27 @@ Deno.serve(async (req) => {
 
     // ========== ACTION: backfill_approvals ==========
     if (action === "backfill_approvals") {
-      // Find pipelines at approval stage without a matching agent_approvals record
-      const { data: approvalPipelines } = await supabase
+      // Sprint 5 M6: support limit + dry_run params
+      const limit = Math.max(1, Math.min(Number(body.limit) || 200, 500));
+      const dryRun = body.dry_run === true;
+
+      let q = supabase
         .from("agent_pipelines")
         .select("id, organization_id, content_title, pipeline_state, autonomy_level")
         .eq("current_stage", "approval")
-        .is("completed_at", null);
+        .is("completed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (organization_id) q = q.eq("organization_id", organization_id);
+      const { data: approvalPipelines } = await q;
 
       if (!approvalPipelines?.length) {
-        return json({ success: true, backfilled: 0, message: "No pipelines at approval stage" });
+        return json({ success: true, backfilled: 0, dry_run: dryRun, message: "No pipelines at approval stage" });
       }
 
-      // Filter by org if provided
-      const candidates = organization_id
-        ? approvalPipelines.filter((p: any) => p.organization_id === organization_id)
-        : approvalPipelines;
-
       let backfilled = 0;
-      for (const p of candidates) {
-        // Check if approval record already exists
+      const wouldBackfill: string[] = [];
+      for (const p of approvalPipelines) {
         const { data: existing } = await supabase
           .from("agent_approvals")
           .select("id")
@@ -1103,7 +1105,9 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
 
-        if (existing) continue; // Already has an approval record
+        if (existing) continue;
+
+        if (dryRun) { wouldBackfill.push(p.id); continue; }
 
         const pState = (p.pipeline_state as any) || { stages: {} };
         const { id: newId, error: insertErr } = await createApprovalRecord(supabase, p, pState, { allowDuplicate: true });
@@ -1115,36 +1119,45 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ success: true, backfilled, total_at_approval: candidates.length });
+      return json({
+        success: true,
+        backfilled: dryRun ? wouldBackfill.length : backfilled,
+        dry_run: dryRun,
+        candidates: dryRun ? wouldBackfill : undefined,
+        total_at_approval: approvalPipelines.length,
+      });
     }
 
     // ========== ACTION: backfill_publish ==========
     if (action === "backfill_publish") {
-      // Find pipelines at publish stage missing target_channels in meta
-      const { data: publishPipelines } = await supabase
+      // Sprint 5 M6: support limit + dry_run params
+      const limit = Math.max(1, Math.min(Number(body.limit) || 200, 500));
+      const dryRun = body.dry_run === true;
+
+      let q = supabase
         .from("agent_pipelines")
         .select("id, organization_id, goal_id, pipeline_state, content_id")
         .eq("current_stage", "publish")
-        .is("completed_at", null);
+        .is("completed_at", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (organization_id) q = q.eq("organization_id", organization_id);
+      const { data: publishPipelines } = await q;
 
       if (!publishPipelines?.length) {
-        return json({ success: true, fixed: 0, message: "No pipelines at publish stage" });
+        return json({ success: true, fixed: 0, dry_run: dryRun, message: "No pipelines at publish stage" });
       }
 
-      const candidates = organization_id
-        ? publishPipelines.filter((p: any) => p.organization_id === organization_id)
-        : publishPipelines;
-
       let fixed = 0;
-      for (const p of candidates) {
+      const wouldFix: Array<{ id: string; reason: string }> = [];
+      for (const p of publishPipelines) {
         const pState = (p.pipeline_state as any) || { stages: {}, metadata: {} };
         const meta = pState.metadata || {};
         const hasChannels = meta.target_channels && meta.target_channels.length > 0;
         const hasContentId = !!p.content_id;
 
-        if (hasChannels && hasContentId) continue; // Already OK
+        if (hasChannels && hasContentId) continue;
 
-        // Resolve target_channels from goal
         let targetChannels = meta.target_channels || [];
         if (!hasChannels && p.goal_id) {
           const { data: goal } = await supabase
@@ -1152,23 +1165,20 @@ Deno.serve(async (req) => {
             .select("target_channels")
             .eq("id", p.goal_id)
             .single();
-          if (goal?.target_channels?.length) {
-            targetChannels = goal.target_channels;
-          }
+          if (goal?.target_channels?.length) targetChannels = goal.target_channels;
         }
 
-        // Resolve content_id from pipeline_state
         let contentId = p.content_id;
-        if (!contentId) {
-          contentId = resolveContentId(p, pState);
+        if (!contentId) contentId = resolveContentId(p, pState);
+
+        if (dryRun) {
+          wouldFix.push({ id: p.id, reason: `channels=${targetChannels.length}, contentId=${contentId ? 'yes' : 'no'}` });
+          continue;
         }
 
-        // Update pipeline
         pState.metadata = { ...meta, target_channels: targetChannels };
         const updates: any = { pipeline_state: pState };
-        if (contentId && !p.content_id) {
-          updates.content_id = contentId;
-        }
+        if (contentId && !p.content_id) updates.content_id = contentId;
 
         const { error: updErr } = await supabase
           .from("agent_pipelines")
@@ -1183,7 +1193,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ success: true, fixed, total_at_publish: candidates.length });
+      return json({
+        success: true,
+        fixed: dryRun ? wouldFix.length : fixed,
+        dry_run: dryRun,
+        candidates: dryRun ? wouldFix : undefined,
+        total_at_publish: publishPipelines.length,
+      });
+    }
+
+    // ========== ACTION: invalidate_cache (Sprint 5) ==========
+    if (action === "invalidate_cache") {
+      const prefix = typeof body.prefix === "string" ? body.prefix : undefined;
+      const cleared = cacheInvalidate(prefix);
+      console.log(`[invalidate_cache] Cleared ${cleared} entries${prefix ? ` (prefix=${prefix})` : ' (all)'}`);
+      return json({ success: true, cleared, prefix: prefix || null });
     }
 
     // ========== ACTION: create_from_plan ==========
