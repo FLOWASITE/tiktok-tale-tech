@@ -1,56 +1,38 @@
-# Bug: Card content hiện title = prompt người dùng ("đăng liền nha")
+## Mục tiêu
+Chuyển bước "AI hoạt động như thế nào" (autonomy) từ **mỗi campaign** sang **cài đặt chung của Workspace**, mặc định áp dụng cho mọi campaign mới. Người dùng vẫn có thể override khi cần.
 
-## Triệu chứng
-Trên `ContentTaskCard`, dòng `h3` hiển thị `content.title` và dòng dưới hiển thị `content.topic` — cả hai đều là chuỗi gốc "đăng liền nha" người dùng nhập cho Agent. AI đã sinh nội dung Facebook đầy đủ nhưng headline thật bị bỏ qua.
+## Thay đổi
 
-## Root cause
-`supabase/functions/generate-multichannel/index.ts` → `resolveBundleTitle()`:
+### 1. Database
+Thêm cột vào `organizations`:
+- `default_autonomy_level` (text, default `'full_auto'`) — mức tự động mặc định cho workspace
+- `default_approval_mode` (text, default `'full_auto'`) — map sang `approve_each | approve_plan | full_auto` để hiển thị
 
-```ts
-const prioritizedCandidates = useTopicAsTitle
-  ? [cleanedTopic, cleanedExplicitTitle]
-  : [cleanedTopic, cleanedExplicitTitle];   // ❌ giống branch trên
-```
+Migration additive, không phá data cũ. Goal hiện tại vẫn giữ `autonomy_level` riêng (override).
 
-Hai nhánh ternary giống hệt nhau → `cleanedTopic` (chính là `formData.topic` = prompt người dùng) **luôn** thắng `cleanedExplicitTitle`. Cờ `useTopicAsTitle` mất tác dụng.
+### 2. Trang Cài đặt Workspace (`src/pages/OrganizationSettings.tsx`)
+Thêm section mới **"AI Agent — Mức tự động mặc định"**:
+- 3 card chọn giống Step 3 của GoalWizard (Duyệt từng bài / Duyệt kế hoạch / Tự động hoàn toàn)
+- Lưu vào `organizations.default_autonomy_level`
+- Note: "Áp dụng cho mọi campaign mới. Bạn vẫn có thể đổi riêng cho từng campaign."
 
-Thêm nữa, **2 call site** của `resolveBundleTitle` ở line ~4031 (critique) và ~4288 (INSERT vào `multi_channel_contents`) chỉ truyền `topic` + `useTopicAsTitle`, **không truyền `explicitTitle`** dù LLM đã sinh field `title` trong `channelResults` (schema bắt buộc tại line 5021–5027). → Title AI bị vứt đi.
+### 3. GoalWizard (`src/components/agents/GoalWizard.tsx`)
+- **Bỏ Step 3 "Tự động"** khỏi flow mặc định → wizard còn 4 bước (Mục tiêu → Chiến lược → Kênh → Xác nhận)
+- Khi tạo mới: auto-fill `autonomy_level` từ `organization.default_autonomy_level`
+- Trong Step "Xác nhận": hiển thị badge "Mức tự động: Tự động hoàn toàn (theo cài đặt chung)" + link nhỏ **"Đổi riêng cho campaign này"** → mở dialog nhỏ chứa 3 lựa chọn (override-only, không thêm step)
+- Stepper giảm còn 4 bước
 
-Hệ quả với Agent: `agent-creator-v2` gọi `generate-multichannel` với `topic = "đăng liền nha"` (instruction người dùng). Vì cả 2 bug trên, DB lưu `title = "đăng liền nha"` thay vì headline AI sinh.
+### 4. Hook & types
+- `useOrganization` / context: expose `defaultAutonomyLevel`
+- `useAgentGoals.create`: nếu không truyền `autonomy_level` → dùng default từ org
+- Update `src/types/organization.ts`
 
-## Fix (chỉ chạm 1 file edge function)
+## Lý do
+- Trải nghiệm hiện tại: user phải chọn lại autonomy mỗi lần tạo campaign → lặp lại không cần thiết
+- 95% case user dùng 1 mức cố định cho cả workspace
+- Vẫn giữ khả năng override per-campaign cho team cần kiểm soát chi tiết
 
-`supabase/functions/generate-multichannel/index.ts`:
-
-### 1. Sửa ternary `resolveBundleTitle` (line 797–799)
-```ts
-const prioritizedCandidates = useTopicAsTitle
-  ? [cleanedTopic, cleanedExplicitTitle]
-  : [cleanedExplicitTitle, cleanedTopic];   // ✅ explicit (AI) ưu tiên khi flag=false
-```
-
-### 2. Truyền `explicitTitle` từ `channelResults` ở 2 call site
-- Line ~4031 (critique payload):
-  ```ts
-  title: resolveBundleTitle({
-    explicitTitle: channelResults.title || channelResults.seo_title || null,
-    topic: formData.topic,
-    useTopicAsTitle: formData.useTopicAsTitle,
-  }),
-  ```
-- Line ~4288 (INSERT `multi_channel_contents`): tương tự, thêm `explicitTitle: channelResults.title || channelResults.seo_title || null`.
-
-`channelResults.title` đã có sẵn từ LLM (schema required, line 5027). `seo_title` là fallback cho long-form mode.
-
-## Verify
-1. Trigger Agent với prompt ngắn ("đăng liền nha") + 1 kênh FB.
-2. Sau pipeline complete: check row mới trong `multi_channel_contents`:
-   - `topic` = "đăng liền nha" (giữ nguyên)
-   - `title` = headline AI sinh, không trùng topic, độ dài ≥ 4 ký tự, không phải chuỗi gốc.
-3. Reload `/tasks` (hoặc trang chứa `ContentTaskCard`) → `h3` hiển thị headline thật, `topic` line vẫn show "đăng liền nha".
-4. Backfill (tùy chọn, không bắt buộc): script update các row cũ có `title = topic` bằng cách lấy câu đầu tiên của `facebook_content`/`website_content`. Hỏi user trước khi chạy.
-
-## Không động đến
-- `ContentTaskCard.tsx` (chỉ render — đang đúng).
-- `agent-creator-v2`, `agent-pipeline` (không cần đổi contract).
-- Flow manual UI (`MultiChannelCreate.tsx`) — flow này thường có `formData.topic` chính là headline; với fix mới, nếu user muốn dùng topic làm title thì FE đã set `useTopicAsTitle = true` (giữ nguyên hành vi).
+## Technical
+- Migration: `ALTER TABLE organizations ADD COLUMN default_autonomy_level text DEFAULT 'full_auto'` + CHECK constraint
+- File chính sửa: `OrganizationSettings.tsx`, `GoalWizard.tsx` (xóa step 3, giảm stepper), `useAgentGoals.ts` (fallback default), `OrganizationContext.tsx` (expose field), `types/organization.ts`
+- Không đụng `agent-pipeline` edge function (vẫn đọc `autonomy_level` từ goal như cũ)
