@@ -562,7 +562,84 @@ async function callOpenRouter(
 
     if (options.stream) {
       return { success: true, data: response.body, provider: "openrouter", model };
+}
+
+/**
+ * Call 9Router (self-hosted OpenAI-compatible gateway → 60+ providers)
+ * Base URL + API key come from ai_provider_configs row (preferred) or env fallback
+ */
+async function callNineRouter(
+  messages: AIMessage[],
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions,
+  apiKeyOverride?: string,
+  baseUrlOverride?: string | null,
+): Promise<AICallResult> {
+  const apiKey = apiKeyOverride || Deno.env.get("NINE_ROUTER_API_KEY");
+  const rawBase = baseUrlOverride || Deno.env.get("NINE_ROUTER_BASE_URL");
+  if (!apiKey || !rawBase) {
+    return {
+      success: false,
+      error: "9Router not configured (missing NINE_ROUTER_BASE_URL or NINE_ROUTER_API_KEY)",
+      provider: "ninerouter",
+      model,
+    };
+  }
+  // Accept base url either with or without /v1; normalize to /chat/completions endpoint
+  const base = rawBase.replace(/\/+$/, "");
+  const endpoint = base.endsWith("/chat/completions")
+    ? base
+    : base.endsWith("/v1")
+      ? `${base}/chat/completions`
+      : `${base}/v1/chat/completions`;
+
+  try {
+    // Strip 9router/ prefix; pass model id directly to 9Router (e.g. glm-4.6)
+    const cleanModel = model.replace(/^9router\//, "");
+
+    const body: any = {
+      model: cleanModel,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+    if (options.tools) body.tools = options.tools;
+    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    if (options.stream) body.stream = true;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "X-Title": "Flowa Content Platform",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] 9Router error:", response.status, errorText);
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "ninerouter", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "ninerouter", model };
+      }
+      return { success: false, error: `9Router error: ${response.status}`, provider: "ninerouter", model };
     }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "ninerouter", model };
+    }
+    const data = await response.json();
+    return { success: true, data, provider: "ninerouter", model };
+  } catch (err) {
+    console.error("[ai-provider] 9Router call failed:", err);
+    return { success: false, error: String(err), provider: "ninerouter", model };
+  }
+}
 
     const data = await response.json();
     return { success: true, data, provider: "openrouter", model };
