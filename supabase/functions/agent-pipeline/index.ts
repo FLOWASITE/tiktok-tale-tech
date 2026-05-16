@@ -567,22 +567,24 @@ Deno.serve(async (req) => {
 
       let triggered = 0;
       for (const goal of sortedGoals) {
-        // Phase 4a: Quota check — max concurrent pipelines per org
+        // Phase 4a: Quota check — tier-based concurrent pipelines per org (C4)
+        const orgQuota = await getOrgPipelineQuota(supabase, goal.organization_id);
         const { count: orgRunningCount } = await supabase
           .from("agent_pipelines")
           .select("id", { count: "exact", head: true })
           .eq("organization_id", goal.organization_id)
           .is("completed_at", null)
-          .eq("is_flagged", false);
+          .eq("is_flagged", false)
+          .neq("current_stage", "approval"); // C3: don't count human-waiting approvals
 
-        if ((orgRunningCount || 0) >= MAX_CONCURRENT_PIPELINES) {
-          console.log(`[check_scheduled_goals] Org ${goal.organization_id} at quota (${orgRunningCount}/${MAX_CONCURRENT_PIPELINES}), skipping goal ${goal.id}`);
+        if ((orgRunningCount || 0) >= orgQuota) {
+          console.log(`[check_scheduled_goals] Org ${goal.organization_id} at quota (${orgRunningCount}/${orgQuota}), skipping goal ${goal.id}`);
           await supabase.from("agent_pipeline_logs").insert({
             pipeline_id: null,
             agent_name: "quota_manager",
             action: "quota_exceeded",
             input_summary: `Goal: ${goal.name}, org running: ${orgRunningCount}`,
-            output_summary: `Skipped: quota ${MAX_CONCURRENT_PIPELINES} reached`,
+            output_summary: `Skipped: quota ${orgQuota} reached`,
           } as any);
           continue;
         }
