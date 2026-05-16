@@ -1402,7 +1402,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         await supabase.from("agent_pipelines").update({ pipeline_state: pState } as any).eq("id", pipeline.id);
       }
 
-      // ===== Delegate to agent-creator-v2 =====
+      // ===== Delegate to agent-creator-v2 with retry-aware tuning (C1, C2) =====
+      const createRetryCount = pState.stages?.create?.retry_count || 0;
+
+      // C1: on 504/timeout retries, downgrade model to flash-lite to fit Edge 150s limit
+      let effectiveModel = modelOverride;
+      const lastCreateError = (pState.stages?.create?.last_error || '').toLowerCase();
+      const isPriorTimeout = lastCreateError.includes('timeout') || lastCreateError.includes('504');
+      if (createRetryCount >= 1 && isPriorTimeout) {
+        effectiveModel = 'google/gemini-2.5-flash-lite';
+        console.log(`[create] Retry ${createRetryCount} after timeout → downgrade model to ${effectiveModel}`);
+      }
+
+      // C2: on empty-content retries, bump temperature to break determinism
+      let effectiveTemp = agentTemperature;
+      const isPriorEmpty = lastCreateError.includes('empty content');
+      if (createRetryCount >= 1 && isPriorEmpty) {
+        effectiveTemp = Math.min(1.2, (agentTemperature ?? 0.7) + 0.2);
+        console.log(`[create] Retry ${createRetryCount} after empty → bump temperature to ${effectiveTemp}`);
+      }
+
       const creatorResult = await callFunction(supabaseUrl, supabaseKey, "agent-creator-v2", {
         pipeline_id: pipeline.id,
         content_type: contentType,
@@ -1416,10 +1435,10 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         content_role: meta.content_role || undefined,
         length_mode: meta.content_length || undefined,
         campaign_id: meta.campaign_id || pipeline.campaign_id || null,
-        ...(modelOverride && { model_override: modelOverride }),
-        ...(agentTemperature && { temperature: agentTemperature }),
-        ...(agentMaxTokens && { max_tokens: agentMaxTokens }),
-      });
+        ...(effectiveModel && { model_override: effectiveModel }),
+        ...(effectiveTemp !== undefined && { temperature: effectiveTemp }),
+        ...(agentMaxTokens !== undefined && { max_tokens: agentMaxTokens }),
+      }, { timeoutMs: 140_000 }); // C1: explicit 140s under Edge 150s limit
 
       result.output = creatorResult.output || creatorResult;
 
