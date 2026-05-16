@@ -477,7 +477,7 @@ export default function AgentDashboard() {
         <SheetContent side="right" className="sm:max-w-2xl w-full overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <Radar className="w-5 h-5 text-primary" /> Agent Directory
+              <Radar className="w-5 h-5 text-primary" /> Danh sách Agent
             </SheetTitle>
           </SheetHeader>
           <div className="mt-4">
