@@ -61,6 +61,7 @@ export default function MultiChannel() {
     deleteChannelImage,
     expandChannels,
     refetch,
+    fetchContentDetail,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
