@@ -783,7 +783,6 @@ export default function Account() {
                 </TabsContent>
 
                 <TabsContent value="settings" className="space-y-4">
-                  <AgentAutonomyDefaultCard canEdit={canEditOrg} />
                   <ApprovalSettingsCard canEdit={canEditOrg} />
 
                   <Card className="border-border/50">
