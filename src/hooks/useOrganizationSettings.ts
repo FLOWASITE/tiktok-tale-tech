@@ -21,6 +21,7 @@ export function useOrganizationSettings() {
     approver_roles: ['owner', 'admin'],
     use_specific_approvers: false,
     auto_submit_review: false,
+    default_autonomy_level: 'full_auto',
   });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
