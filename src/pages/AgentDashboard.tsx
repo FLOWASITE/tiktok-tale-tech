@@ -252,9 +252,6 @@ export default function AgentDashboard() {
             <TabsTrigger value="team" className="gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5" /> Team
             </TabsTrigger>
-            <TabsTrigger value="telegram" className="gap-1.5 text-xs">
-              <Bot className="w-3.5 h-3.5" /> Telegram
-            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 text-xs">
               <Settings className="w-3.5 h-3.5" /> Cài đặt
             </TabsTrigger>
