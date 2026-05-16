@@ -1516,6 +1516,15 @@ export const isNineRouterModel = (modelId: string): boolean => {
   return NINEROUTER_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
 };
 
+/**
+ * Image-specific 9Router models nest the sub-provider: `9router/<provider>/<model>`
+ * (e.g. `9router/gemini/gemini-3-pro-image-preview`). Chat models are flat
+ * (`9router/glm-4.6`) and MUST NOT be routed to the image endpoint.
+ */
+export const isNineRouterImageModel = (modelId: string): boolean => {
+  return isNineRouterModel(modelId) && modelId.split('/').length >= 3;
+};
+
 // Lovable AI model prefixes - models that are served through Lovable AI gateway
 export const LOVABLE_MODEL_PREFIXES = [
   'google/gemini-2.5',
