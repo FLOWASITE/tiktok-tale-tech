@@ -221,7 +221,7 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.ninerouter.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
   const hasDashScope = availableDashScopeModels.length > 0;
   const hasGeminigen = availableGeminigenModels.length > 0;
