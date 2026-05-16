@@ -1,6 +1,6 @@
 ---
 name: Orchestrator Hardening
-description: agent-pipeline Sprint 1+2+3 — timeout/downgrade, tier quota, claim CAS, approval helper + expiry cron, per-complexity model override, in-memory cache
+description: agent-pipeline Sprint 1-5 — timeout/downgrade, tier quota, claim CAS, approval helper + expiry cron, per-complexity model override, in-memory cache + invalidate, backfill limit/dry_run
 type: feature
 ---
 
@@ -78,3 +78,20 @@ type: feature
 - M6: `backfill_*` actions thêm `limit` + `dry_run` param.
 - M7: Notification digest hourly thay vì spam per-pipeline.
 - Cache invalidation hook khi admin update `ai_function_configs` (Realtime).
+
+## Sprint 5 (đã ship)
+
+### M6 — backfill_approvals / backfill_publish nhận `limit` + `dry_run`
+- Default `limit=200`, cap 500; `dry_run=true` trả `candidates[]` (ID hoặc `{id, reason}`) không mutate.
+- Query đẩy `eq(organization_id)` xuống DB + `order created_at DESC` thay vì filter in-memory → an toàn khi lượng pipeline lớn.
+
+### Cache invalidation
+- Helper `cacheInvalidate(prefix?)`: clear toàn bộ hoặc theo prefix (`agent-cfg:`, `complexity:`).
+- Action `invalidate_cache` (body `{prefix?}`) cho admin gọi sau khi update `ai_function_configs` / `ai_agent_model_configs`. Lưu ý: mỗi edge instance giữ cache riêng, cần invalidate dần qua nhiều request (chấp nhận được vì TTL 5 phút).
+- Unknown-action list cập nhật kèm `invalidate_cache`.
+
+## TODO sprint 6
+- M3: Tách 2700 LOC monolith thành sub-modules (`stages/`, `actions/`, `helpers/`).
+- M7: Notification digest hourly thay vì spam per-pipeline.
+- Realtime listener tự gọi `invalidate_cache` khi `ai_function_configs` thay đổi.
+- Edge function logs → centralized observability table.
