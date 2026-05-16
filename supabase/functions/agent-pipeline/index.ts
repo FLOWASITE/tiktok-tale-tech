@@ -154,6 +154,84 @@ function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: str
   }).catch(e => console.error("Fire-next-stage failed:", e));
 }
 
+/**
+ * H2: Atomic CAS claim for pipeline stage execution. Prevents two concurrent
+ * run_stage invocations from running the same pipeline. Stale claims (>5min)
+ * are forcibly reclaimed (covers crashed executions).
+ * Returns claim token if acquired, null otherwise.
+ */
+async function claimPipelineStage(supabase: any, pipelineId: string, expectedStage?: string): Promise<string | null> {
+  const token = crypto.randomUUID();
+  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  let q = supabase
+    .from("agent_pipelines")
+    .update({ stage_claim_token: token, stage_claim_at: new Date().toISOString() } as any)
+    .eq("id", pipelineId)
+    .or(`stage_claim_token.is.null,stage_claim_at.lt.${staleBefore}`);
+  if (expectedStage) q = q.eq("current_stage", expectedStage);
+  const { data, error } = await q.select("id");
+  if (error) { console.warn("[claim] CAS error:", error.message); return null; }
+  return (data && data.length > 0) ? token : null;
+}
+
+async function releasePipelineClaim(supabase: any, pipelineId: string, token: string) {
+  await supabase
+    .from("agent_pipelines")
+    .update({ stage_claim_token: null, stage_claim_at: null } as any)
+    .eq("id", pipelineId)
+    .eq("stage_claim_token", token);
+}
+
+/**
+ * H3: Centralized approval record creation with built-in dedup.
+ * Replaces 4 duplicated insert sites. Always uses H6 unified score schema.
+ */
+async function createApprovalRecord(
+  supabase: any,
+  pipeline: any,
+  pState: any,
+  opts: { channel_versions?: any; allowDuplicate?: boolean } = {},
+): Promise<{ id: string | null; deduped: boolean; error?: any }> {
+  if (!opts.allowDuplicate) {
+    const { data: existing } = await supabase
+      .from("agent_approvals")
+      .select("id")
+      .eq("pipeline_id", pipeline.id)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (existing) return { id: existing.id, deduped: true };
+  }
+  const createOutput = pState?.stages?.create?.output;
+  const qualityOutput = pState?.stages?.quality?.output;
+  const { data, error } = await supabase
+    .from("agent_approvals")
+    .insert({
+      pipeline_id: pipeline.id,
+      organization_id: pipeline.organization_id,
+      content_preview:
+        createOutput?.content_preview ||
+        createOutput?.title ||
+        pipeline.content_title ||
+        "Content pending review",
+      channel_versions: opts.channel_versions ?? {},
+      scores: {
+        geo: qualityOutput?.geo?.overall_score ?? null,
+        compliance: qualityOutput?.compliance?.status ?? null,
+        persona_fit: qualityOutput?.persona_fit?.overall ?? null,
+        overall: qualityOutput?.overall ?? null,
+        self_review: qualityOutput?.self_review?.overall ?? null,
+      },
+      status: "pending",
+    } as any)
+    .select("id")
+    .single();
+  if (error) {
+    console.error(`[createApprovalRecord] insert failed for pipeline ${pipeline.id}:`, JSON.stringify(error));
+    return { id: null, deduped: false, error };
+  }
+  return { id: data?.id ?? null, deduped: false };
+}
+
 /** Parse JSON from LLM response that may be wrapped in markdown code fences */
 function parseJsonFromLLM(text: string): any {
   if (!text) return null;
@@ -475,35 +553,10 @@ Deno.serve(async (req) => {
       const nextStage = STAGE_ORDER[currentIdx + 1];
       const now = new Date().toISOString();
 
-      // If advancing to approval + human_in_loop → create approval record (H3: dedup check, H6: schema sync)
+      // If advancing to approval + human_in_loop → create approval record (H3 helper: dedup + H6 schema)
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const pState = (pipeline.pipeline_state as any) || {};
-        const createOutput = pState.stages?.create?.output;
-        const qualityOutput = pState.stages?.quality?.output;
-
-        const { data: existingApproval } = await supabase
-          .from("agent_approvals")
-          .select("id")
-          .eq("pipeline_id", pipeline.id)
-          .eq("status", "pending")
-          .maybeSingle();
-
-        if (!existingApproval) {
-          await supabase.from("agent_approvals").insert({
-            pipeline_id: pipeline.id,
-            organization_id: pipeline.organization_id,
-            content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
-            channel_versions: {},
-            scores: {
-              geo: qualityOutput?.geo?.overall_score ?? null,
-              compliance: qualityOutput?.compliance?.status ?? null,
-              persona_fit: qualityOutput?.persona_fit?.overall ?? null,
-              overall: qualityOutput?.overall ?? null,
-              self_review: qualityOutput?.self_review?.overall ?? null,
-            },
-            status: "pending",
-          } as any);
-        }
+        await createApprovalRecord(supabase, pipeline, pState);
       }
 
       const pipelineState = (pipeline.pipeline_state as any) || { stages: {} };
@@ -553,8 +606,59 @@ Deno.serve(async (req) => {
         return json({ status: 'skipped', reason: 'stage_mismatch' });
       }
 
-      const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
-      return json(result);
+      // H2: Atomic CAS claim — prevent concurrent run_stage on same pipeline
+      const claimToken = await claimPipelineStage(supabase, pipeline_id, pipeline.current_stage);
+      if (!claimToken) {
+        console.log(`[run_stage] Pipeline ${pipeline_id} stage ${pipeline.current_stage} already claimed. Skipping.`);
+        return json({ status: 'skipped', reason: 'already_claimed' });
+      }
+
+      try {
+        const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
+        return json(result);
+      } finally {
+        await releasePipelineClaim(supabase, pipeline_id, claimToken);
+      }
+    }
+
+    // ========== ACTION: expire_approvals (C3 full) ==========
+    // Cron: auto-reject pending approvals past their expires_at and flag the pipeline.
+    if (action === "expire_approvals") {
+      const { data: expired, error: expErr } = await supabase
+        .from("agent_approvals")
+        .select("id, pipeline_id, organization_id")
+        .eq("status", "pending")
+        .lt("expires_at", new Date().toISOString())
+        .limit(200);
+      if (expErr) throw expErr;
+      if (!expired?.length) return json({ success: true, expired: 0 });
+
+      const now = new Date().toISOString();
+      const ids = expired.map((a: any) => a.id);
+      const pipelineIds = Array.from(new Set(expired.map((a: any) => a.pipeline_id).filter(Boolean)));
+
+      await supabase
+        .from("agent_approvals")
+        .update({
+          status: "rejected",
+          decided_at: now,
+          reviewer_notes: "Auto-rejected by system: approval expired (>7 days pending).",
+        } as any)
+        .in("id", ids);
+
+      if (pipelineIds.length) {
+        await supabase
+          .from("agent_pipelines")
+          .update({
+            is_flagged: true,
+            flag_reason: "approval_expired",
+            updated_at: now,
+          } as any)
+          .in("id", pipelineIds);
+      }
+
+      console.log(`[expire_approvals] auto-rejected ${ids.length} approvals across ${pipelineIds.length} pipelines`);
+      return json({ success: true, expired: ids.length, pipelines_flagged: pipelineIds.length });
     }
 
     // ========== ACTION: check_scheduled_goals ==========
@@ -915,27 +1019,10 @@ Deno.serve(async (req) => {
         if (existing) continue; // Already has an approval record
 
         const pState = (p.pipeline_state as any) || { stages: {} };
-        const createOutput = pState.stages?.create?.output;
-        const qualityOutput = pState.stages?.quality?.output;
-
-        const { error: insertErr } = await supabase.from("agent_approvals").insert({
-          pipeline_id: p.id,
-          organization_id: p.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || p.content_title || "Content pending review",
-          channel_versions: {},
-          scores: {
-            geo: qualityOutput?.geo?.overall_score || null,
-            compliance: qualityOutput?.compliance?.status || null,
-            persona_fit: qualityOutput?.persona_fit?.overall || null,
-            overall: qualityOutput?.overall || null,
-            self_review: qualityOutput?.self_review?.overall || null,
-          },
-          status: "pending",
-        } as any);
-
+        const { id: newId, error: insertErr } = await createApprovalRecord(supabase, p, pState, { allowDuplicate: true });
         if (insertErr) {
           console.error(`[backfill] Failed to create approval for pipeline ${p.id}:`, JSON.stringify(insertErr));
-        } else {
+        } else if (newId) {
           backfilled++;
           console.log(`[backfill] Created approval record for pipeline ${p.id}`);
         }
@@ -1250,7 +1337,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck, backfill_approvals, backfill_publish" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck, backfill_approvals, backfill_publish, expire_approvals" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -1845,27 +1932,9 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           shouldAutoAdvance = false;
           result.output = { waiting_for: "human_approval", approval_id: existingApproval.id };
         } else {
-          // Create new approval record
-          const createOutput = pState.stages?.create?.output;
-
-          const { data: newApproval, error: approvalInsertErr } = await supabase.from("agent_approvals").insert({
-            pipeline_id: pipeline.id,
-            organization_id: pipeline.organization_id,
-            content_preview: createOutput?.title || pipeline.content_title || `Content: ${pipeline.content_title}`,
-            channel_versions: {},
-            scores: {
-              geo: qualityOutput?.geo?.overall_score || null,
-              compliance: qualityOutput?.compliance?.status || null,
-              persona_fit: qualityOutput?.persona_fit?.overall || null,
-              overall: qualityOutput?.overall || null,
-              self_review: qualityOutput?.self_review?.overall || null,
-            },
-            status: "pending",
-          } as any).select("id").single();
-
-          if (approvalInsertErr) {
-            console.error(`[approval] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(approvalInsertErr));
-          }
+          // Create new approval record via H3 helper
+          const { id: newApprovalId } = await createApprovalRecord(supabase, pipeline, pState);
+          const newApproval = newApprovalId ? { id: newApprovalId } : null;
 
           shouldAutoAdvance = false;
           result.output = { waiting_for: "human_approval", approval_id: newApproval?.id };
@@ -2371,28 +2440,9 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         pState.stages[nextStage] = { ...(pState.stages[nextStage] || {}), status: "in_progress", started_at: now };
       }
 
-      // If next stage is approval + human_in_loop, create approval record
+      // If next stage is approval + human_in_loop, create approval record via H3 helper (auto dedup + H6 schema)
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
-        const createOutput = pState.stages?.create?.output;
-        const qualityOutput = pState.stages?.quality?.output;
-
-        const { error: autoApprovalErr } = await supabase.from("agent_approvals").insert({
-          pipeline_id: pipeline.id,
-          organization_id: pipeline.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: {},
-          scores: {
-            geo: qualityOutput?.geo?.overall_score || null,
-            compliance: qualityOutput?.compliance?.status || null,
-            persona_fit: qualityOutput?.persona_fit?.overall || null,
-            overall: qualityOutput?.overall || null,
-          },
-          status: "pending",
-        } as any);
-
-        if (autoApprovalErr) {
-          console.error(`[auto-advance] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(autoApprovalErr));
-        }
+        await createApprovalRecord(supabase, pipeline, pState);
       }
 
       const advanceUpdate: any = {

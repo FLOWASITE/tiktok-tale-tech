@@ -1300,6 +1300,7 @@ export type Database = {
           content_preview: string | null
           created_at: string
           decided_at: string | null
+          expires_at: string | null
           id: string
           organization_id: string
           pipeline_id: string
@@ -1313,6 +1314,7 @@ export type Database = {
           content_preview?: string | null
           created_at?: string
           decided_at?: string | null
+          expires_at?: string | null
           id?: string
           organization_id: string
           pipeline_id: string
@@ -1326,6 +1328,7 @@ export type Database = {
           content_preview?: string | null
           created_at?: string
           decided_at?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string
           pipeline_id?: string
@@ -1608,6 +1611,8 @@ export type Database = {
           priority: Database["public"]["Enums"]["agent_priority"]
           quality_scores: Json | null
           scheduled_publish_at: string | null
+          stage_claim_at: string | null
+          stage_claim_token: string | null
           stage_started_at: string | null
           updated_at: string
         }
@@ -1634,6 +1639,8 @@ export type Database = {
           priority?: Database["public"]["Enums"]["agent_priority"]
           quality_scores?: Json | null
           scheduled_publish_at?: string | null
+          stage_claim_at?: string | null
+          stage_claim_token?: string | null
           stage_started_at?: string | null
           updated_at?: string
         }
@@ -1660,6 +1667,8 @@ export type Database = {
           priority?: Database["public"]["Enums"]["agent_priority"]
           quality_scores?: Json | null
           scheduled_publish_at?: string | null
+          stage_claim_at?: string | null
+          stage_claim_token?: string | null
           stage_started_at?: string | null
           updated_at?: string
         }
