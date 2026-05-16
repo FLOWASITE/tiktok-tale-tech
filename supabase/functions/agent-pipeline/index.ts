@@ -1019,27 +1019,10 @@ Deno.serve(async (req) => {
         if (existing) continue; // Already has an approval record
 
         const pState = (p.pipeline_state as any) || { stages: {} };
-        const createOutput = pState.stages?.create?.output;
-        const qualityOutput = pState.stages?.quality?.output;
-
-        const { error: insertErr } = await supabase.from("agent_approvals").insert({
-          pipeline_id: p.id,
-          organization_id: p.organization_id,
-          content_preview: createOutput?.content_preview || createOutput?.title || p.content_title || "Content pending review",
-          channel_versions: {},
-          scores: {
-            geo: qualityOutput?.geo?.overall_score || null,
-            compliance: qualityOutput?.compliance?.status || null,
-            persona_fit: qualityOutput?.persona_fit?.overall || null,
-            overall: qualityOutput?.overall || null,
-            self_review: qualityOutput?.self_review?.overall || null,
-          },
-          status: "pending",
-        } as any);
-
+        const { id: newId, error: insertErr } = await createApprovalRecord(supabase, p, pState, { allowDuplicate: true });
         if (insertErr) {
           console.error(`[backfill] Failed to create approval for pipeline ${p.id}:`, JSON.stringify(insertErr));
-        } else {
+        } else if (newId) {
           backfilled++;
           console.log(`[backfill] Created approval record for pipeline ${p.id}`);
         }
