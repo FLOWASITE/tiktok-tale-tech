@@ -26,6 +26,9 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+  // 9Router: self-hosted OpenAI-compatible gateway routing to 60+ providers
+  // Base URL is configurable per org via ai_provider_configs.base_url OR env NINE_ROUTER_BASE_URL
+  ninerouter: "", // resolved dynamically in callNineRouter
 };
 
 // Model prefix to provider mapping
@@ -60,6 +63,9 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "x-ai/": "openrouter",         // xAI/Grok models via OpenRouter
   "nvidia/": "openrouter",       // NVIDIA models via OpenRouter
   "01-ai/": "openrouter",        // Yi models via OpenRouter
+
+  // 9Router models (self-hosted gateway → 60+ providers)
+  "9router/": "ninerouter",      // 9Router explicit prefix (e.g. 9router/glm-4.6, 9router/kimi-k2)
 };
 
 export type AIMessage = {
@@ -556,7 +562,84 @@ async function callOpenRouter(
 
     if (options.stream) {
       return { success: true, data: response.body, provider: "openrouter", model };
+}
+
+/**
+ * Call 9Router (self-hosted OpenAI-compatible gateway → 60+ providers)
+ * Base URL + API key come from ai_provider_configs row (preferred) or env fallback
+ */
+async function callNineRouter(
+  messages: AIMessage[],
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions,
+  apiKeyOverride?: string,
+  baseUrlOverride?: string | null,
+): Promise<AICallResult> {
+  const apiKey = apiKeyOverride || Deno.env.get("NINE_ROUTER_API_KEY");
+  const rawBase = baseUrlOverride || Deno.env.get("NINE_ROUTER_BASE_URL");
+  if (!apiKey || !rawBase) {
+    return {
+      success: false,
+      error: "9Router not configured (missing NINE_ROUTER_BASE_URL or NINE_ROUTER_API_KEY)",
+      provider: "ninerouter",
+      model,
+    };
+  }
+  // Accept base url either with or without /v1; normalize to /chat/completions endpoint
+  const base = rawBase.replace(/\/+$/, "");
+  const endpoint = base.endsWith("/chat/completions")
+    ? base
+    : base.endsWith("/v1")
+      ? `${base}/chat/completions`
+      : `${base}/v1/chat/completions`;
+
+  try {
+    // Strip 9router/ prefix; pass model id directly to 9Router (e.g. glm-4.6)
+    const cleanModel = model.replace(/^9router\//, "");
+
+    const body: any = {
+      model: cleanModel,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+    if (options.tools) body.tools = options.tools;
+    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    if (options.stream) body.stream = true;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "X-Title": "Flowa Content Platform",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] 9Router error:", response.status, errorText);
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "ninerouter", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "ninerouter", model };
+      }
+      return { success: false, error: `9Router error: ${response.status}`, provider: "ninerouter", model };
     }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "ninerouter", model };
+    }
+    const data = await response.json();
+    return { success: true, data, provider: "ninerouter", model };
+  } catch (err) {
+    console.error("[ai-provider] 9Router call failed:", err);
+    return { success: false, error: String(err), provider: "ninerouter", model };
+  }
+}
 
     const data = await response.json();
     return { success: true, data, provider: "openrouter", model };
@@ -851,6 +934,8 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "dashscope":
             return callDashScope(messages, effectiveModel, effectiveConfig, options, apiKey);
+          case "ninerouter":
+            return callNineRouter(messages, effectiveModel, effectiveConfig, options, apiKey, providerConfig?.baseUrl);
           default:
             return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
         }
@@ -928,6 +1013,33 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
       }
     }
 
+    return primaryResult;
+  }
+
+  // 9Router env-only fallback (when no DB provider config row)
+  // Tier 1: requested 9router model. Tier 2: Lovable Gateway gemini-2.5-flash (if Lovable-compatible).
+  if (primaryProvider === "ninerouter") {
+    console.log("[ai-provider] Using 9Router (env config)");
+    const primaryResult = await callWithCircuitBreaker(
+      () => callNineRouter(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options,
+    );
+    if (primaryResult.success) return primaryResult;
+
+    const isCreditsExhausted = primaryResult.error?.includes("402") ||
+                               primaryResult.error?.includes("Payment");
+    if (!isCreditsExhausted) {
+      console.warn(`[ai-provider] 9Router failed, last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+      const tier2Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+      const tier2Result = await callWithCircuitBreaker(
+        () => callLovableGateway(messages, "google/gemini-2.5-flash", tier2Config, options),
+        "google/gemini-2.5-flash",
+        options,
+      );
+      tier2Result.fromFallback = true;
+      return tier2Result;
+    }
     return primaryResult;
   }
 
