@@ -470,6 +470,9 @@ async function processDirectContentSchedule(
 
 /** Fetch agent model config from ai_agent_model_configs table */
 async function getAgentModelConfig(supabase: any, orgId: string, agentName: string) {
+  const cacheKey = `agent-cfg:${orgId}:${agentName}`;
+  const cached = cacheGet<any>(cacheKey);
+  if (cached !== undefined) return cached;
   try {
     const { data } = await supabase
       .from("ai_agent_model_configs")
@@ -478,7 +481,9 @@ async function getAgentModelConfig(supabase: any, orgId: string, agentName: stri
       .eq("agent_name", agentName)
       .eq("is_enabled", true)
       .maybeSingle();
-    return data || null;
+    const value = data || null;
+    cacheSet(cacheKey, value);
+    return value;
   } catch (e) {
     console.warn(`[getAgentModelConfig] Failed for ${agentName}:`, e);
     return null;
