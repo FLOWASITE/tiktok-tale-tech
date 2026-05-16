@@ -109,7 +109,20 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
     return campaigns.find(c => c.id === selectedGoal.campaign_id) || null;
   }, [selectedGoal, campaigns]);
 
-  const activeGoals = useMemo(() => filteredGoals.filter(g => g.is_active && !g.is_paused), [filteredGoals]);
+  // "Đang chạy" = active, chưa pause VÀ có hoạt động pipeline gần đây (pipeline chưa hoàn thành
+  // hoặc có cập nhật trong 7 ngày qua). Tránh đếm campaign cũ chỉ còn flag is_active.
+  const activeGoals = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const goalIdsWithActivity = new Set(
+      filteredPipelines
+        .filter(p => !p.completed_at || new Date(p.updated_at).getTime() >= weekAgo)
+        .map(p => p.goal_id)
+        .filter(Boolean) as string[]
+    );
+    return filteredGoals.filter(
+      g => g.is_active && !g.is_paused && goalIdsWithActivity.has(g.id)
+    );
+  }, [filteredGoals, filteredPipelines]);
 
   const runningPipelines = useMemo(
     () => filteredPipelines.filter(p => !p.completed_at && p.current_stage !== 'analyze'),
