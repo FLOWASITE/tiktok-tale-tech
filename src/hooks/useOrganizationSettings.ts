@@ -35,7 +35,7 @@ export function useOrganizationSettings() {
     try {
       const { data, error } = await supabase
         .from('organizations')
-        .select('skip_approval, approver_roles, use_specific_approvers, auto_submit_review')
+        .select('skip_approval, approver_roles, use_specific_approvers, auto_submit_review, default_autonomy_level')
         .eq('id', currentOrganization.id)
         .single();
 
@@ -46,6 +46,7 @@ export function useOrganizationSettings() {
         approver_roles: (data?.approver_roles as OrgRole[]) ?? ['owner', 'admin'],
         use_specific_approvers: data?.use_specific_approvers ?? false,
         auto_submit_review: data?.auto_submit_review ?? false,
+        default_autonomy_level: ((data as any)?.default_autonomy_level as DefaultAutonomyLevel) ?? 'full_auto',
       });
     } catch (error) {
       console.error('Error fetching organization settings:', error);
