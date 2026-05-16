@@ -33,6 +33,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   poyo: <Wand2 className="h-5 w-5 text-teal-500" />,
   dashscope: <Bot className="h-5 w-5 text-orange-600" />,
   geminigen: <Sparkles className="h-5 w-5 text-emerald-500" />,
+  ninerouter: <Workflow className="h-5 w-5 text-indigo-500" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -46,6 +47,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   poyo: 'https://poyo.ai/dashboard/api-key',
   dashscope: 'https://dashscope.console.aliyun.com/',
   geminigen: 'https://geminigen.ai/profile/integration/api-keys',
+  ninerouter: 'https://9router.com/',
 };
 
 interface TestResult {
@@ -163,6 +165,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
         body: {
           provider: editingProvider.providerType,
           apiKey: editingProvider.apiKey,
+          baseUrl: editingProvider.baseUrl,
         },
       });
 
@@ -513,14 +516,19 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                 </div>
               )}
 
-              {editingProvider.providerType === 'custom' && (
+              {(editingProvider.providerType === 'custom' || editingProvider.providerType === 'ninerouter') && (
                 <div className="space-y-2">
                   <Label>Base URL</Label>
                   <Input
                     value={editingProvider.baseUrl || ''}
                     onChange={(e) => setEditingProvider({ ...editingProvider, baseUrl: e.target.value })}
-                    placeholder="https://api.example.com/v1"
+                    placeholder={editingProvider.providerType === 'ninerouter' ? 'https://router.mydomain.com/v1' : 'https://api.example.com/v1'}
                   />
+                  {editingProvider.providerType === 'ninerouter' && (
+                    <p className="text-xs text-muted-foreground">
+                      Cần tự host 9Router trên VPS public (npm install -g 9router) và expose endpoint OpenAI-compatible với API key.
+                    </p>
+                  )}
                 </div>
               )}
 

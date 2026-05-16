@@ -367,7 +367,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter';
   isRecommended?: boolean;
 }
 
@@ -1557,6 +1557,19 @@ export const getModelInfo = (modelId: string): ModelInfo => {
     };
   }
 
+  // Check 9Router models (self-hosted OpenAI-compatible gateway)
+  if (modelId.startsWith('9router/')) {
+    return {
+      shortName: extractShortName(modelId),
+      description: '9Router (self-hosted) model',
+      speed: 'medium' as ModelSpeed,
+      quality: 'high' as ModelQuality,
+      cost: 'low' as ModelCost,
+      bestFor: ['Multi-provider routing', 'Self-hosted'],
+      provider: 'ninerouter',
+    };
+  }
+
   // Check DashScope models
   if (isDashScopeModel(modelId)) {
     return {
@@ -1598,6 +1611,7 @@ export const AI_PROVIDERS = [
   { type: 'poyo', name: 'PoYo.ai', description: 'GPT-4o Image, Z-Image, Flux 2, Seedream, Grok', hasKey: true, secretName: 'POYO_API_KEY' },
   { type: 'dashscope', name: 'DashScope (Alibaba Cloud)', description: 'Qwen Plus, Max, Turbo, VL (Singapore)', hasKey: true, secretName: 'DASHSCOPE_API_KEY' },
   { type: 'geminigen', name: 'GeminiGen.ai', description: 'Nano Banana Pro, Nano Banana 2, Imagen 4', hasKey: true, secretName: 'GEMINIGEN_API_KEY' },
+  { type: 'ninerouter', name: '9Router (Self-hosted)', description: '60+ providers qua 1 endpoint: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek, Groq…', hasKey: true, secretName: 'NINE_ROUTER_API_KEY' },
   { type: 'custom', name: 'Custom API', description: 'OpenAI-compatible endpoints', hasKey: true },
 ] as const;
 
@@ -1650,6 +1664,24 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
     'qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long',
   ],
   geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/sora-2-pro', 'geminigen/sora-2-hd', 'geminigen/tts-v1'],
+  ninerouter: [
+    '9router/glm-4.6',
+    '9router/glm-4.6-air',
+    '9router/kimi-k2-0905',
+    '9router/kimi-k2-turbo',
+    '9router/minimax-m2',
+    '9router/qwen3-coder-plus',
+    '9router/qwen3-max',
+    '9router/qwen3-flash',
+    '9router/deepseek-v3.2',
+    '9router/deepseek-r1',
+    '9router/claude-sonnet-4.6',
+    '9router/claude-haiku-4.5',
+    '9router/gpt-5.2',
+    '9router/gemini-3-flash-preview',
+    '9router/grok-4',
+    '9router/iflow-pro',
+  ],
   custom: ['elevenlabs/music-v1', 'minimax/video-01'],
 };
 
