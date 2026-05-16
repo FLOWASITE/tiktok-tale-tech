@@ -1,19 +1,22 @@
 ## Mục tiêu
-Gộp tab **Telegram** vào tab **Cài đặt** trong AI Agent Dashboard để giảm số lượng tab và gom các cấu hình vào một chỗ.
+- Đổi text "Directory" sang tiếng Việt
+- Thu nhỏ thành icon button đặt cạnh tiêu đề "AI Content Agents", bỏ khỏi nhóm action button bên phải
 
-## Thay đổi trong `src/pages/AgentDashboard.tsx`
+## Thay đổi
 
-1. **Xoá `TabsTrigger value="telegram"`** (dòng 255-257) khỏi `TabsList`.
+### `src/pages/AgentDashboard.tsx`
+- **Bỏ** button "Directory" khỏi header action bar (bên cạnh "Pause All" và "Campaign mới")
+- **Thêm** icon button (`Radar` + tooltip "Danh sách Agent") ngay cạnh tiêu đề `<h1>AI Content Agents</h1>`
+- Icon style: `ghost` hoặc viền nhẹ, size nhỏ (h-8 w-8), màu `text-muted-foreground` hover `text-foreground`
+- Giữ nguyên logic mở Sheet `AgentDirectoryPage`
 
-2. **Xoá `TabsContent value="telegram"`** (dòng 439-441).
+### `src/pages/AgentDirectoryPage.tsx`
+- Đổi `<h1>Agent Directory</h1>` → `<h1>Danh sách Agent</h1>`
 
-3. **Mở rộng `TabsContent value="settings"`** (dòng 443-445) thành 2 section:
-   - **Section 1: "Mức tự động mặc định"** — giữ nguyên `<AgentAutonomyDefaultCard canEdit={canEditOrg} />`.
-   - **Section 2: "Telegram Agent"** — render `<AgentTelegramPage />` bên dưới, có heading phân cách nhẹ (h2 hoặc divider) để rõ ranh giới giữa 2 nhóm cài đặt.
-
-4. **Giữ nguyên** import `AgentTelegramPage` (vẫn dùng trong tab Settings).
+### `src/pages/AgentDashboard.tsx` (Sheet title)
+- Đổi `SheetTitle` "Agent Directory" → "Danh sách Agent"
 
 ## Kết quả
-- Số tab giảm từ 7 → 6: Tổng quan / Pipeline / Duyệt / Campaigns / Team / **Cài đặt**.
-- Trong tab Cài đặt, user thấy lần lượt: Mức tự động mặc định → Telegram Agent.
-- Không thay đổi business logic, chỉ tái sắp xếp UI.
+- Header gọn hơn: chỉ còn 2 action button bên phải (Pause All + Campaign mới)
+- Tiêu đề khu vực có icon info/directory nhỏ, dễ nhận diện nhưng không chiếm visual weight
+- Toàn bộ text liên quan đã Việt hóa
