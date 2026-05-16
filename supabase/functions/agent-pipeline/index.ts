@@ -2222,8 +2222,16 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
 
             // ─── Inject blog backlink into social channel content ───
             if (blogBacklinkUrl && channel !== 'website') {
-              // Append backlink before UTM processing so UTM params get added to it too
-              if (rawText && !rawText.includes(blogBacklinkUrl)) {
+              // M8: compare by hostname+pathname so query/shortened variants don't double-inject
+              let alreadyHasBacklink = false;
+              try {
+                const target = new URL(blogBacklinkUrl);
+                const needle = `${target.hostname}${target.pathname}`.replace(/\/$/, '');
+                alreadyHasBacklink = !!rawText && rawText.toLowerCase().includes(needle.toLowerCase());
+              } catch {
+                alreadyHasBacklink = !!rawText && rawText.includes(blogBacklinkUrl);
+              }
+              if (rawText && !alreadyHasBacklink) {
                 rawText = `${rawText}\n\n📖 Đọc thêm: ${blogBacklinkUrl}`;
               }
             }
