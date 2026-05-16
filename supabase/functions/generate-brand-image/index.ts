@@ -1105,6 +1105,39 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           );
         }
       }
+    } else if (isNineRouterImageModel(primaryModel)) {
+      providerDebug.provider = 'ninerouter';
+      const NR_KEY = Deno.env.get('NINE_ROUTER_API_KEY');
+      if (!NR_KEY) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'NINE_ROUTER_API_KEY not configured. Please add it in project secrets.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log(`[generate-brand-image] Routing to 9Router: ${primaryModel}`);
+      try {
+        imageUrlFromPoyo = await generateImageViaNineRouter({
+          prompt: enhancedPrompt,
+          model: primaryModel,
+          aspectRatio: finalAspectRatio,
+        }, NR_KEY);
+        modelUsed = primaryModel;
+      } catch (nrErr) {
+        const nrMsg = nrErr instanceof Error ? nrErr.message : String(nrErr);
+        console.error(`[generate-brand-image] 9Router failed: ${nrMsg}`);
+        if (nrMsg.includes('NINEROUTER_AUTH_ERROR') || nrMsg.includes('NINEROUTER_CREDITS_EXHAUSTED') || nrMsg.includes('NINEROUTER_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ success: false, error: nrMsg, errorCode: 'CREDITS_EXHAUSTED' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Fallback to Lovable AI
+        console.log('[generate-brand-image] 9Router failed, falling back to Lovable AI Gateway...');
+        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+        imageData = result.imageData;
+        modelUsed = `${result.model} (fallback from ${primaryModel})`;
+        totalAttempts = result.attempts;
+      }
     } else {
       // Lovable AI flow (existing)
       const fallbackModel = primaryModel === 'google/gemini-3-pro-image-preview'
