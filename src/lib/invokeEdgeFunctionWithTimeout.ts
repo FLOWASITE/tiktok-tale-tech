@@ -70,6 +70,7 @@ export async function invokeWithTimeout<T = unknown>(
   // Detect transient Supabase Edge Runtime errors (cold-start / recycle 503s)
   const isTransientRuntimeError = (status: number, body: string): boolean => {
     if (status !== 503 && status !== 502 && status !== 504) return false;
+    if (status === 504 && /IDLE_TIMEOUT|idle timeout/i.test(body)) return false;
     return /SUPABASE_EDGE_RUNTIME_ERROR|temporarily unavailable|BOOT_ERROR|WORKER_LIMIT/i.test(body);
   };
 
@@ -136,9 +137,14 @@ export async function invokeWithTimeout<T = unknown>(
     clearTimeout(timer);
 
     if (!response.ok) {
+      const error = new Error(`Edge Function error (${response.status}): ${responseText}`);
+      (error as Error & { context?: { status: number; body: string } }).context = {
+        status: response.status,
+        body: responseText,
+      };
       return {
         data: null,
-        error: new Error(`Edge Function error (${response.status}): ${responseText}`),
+        error,
       };
     }
 

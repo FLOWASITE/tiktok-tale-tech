@@ -230,6 +230,38 @@ const DEFAULT_IMAGE_MODELS = {
   fallback: "google/gemini-2.5-flash-image",
 } as const;
 
+// Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
+// 150s. Keep provider polling well below that and use fast fallback paths.
+const EXTERNAL_PROVIDER_POLL_BUDGET = {
+  geminigenAttempts: 15, // 15 × 3s = 45s
+} as const;
+
+function isProviderCreditOrAuthError(message: string): boolean {
+  return /AUTH_ERROR|CREDITS_EXHAUSTED|RATE_LIMIT|insufficient_credits|402|429/i.test(message);
+}
+
+function buildProviderFailureResponse(params: {
+  error: string;
+  errorCode?: string;
+  provider?: string;
+  providerTimeout?: boolean;
+  fallbackTried?: boolean;
+  fallbackProvider?: string | null;
+}) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: params.error,
+      errorCode: params.errorCode || 'PROVIDER_ERROR',
+      provider: params.provider,
+      providerTimeout: params.providerTimeout ?? false,
+      fallbackTried: params.fallbackTried ?? false,
+      fallbackProvider: params.fallbackProvider ?? null,
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
+
 // Image quality validation thresholds
 const QUALITY_THRESHOLDS = {
   minFileSizeBytes: 10000,    // 10KB minimum
@@ -511,7 +543,7 @@ function structuredElementsToPromptText(
 }
 
 // Build marker — bump this string to force a clean redeploy and prove runtime is on the latest bundle.
-const BUILD_MARKER = '2026-04-23-fix-tdz-v2';
+const BUILD_MARKER = '2026-05-16-fix-image-idle-timeout-v1';
 
 Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
@@ -904,7 +936,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         : 'satori';
     const hasTextInstruction = Boolean(effectiveTextToInclude || structuredElements?.headline || structuredElements?.heroText?.text || structuredElements?.banner?.text || structuredElements?.cta || structuredElements?.cards?.items?.length);
     const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
-    const geminiGenMaxAttempts = structuredElements || effectiveTextToInclude || effectiveImageContentType === 'with_text' ? 33 : 24;
+    const geminiGenMaxAttempts = EXTERNAL_PROVIDER_POLL_BUDGET.geminigenAttempts;
 
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
     if (isPoyoModel(primaryModel)) {
@@ -985,50 +1017,29 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
         providerDebug.providerTimeout = errMsg.includes('timeout');
         providerDebug.fallbackTried = true;
-        providerDebug.fallbackProvider = 'poyo';
+        providerDebug.fallbackProvider = 'lovable-ai';
         providerDebug.errorCode = 'PROVIDER_ERROR';
 
-        if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
-          return new Response(
-            JSON.stringify({ success: false, error: errMsg, errorCode: 'PROVIDER_ERROR', provider: 'geminigen', providerTimeout: providerDebug.providerTimeout, fallbackTried: false, fallbackProvider: null, fallback: false }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Fallback to PoYo
-        const POYO_KEY_FALLBACK = Deno.env.get('POYO_API_KEY');
-        if (!POYO_KEY_FALLBACK) {
-          return new Response(
-            JSON.stringify({ success: false, error: `GeminiGen failed and POYO_API_KEY not configured: ${errMsg}`, errorCode: 'PROVIDER_ERROR', provider: 'geminigen', providerTimeout: providerDebug.providerTimeout, fallbackTried: false, fallbackProvider: null }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        console.log('[generate-brand-image] GeminiGen failed, falling back to PoYo (nano-banana-pro)...');
+        console.log('[generate-brand-image] GeminiGen failed, falling back to Lovable AI Gateway...');
         try {
-          imageUrlFromPoyo = await generateImageViaPoyo({
-            prompt: enhancedPrompt,
-            model: 'poyo/nano-banana-pro',
-            aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
-          }, POYO_KEY_FALLBACK);
-          modelUsed = `poyo/nano-banana-pro (fallback from ${primaryModel})`;
-        } catch (poyoFallbackErr) {
-          const poyoMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
-          console.error('[generate-brand-image] PoYo fallback also failed:', poyoMsg);
-          const isCredits = poyoMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoMsg.includes('insufficient_credits');
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: isCredits
-                ? 'Hết credits ở cả GeminiGen và PoYo. Vui lòng nạp thêm credits cho provider tạo ảnh.'
-                : `GeminiGen and PoYo fallback both failed: ${errMsg}`,
-              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
-              provider: 'geminigen',
-              providerTimeout: providerDebug.providerTimeout,
-              fallbackTried: true,
-              fallbackProvider: 'poyo',
-            }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+          imageData = result.imageData;
+          modelUsed = `${result.model} (fallback from ${primaryModel})`;
+          totalAttempts = result.attempts;
+        } catch (lovableFallbackErr) {
+          const fallbackMsg = lovableFallbackErr instanceof Error ? lovableFallbackErr.message : String(lovableFallbackErr);
+          console.error('[generate-brand-image] Lovable AI fallback also failed:', fallbackMsg);
+          const isCreditsOrRateLimit = isProviderCreditOrAuthError(errMsg) || isProviderCreditOrAuthError(fallbackMsg);
+          return buildProviderFailureResponse({
+            error: isCreditsOrRateLimit
+              ? 'Provider tạo ảnh đang hết quota hoặc bị giới hạn. Vui lòng thử lại sau hoặc kiểm tra credits provider ảnh.'
+              : `GeminiGen and Lovable AI fallback both failed: ${errMsg}`,
+            errorCode: isCreditsOrRateLimit ? 'CREDITS_EXHAUSTED' : 'ALL_PROVIDERS_DOWN',
+            provider: 'geminigen',
+            providerTimeout: providerDebug.providerTimeout,
+            fallbackTried: true,
+            fallbackProvider: 'lovable-ai',
+          });
         }
       }
     } else if (isKieModel(primaryModel)) {

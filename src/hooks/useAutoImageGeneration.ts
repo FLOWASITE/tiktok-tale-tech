@@ -4,6 +4,7 @@ import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
+import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { isTrustedTextBakingModel } from '@/lib/trustedTextBakingModels';
 import { toast } from 'sonner';
@@ -36,6 +37,16 @@ export function autoSelectLogoPosition(
 }
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | '2:3' | 'auto';
 export type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
+
+function isNonRetryableImageError(errorCode?: string, message?: string): boolean {
+  return (
+    errorCode === 'CREDITS_EXHAUSTED' ||
+    errorCode === 'RATE_LIMIT' ||
+    errorCode === 'ALL_PROVIDERS_DOWN' ||
+    errorCode === 'IDLE_TIMEOUT' ||
+    /CREDITS_EXHAUSTED|RATE_LIMIT|ALL_PROVIDERS_DOWN|IDLE_TIMEOUT|idle timeout|504|402|429/i.test(message || '')
+  );
+}
 
 // Import from shared config - single source of truth
 import { CHANNEL_OPTIMAL_ASPECT_RATIO, CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
@@ -414,12 +425,17 @@ export function useAutoImageGeneration() {
         }
 
         if (imageError || !imageData?.success) {
-          const step1FailureMessage = imageData?.providerTimeout
+          const parsedImageError = parseEdgeFunctionError(imageError, imageData?.error || 'Failed to generate image');
+          const effectiveErrorCode = imageData?.errorCode || parsedImageError.code;
+          const effectiveErrorMessage = imageData?.error || parsedImageError.message;
+          const step1FailureMessage = imageData?.providerTimeout || effectiveErrorCode === 'IDLE_TIMEOUT'
             ? 'Provider tạo ảnh bị timeout'
-            : imageData?.errorCode === 'PROVIDER_ERROR'
+            : effectiveErrorCode === 'PROVIDER_ERROR'
               ? 'Provider tạo ảnh thất bại'
-              : imageData?.errorCode === 'CREDITS_EXHAUSTED'
+              : effectiveErrorCode === 'CREDITS_EXHAUSTED'
                 ? 'Provider tạo ảnh đã hết credits'
+                : effectiveErrorCode === 'ALL_PROVIDERS_DOWN'
+                  ? 'Tất cả provider tạo ảnh đang lỗi'
                 : imageError?.message || imageData?.error || 'Failed to generate image';
 
           console.error(`[Pipeline:${channel}] ✗ STEP 1 FAILED (${step1Duration}ms):`, imageError || imageData?.error);
@@ -434,8 +450,8 @@ export function useAutoImageGeneration() {
               providerInfo.providerTimeout ? 'provider timeout=yes' : null,
               providerInfo.fallbackTried !== undefined ? `fallbackTried=${providerInfo.fallbackTried ? 'yes' : 'no'}` : null,
               providerInfo.fallbackProvider ? `fallbackProvider=${providerInfo.fallbackProvider}` : null,
-              providerInfo.errorCode ? `errorCode=${providerInfo.errorCode}` : null,
-              imageData?.error || imageError?.message || null,
+              effectiveErrorCode ? `errorCode=${effectiveErrorCode}` : null,
+              effectiveErrorMessage || null,
             ].filter(Boolean) as string[],
           });
 
@@ -446,7 +462,9 @@ export function useAutoImageGeneration() {
             duration: 7000,
           });
 
-          throw new Error(imageData?.error || imageError?.message || step1FailureMessage);
+          const errorToThrow = new Error(effectiveErrorMessage || step1FailureMessage);
+          (errorToThrow as Error & { errorCode?: string }).errorCode = effectiveErrorCode;
+          throw errorToThrow;
         }
         
         console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
@@ -696,6 +714,7 @@ export function useAutoImageGeneration() {
         return result;
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
+        const errCode = (err as Error & { errorCode?: string } | null)?.errorCode;
         console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
 
         const failedOverlayMode = imageContentType === 'with_text' && channelText ? 'with_text' : 'background_only';
@@ -746,6 +765,12 @@ export function useAutoImageGeneration() {
         };
         setGeneratedImages(prev => ({ ...prev, [channel]: failureDebug }));
         
+        if (isNonRetryableImageError(errCode, errMsg)) {
+          console.warn(`[Pipeline:${channel}] Non-retryable provider error, skipping retry:`, errCode || errMsg);
+          setProgress(prev => ({ ...prev, [channel]: 'error' }));
+          return null;
+        }
+
         if (attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
           console.log(`[Pipeline:${channel}] ⏳ Waiting ${delay}ms before retry...`);
