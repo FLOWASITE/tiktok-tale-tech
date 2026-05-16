@@ -467,6 +467,42 @@ export default function AgentDashboard() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deletingGoal} onOpenChange={(open) => { if (!open && !deleteGoal.isPending) setDeletingGoal(null); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <AlertDialogTitle>Xóa campaign?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 pt-2 text-sm text-muted-foreground">
+                <p>
+                  Bạn có chắc muốn xóa campaign{' '}
+                  <span className="font-medium text-foreground">"{deletingGoal?.name}"</span>?
+                </p>
+                <p>Các pipeline đang chạy sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={deleteGoal.isPending}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDeleteGoal(); }}
+              disabled={deleteGoal.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteGoal.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang xóa...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-2" /> Xóa campaign</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
