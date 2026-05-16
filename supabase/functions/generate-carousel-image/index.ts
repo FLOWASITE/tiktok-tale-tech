@@ -5,6 +5,7 @@ import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
+import { generateImageViaNineRouter, isNineRouterImageModel } from "../_shared/ninerouter-image-generator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
