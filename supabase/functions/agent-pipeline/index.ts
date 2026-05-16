@@ -184,17 +184,25 @@ function resolveContentId(pipeline: any, pState: any): string | null {
     || null;
 }
 
+// H1: Direct schedule support for all channels with a publish-* edge function
 const DIRECT_SCHEDULE_CHANNEL_CONFIG: Record<string, {
   action: string;
   contentColumn: string;
   connectionPlatform: string;
 }> = {
-  facebook: {
-    action: "facebook",
-    contentColumn: "facebook_content",
-    connectionPlatform: "facebook",
-  },
+  facebook:    { action: "facebook",    contentColumn: "facebook_content",    connectionPlatform: "facebook" },
+  instagram:   { action: "instagram",   contentColumn: "instagram_content",   connectionPlatform: "instagram" },
+  linkedin:    { action: "linkedin",    contentColumn: "linkedin_content",    connectionPlatform: "linkedin" },
+  twitter:     { action: "twitter",     contentColumn: "twitter_content",     connectionPlatform: "twitter" },
+  threads:     { action: "threads",     contentColumn: "threads_content",     connectionPlatform: "threads" },
+  tiktok:      { action: "tiktok",      contentColumn: "tiktok_content",      connectionPlatform: "tiktok" },
+  youtube:     { action: "youtube",     contentColumn: "youtube_content",     connectionPlatform: "youtube" },
+  zalo_oa:     { action: "zalo_oa",     contentColumn: "zalo_oa_content",     connectionPlatform: "zalo" },
+  telegram:    { action: "telegram",    contentColumn: "telegram_content",    connectionPlatform: "telegram" },
+  google_maps: { action: "google_maps", contentColumn: "google_maps_content", connectionPlatform: "google_business" },
+  website:     { action: "website",     contentColumn: "website_content",     connectionPlatform: "website" },
 };
+const DIRECT_SCHEDULE_CHANNELS = Object.keys(DIRECT_SCHEDULE_CHANNEL_CONFIG);
 
 async function processDirectContentSchedule(
   supabase: any,
