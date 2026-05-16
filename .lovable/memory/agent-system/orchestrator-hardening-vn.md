@@ -1,6 +1,6 @@
 ---
 name: Orchestrator Hardening
-description: agent-pipeline Sprint 1+2+3 — timeout/downgrade, tier quota, claim CAS, approval helper + expiry cron, per-complexity model override, in-memory cache
+description: agent-pipeline Sprint 1-5 — timeout/downgrade, tier quota, claim CAS, approval helper + expiry cron, per-complexity model override, in-memory cache + invalidate, backfill limit/dry_run
 type: feature
 ---
 
