@@ -12,8 +12,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY"); // legacy fallback only
-    void lovableApiKey;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
@@ -25,6 +23,15 @@ Deno.serve(async (req) => {
     let brandName = body.brand_name || "";
     let industry = body.industry || "";
 
+    // NEW: strategic context already provided in earlier wizard steps
+    const objective: string = body.objective || "";
+    const keyMessages: string[] = Array.isArray(body.key_messages) ? body.key_messages : [];
+    const primaryCta: string = body.primary_cta || "";
+    const pillars: string[] = Array.isArray(body.pillars) ? body.pillars : [];
+    const kpiTargets = body.kpi_targets && typeof body.kpi_targets === "object" ? body.kpi_targets : {};
+    const totalPostsTarget: number | undefined = body.total_posts_target;
+    const durationDays: number | undefined = body.duration_days;
+
     if (!title) {
       return new Response(
         JSON.stringify({ error: "title is required" }),
@@ -32,7 +39,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch brand context if brand_template_id provided
     if (brandTemplateId && (!brandName || !industry)) {
       try {
         const { data: brand } = await supabase
@@ -49,12 +55,38 @@ Deno.serve(async (req) => {
 
     const channelList = (Array.isArray(channels) ? channels : []).join(", ") || "chưa chọn";
 
-    // Calculate brief completeness score
-    const hasDetailedTitle = title.length > 30;
-    const hasDescription = description.length > 20;
+    // Expanded 7-criteria completeness
+    const hasDetailedTitle = (title?.length || 0) > 15;
+    const hasDescription = (description?.length || 0) > 20;
     const hasChannels = channels.length > 0;
     const hasBrand = !!brandName;
-    const completenessScore = [hasDetailedTitle, hasDescription, hasChannels, hasBrand].filter(Boolean).length;
+    const hasObjective = !!objective;
+    const hasMessagesOrCta = keyMessages.length > 0 || !!primaryCta;
+    const hasPillars = pillars.length > 0;
+    const completenessScore = [hasDetailedTitle, hasDescription, hasChannels, hasBrand, hasObjective, hasMessagesOrCta, hasPillars].filter(Boolean).length;
+
+    // Server-side fast-path: enough context → skip AI call
+    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasDetailedTitle || hasDescription)) {
+      return new Response(
+        JSON.stringify({
+          ready: true,
+          understanding: `Tạo chiến dịch "${title}" — mục tiêu ${objective}${primaryCta ? `, CTA: ${primaryCta}` : ""}.`,
+          completeness_score: completenessScore,
+          skipped: "sufficient_context",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const strategicContext = [
+      objective && `- Objective: ${objective}`,
+      keyMessages.length > 0 && `- Key messages: ${keyMessages.join(" | ")}`,
+      primaryCta && `- Primary CTA: ${primaryCta}`,
+      pillars.length > 0 && `- Content pillars: ${pillars.join(", ")}`,
+      Object.keys(kpiTargets).length > 0 && `- KPI targets: ${JSON.stringify(kpiTargets)}`,
+      totalPostsTarget && `- Posts target: ${totalPostsTarget}`,
+      durationDays && `- Duration: ${durationDays} days`,
+    ].filter(Boolean).join("\n") || "(none beyond title/description)";
 
     const prompt = `You are a content strategist. A user wants to create a content campaign.
 
@@ -64,47 +96,45 @@ Brand name: "${brandName || "not provided"}"
 Brand industry: "${industry || "not provided"}"
 Target channels: ${channelList}
 
-Brief completeness: ${completenessScore}/4 criteria met.
+Strategic context already provided in earlier wizard steps:
+${strategicContext}
+
+Brief completeness: ${completenessScore}/7 criteria met.
 
 Evaluate if you have enough information to create high-quality, targeted content.
-Consider:
-1. Is the topic specific enough? (not just a single word or vague phrase)
-2. Can you infer the target audience from the title + description?
-3. Is the goal/CTA clear or inferable from the context?
-4. Are there key details missing that would significantly improve content quality?
+The user has already gone through 3 wizard steps — DO NOT ask things they already specified above.
 
-IMPORTANT: If the title AND description together provide enough context to understand:
-- WHAT to promote/discuss
-- WHO the target audience is (or can be reasonably inferred)
-- WHAT the goal is (attract, educate, sell, etc.)
-Then respond with ready: true. Don't ask unnecessary questions when the brief is already actionable.
+IMPORTANT RULES:
+- If completeness >= 5 → respond ready: true.
+- If objective + (key messages OR pillars) are set → respond ready: true (audience can be inferred from industry + objective).
+- Only ask when the title is vague (<15 chars) AND description is missing AND no objective/messages/pillars.
+- Maximum 2 questions (not 3).
+- Each question must have exactly 3 suggested answers.
+- NEVER ask about: objective, audience, CTA, key messages, pillars, channels, duration — those are already collected.
+- Only ask about: missing topic specificity, missing brand differentiator, missing tone preference IF those are truly absent.
 
 If ready, respond with ONLY this JSON:
-{ "ready": true, "understanding": "brief summary of what you'll create, in same language as campaign title" }
+{ "ready": true, "understanding": "1-sentence summary in same language as campaign title" }
 
-If you genuinely need more info (e.g., title is just one word, no description, no clear direction), respond with ONLY this JSON:
+If you genuinely need more info, respond with ONLY this JSON:
 { "ready": false, "questions": [
   { "question": "question text", "why": "reason", "suggestions": ["option1", "option2", "option3"] }
 ]}
 
-Rules:
-- Ask maximum 3 questions
-- Each question must have exactly 3 suggested answers
-- Respond in the SAME LANGUAGE as the campaign title
-- Return ONLY valid JSON, no markdown`;
+Respond in the SAME LANGUAGE as the campaign title. Return ONLY valid JSON, no markdown.`;
 
     const aiResult = await callAI({
       functionName: "clarify-campaign-intent",
       organizationId,
       messages: [{ role: "user", content: prompt }],
       temperatureOverride: 0.2,
-      maxTokensOverride: 1000,
+      maxTokensOverride: 800,
     });
 
     if (!aiResult.success) {
       console.error("[clarify-campaign-intent] AI error:", aiResult.error);
       return new Response(
-        JSON.stringify({ ready: true, understanding: `Tạo nội dung về "${title}"` }),
+        JSON.stringify({ ready: true, understanding: `Tạo nội dung về "${title}"`, completeness_score: completenessScore }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -122,6 +152,12 @@ Rules:
         parsed = { ready: true, understanding: `Tạo nội dung về "${title}"` };
       }
     }
+
+    // Enforce max 2 questions even if AI ignores instruction
+    if (parsed?.questions && Array.isArray(parsed.questions)) {
+      parsed.questions = parsed.questions.slice(0, 2);
+    }
+    parsed.completeness_score = completenessScore;
 
     return new Response(
       JSON.stringify(parsed),

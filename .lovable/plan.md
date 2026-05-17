@@ -1,77 +1,90 @@
-# Rà & đồng bộ kênh cho AI Campaign Wizard
+# Tối ưu bước Xác nhận — AI Campaign Wizard
 
-## Vấn đề phát hiện
+## Vấn đề hiện tại
 
-So sánh `src/components/agents/GoalWizard.tsx` (10 kênh) với source-of-truth `src/types/multichannel.ts` `CHANNELS` (16 kênh) + 15 edge function `publish-*`:
+1. **Clarify hỏi thừa**: `clarify-campaign-intent` chỉ nhận `title + description + industry + channels + brand_name` → bỏ qua hoàn toàn `objective`, `pillar_allocation`, `key_messages`, `primaryCta`, `kpi_targets`, `audience` đã có ở Step 1-2. AI luôn hỏi "chủ đề cụ thể", "đối tượng" dù user đã chọn rồi.
+2. **Layout dài**: 4 block dọc (Preview metrics → Brand → Campaign link → Summary) phải scroll >1 màn hình mobile mới thấy nút **Khởi chạy** → user nghĩ bị kẹt.
+3. **Mất context**: Khi clarification mở, toàn bộ summary biến mất → user không còn thấy cài đặt đã nhập.
 
-| Sai sót | Hiện trạng | Đúng theo hệ thống |
-|---|---|---|
-| **TikTok** xuất hiện | có | ❌ Bỏ — memory `Channel Mediums`: TikTok/YouTube chỉ post từ Video Studio, không thuộc multichannel |
-| **Pinterest** map sai `channelKey` | `'website'` | `'pinterest'` (đã có `publish-pinterest`, có icon/mockup riêng) |
-| **Blog** gộp Website | label "Blog" → `website` | Tách 3 long-form độc lập theo memory `Longform Channel Separation`: **Website / Blogger / WordPress** (mỗi cái prompt + length + mockup khác nhau) |
-| Thiếu **Bluesky** | — | Thêm (có `publish-bluesky`, OAuth flow đầy đủ) |
-| Thiếu **Telegram** | — | Thêm (channel social chuẩn) |
-| Thiếu **Google Maps (GBP)** | — | Thêm (có `publish-google-business`) |
-| Thiếu **Shopify Blog / Wix / Medium** | — | Thêm (có `publish-shopify-blog`, `publish-wordpress`, …) |
-| Estimate carousel/video logic | dùng `'tiktok'`, `'youtube'` | Bỏ `tiktok`/`youtube` khỏi `videoChannelIds` (không còn pick được) |
+## Giải pháp
 
-## Thay đổi
+### A. Smart Clarification — gửi đủ context
 
-**File duy nhất**: `src/components/agents/GoalWizard.tsx`
+**File**: `src/components/agents/GoalWizard.tsx` (`handleConfirmStep`)
 
-### 1. Rebuild `AVAILABLE_CHANNELS` (line 33-43)
-
-Theo đúng `CHANNELS` từ `multichannel.ts`, group 2 nhóm hiển thị (long-form / social), label tiếng Việt giữ như UI multichannel:
-
+Bổ sung payload gửi `clarify-campaign-intent`:
 ```ts
-const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel; group: 'longform' | 'social' }[] = [
-  // 🌐 Long-form
-  { id: 'website',   label: 'Website',      channelKey: 'website',   group: 'longform' },
-  { id: 'blogger',   label: 'Blogger',      channelKey: 'blogger',   group: 'longform' },
-  { id: 'wordpress', label: 'WordPress',    channelKey: 'wordpress', group: 'longform' },
-  { id: 'shopify',   label: 'Shopify Blog', channelKey: 'shopify',   group: 'longform' },
-  { id: 'wix',       label: 'Wix Blog',     channelKey: 'wix',       group: 'longform' },
-  { id: 'medium',    label: 'Medium',       channelKey: 'medium',    group: 'longform' },
-  { id: 'email',     label: 'Email',        channelKey: 'email',     group: 'longform' },
-  // 💬 Social
-  { id: 'facebook',    label: 'Facebook',    channelKey: 'facebook',    group: 'social' },
-  { id: 'instagram',   label: 'Instagram',   channelKey: 'instagram',   group: 'social' },
-  { id: 'linkedin',    label: 'LinkedIn',    channelKey: 'linkedin',    group: 'social' },
-  { id: 'twitter',     label: 'X (Twitter)', channelKey: 'twitter',     group: 'social' },
-  { id: 'threads',     label: 'Threads',     channelKey: 'threads',     group: 'social' },
-  { id: 'bluesky',     label: 'Bluesky',     channelKey: 'bluesky',     group: 'social' },
-  { id: 'pinterest',   label: 'Pinterest',   channelKey: 'pinterest',   group: 'social' },
-  { id: 'telegram',    label: 'Telegram',    channelKey: 'telegram',    group: 'social' },
-  { id: 'zalo',        label: 'Zalo OA',     channelKey: 'zalo_oa',     group: 'social' },
-  { id: 'google_maps', label: 'Google Maps', channelKey: 'google_maps', group: 'social' },
-];
+{
+  title, description, industry, channels, brand_name,
+  // NEW context
+  objective: selectedObj?.label,
+  key_messages: keyMessages,
+  primary_cta: primaryCta,
+  pillars: Object.keys(pillarAllocation),
+  kpi_targets: kpiTargets,
+  total_posts_target: totalPostsTarget,
+  duration_days: effectiveDuration,
+}
 ```
 
-### 2. Render channel grid 2 nhóm (line ~1010)
+**File**: `supabase/functions/clarify-campaign-intent/index.ts`
 
-Thay grid phẳng bằng 2 subsection với heading nhỏ:
-- "🌐 Website & Long-form" (7 kênh)
-- "💬 Mạng xã hội" (10 kênh)
+- Đọc thêm fields trên, đưa vào prompt dưới mục "Strategic context already provided".
+- Cập nhật rule: nếu đã có objective + (key_messages || primary_cta || pillars) → **default `ready: true`**, chỉ hỏi khi title <15 char và description rỗng.
+- Hạ max questions xuống **2** (thay vì 3) để giảm friction.
+- Tăng `completenessScore` từ 4 lên 7 criteria (thêm objective, pillars, key_messages); ready khi score ≥5.
 
-Vẫn dùng `toggleChannel(ch.id)` + `ChannelIcon` hiện tại — không đổi state shape (vẫn lưu `id` string như cũ để không vỡ `target_channels` ở backend; backend đã có sẵn alias `blog → website`).
+Frontend client-side guard: nếu `completenessScore >= 5` (tính ngay trong `handleConfirmStep`) → **skip gọi edge function**, đi thẳng `finalSubmit(null)`. Tiết kiệm 1 round-trip cho 70% trường hợp.
 
-### 3. Sửa estimate logic (line 1070-1080)
+### B. Compact Layout — 1 màn hình, sticky CTA
 
-```ts
-const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
-const videoChannelIds: string[] = []; // TikTok/YouTube không nằm trong agent multichannel
+**File**: `src/components/agents/GoalWizard.tsx` (block `step === confirmStep`)
+
+Cấu trúc mới (top → bottom):
+
+```text
+┌─ Hero strip (3 metric pills horizontal) ─────────┐
+│  📝 12 bài   📡 5 kênh   📅 14 ngày   📅 20/5→3/6│
+└──────────────────────────────────────────────────┘
+┌─ Card 2 cột ─────────────────────────────────────┐
+│ ✦ Mục tiêu: Awareness    │ 🎨 Brand: Aesop       │
+│ 💬 3 thông điệp chính    │ 🎯 CTA: Mua ngay      │
+│ 🏷 Kênh: [chips compact] │ 🔗 Campaign: Q2-2026  │
+└──────────────────────────────────────────────────┘
+┌─ Collapsible "Cài đặt nâng cao" (default closed)─┐
+│  • Chế độ AI: Approve each [đổi]                 │
+│  • Smart Auto-Approve thresholds                 │
+│  • Ngân sách, pillar split                       │
+└──────────────────────────────────────────────────┘
 ```
 
-Hoặc bỏ hẳn block ước lượng video vì không còn channel video nào.
+- **Hero metric pills**: thay grid-cols-3 lớn bằng 1 hàng ngang `flex gap-2`, mỗi pill `h-8` chứa icon + số + label nhỏ.
+- **Card 2 cột** (`grid-cols-2 gap-3`): gộp objective + key_messages + channels (cột trái) với brand + CTA + campaign link (cột phải). Bỏ label "Brand Template" rời rạc.
+- **Collapsible nâng cao**: dùng shadcn `<Collapsible>` cho "Chế độ AI / Auto-Approve / Ngân sách" → ẩn theo default, mở khi cần đổi.
+- **Sticky footer** (đã có) giữ nguyên — nhưng vì content gọn còn ~1 viewport nên nút **Khởi chạy** luôn nhìn thấy không cần scroll.
 
-## Tương thích
+### C. Clarification inline — không nuốt toàn bộ panel
 
-- Backend `agent-pipeline` và `agent-creator-v2` đã handle `blog → website` alias (line 1317, 446) — nhưng giờ ta dùng `id: 'website'` trực tiếp nên alias trở thành no-op an toàn. Không cần đổi backend.
-- `Channel` type trong `multichannel.ts` đã chứa đủ key cần dùng → không cần migration.
-- DB `agent_goals.target_channels` lưu text[] tự do → backward-compatible.
+Khi `showClarification = true`:
+- Giữ Hero metric pills + Card 2 cột **hiển thị bên trên** (read-only).
+- `ClarificationStep` render trong 1 alert card phía dưới với heading "AI cần xác nhận 1-2 điểm" + nút "Bỏ qua, dùng mặc định" rõ ràng.
+- Không còn cảnh user thấy mỗi block clarification trống trải.
 
 ## Out of scope
 
-- Không đổi backend edge functions (đã đủ 15 publish-*).
-- Không đổi UI multichannel form (đã đúng).
-- Không thêm TikTok/YouTube vào agent (luồng video đi qua Video Studio + `script-to-studio-link`).
+- Không đổi state shape `selectedChannels` / `briefContext`.
+- Không đổi `agent-pipeline` / `agent-creator-v2` backend.
+- Không đổi Step 1-3 (Mục tiêu / Chiến lược / Kênh).
+- Không đổi flow `isGenerating` (saving → generating → done/error).
+
+## Files thay đổi
+
+1. `src/components/agents/GoalWizard.tsx` — payload clarify + layout xác nhận + client-side smart skip
+2. `supabase/functions/clarify-campaign-intent/index.ts` — đọc thêm fields + prompt mới + threshold ready
+3. `src/components/agents/ClarificationStep.tsx` — bỏ icon banner lớn, tinh gọn cho inline mode
+
+## Kết quả kỳ vọng
+
+- **~70% trường hợp** vào thẳng generate, không phải trả lời clarification.
+- Bước Xác nhận **fit trong 1 viewport 707×662** (kích thước user đang dùng) — không scroll thấy CTA.
+- Khi AI hỏi, user vẫn thấy mọi cài đặt đã nhập → dễ tự tin bấm "Bỏ qua".
