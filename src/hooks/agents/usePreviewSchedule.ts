@@ -11,6 +11,8 @@ type PreviewRequest = {
   brand_template_id?: string;
   clarification_context?: Record<string, any>;
   organization_id: string;
+  target_post_count?: number;
+  per_channel_targets?: Record<string, number>;
 };
 
 type PreviewResult = {
