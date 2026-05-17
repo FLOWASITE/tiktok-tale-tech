@@ -30,7 +30,7 @@ function buildStrategyPrompt(params: {
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
-        .filter(([k]) => !['key_messages', 'primary_cta', 'pillar_allocation'].includes(k))
+        .filter(([k]) => !['key_messages', 'primary_cta', 'pillar_allocation', 'objectives', 'primary_objective', 'secondary_objectives', 'objective', 'objective_weights'].includes(k))
         .map(([k, v]) => `- ${k}: ${v}`)
         .join("\n")
     : "Không có thông tin bổ sung";
@@ -42,6 +42,15 @@ function buildStrategyPrompt(params: {
   const pillarAllocation = (ctx.pillar_allocation && typeof ctx.pillar_allocation === 'object' && !Array.isArray(ctx.pillar_allocation))
     ? ctx.pillar_allocation as Record<string, number>
     : null;
+
+  // Multi-objective with Primary 70% / Secondary 30% weighting
+  const objectivesArr = Array.isArray(ctx.objectives) ? ctx.objectives as string[] : [];
+  const primaryObjective = typeof ctx.primary_objective === 'string' && ctx.primary_objective
+    ? ctx.primary_objective
+    : (objectivesArr[0] || (typeof ctx.objective === 'string' ? ctx.objective : ''));
+  const secondaryObjectives = Array.isArray(ctx.secondary_objectives)
+    ? ctx.secondary_objectives as string[]
+    : objectivesArr.slice(1);
 
   let briefSection = '';
   if (keyMessages.length > 0) {
@@ -57,6 +66,33 @@ function buildStrategyPrompt(params: {
       .join("\n");
     briefSection += `\nCONTENT PILLAR DISTRIBUTION (MUST follow these percentages):\n${pillarLines}\nEach piece MUST have a "pillar" field matching one of these pillar names.\n`;
   }
+
+  // Build OBJECTIVE WEIGHTING block + dynamic role tilt
+  let objectivesSection = '';
+  let roleDistributionHint = 'Seed ~40% / Sprout ~35% / Harvest ~25%';
+  if (primaryObjective) {
+    const norm = primaryObjective.toLowerCase();
+    if (norm.includes('aware') || norm.includes('nhận biết') || norm.includes('engage') || norm.includes('tương tác')) {
+      roleDistributionHint = 'Seed ~50% / Sprout ~35% / Harvest ~15% (top-funnel tilt)';
+    } else if (norm.includes('traffic') || norm.includes('lead') || norm.includes('thu thập')) {
+      roleDistributionHint = 'Seed ~30% / Sprout ~35% / Harvest ~35% (mid-funnel balance)';
+    } else if (norm.includes('revenue') || norm.includes('doanh thu') || norm.includes('conversion') || norm.includes('chuyển đổi')) {
+      roleDistributionHint = 'Seed ~25% / Sprout ~30% / Harvest ~45% (bottom-funnel tilt)';
+    } else if (norm.includes('retention') || norm.includes('giữ chân')) {
+      roleDistributionHint = 'Seed ~20% / Sprout ~50% / Harvest ~30% (loyalty tilt)';
+    }
+    objectivesSection = `\nCAMPAIGN OBJECTIVES (weighted):
+- PRIMARY: ${primaryObjective} → drives 70% of pieces (tone, CTA strength, content_role distribution)
+- SECONDARY: ${secondaryObjectives.length ? secondaryObjectives.join(', ') + ' → 30% as supporting angles' : '(none)'}
+
+OBJECTIVE WEIGHTING RULES:
+- ~70% of pieces MUST directly serve the PRIMARY objective in hook + CTA.
+- ~30% may serve secondary objectives as bridge content (awareness → engagement → conversion funnel logic).
+- NEVER let secondary objectives dilute the primary message.
+- Recommended content_role split for THIS primary: ${roleDistributionHint}
+`;
+  }
+  briefSection += objectivesSection;
 
   const dedupStr = params.existingTitles.length > 0
     ? `\n\nDEDUPLICATION — These topics ALREADY EXIST (do NOT suggest similar ones):\n${params.existingTitles.join("\n")}\nSuggest DIFFERENT angles.`
