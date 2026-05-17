@@ -976,7 +976,48 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             ? editableSchedule
             : undefined,
       });
-      
+
+      // Best-effort: save planned pieces into Topic Bank (topic_history) for visibility.
+      // Fail-silent — never block campaign creation on this.
+      try {
+        const pieces = (editableSchedule && editableSchedule.length > 0 && !scheduleStale)
+          ? editableSchedule
+          : [];
+        if (pieces.length > 0 && currentOrganization?.id) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser?.id) {
+            const contentGoal = mapObjectiveToContentGoal(objectives[0]);
+            const rows = pieces.slice(0, 60).map((p: any) => ({
+              topic: String(p.title || '').slice(0, 500),
+              category: (p.pillar && String(p.pillar)) || (p.angle && String(p.angle)) || 'campaign',
+              content_goal: contentGoal,
+              format: p.content_type === 'video_script' ? 'script'
+                : p.content_type === 'carousel' ? 'carousel'
+                : 'multichannel',
+              pillar: p.pillar ? String(p.pillar).slice(0, 80) : null,
+              scores: (() => {
+                const idx = typeof p.pool_index === 'number' ? p.pool_index - 1 : -1;
+                return (idx >= 0 && idx < topicPoolUsed.length && topicPoolUsed[idx]?.scores) || {};
+              })(),
+              reasoning: typeof p.key_message === 'string' ? p.key_message.slice(0, 500) : null,
+              usage_status: 'planned',
+              was_used: false,
+              is_favorite: false,
+              user_id: authUser.id,
+              organization_id: currentOrganization.id,
+              brand_template_id: brandTemplateId || null,
+            })).filter(r => r.topic.length > 0);
+            if (rows.length > 0) {
+              const { error: insertErr } = await supabase.from('topic_history').insert(rows);
+              if (insertErr) console.warn('[GoalWizard] topic_history insert failed:', insertErr.message);
+              else console.log(`[GoalWizard] Saved ${rows.length} pieces to Topic Bank`);
+            }
+          }
+        }
+      } catch (saveErr) {
+        console.warn('[GoalWizard] Topic Bank auto-save failed:', saveErr);
+      }
+
       setGenerationResult({ ...result, goal_name: name.trim() });
       setGeneratingStatus('done');
     } catch (e: any) {
