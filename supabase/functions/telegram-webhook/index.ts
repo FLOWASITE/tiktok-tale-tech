@@ -1497,13 +1497,23 @@ async function commitGenerateDraft(args: {
   botConfig: HandlerCtx["botConfig"];
   draft: GenerateDraft;
   mode: ApprovalMode;
+  startDateIso?: string;     // P2: campaign_start_date (YYYY-MM-DD)
+  timeOfDay?: string;        // P2: HH:mm hint stored in clarification_context
 }): Promise<void> {
-  const { supabase, botConfig, draft, mode } = args;
+  const { supabase, botConfig, draft, mode, startDateIso, timeOfDay } = args;
   const { chatId, userId, prompt, extracted, durationDays, endDateIso, targetPostCount,
     finalChannels, perChannelFreq, suggestReasoning, suggestAiPowered, brandId, brandName,
     brandTargetAudience, brandPositioning, brandToneOfVoice, primaryPersona, topicPool } = draft;
 
   const todayIso = new Date().toISOString().split("T")[0];
+  const startIso = startDateIso || todayIso;
+  // Re-compute end date if user shifted start.
+  const computedEndIso = (() => {
+    if (!startDateIso) return endDateIso;
+    const d = new Date(`${startDateIso}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + Math.max(1, durationDays - 1));
+    return d.toISOString().split("T")[0];
+  })();
 
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
@@ -1516,8 +1526,8 @@ async function commitGenerateDraft(args: {
       target_channels: finalChannels,
       frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
       campaign_duration_days: durationDays,
-      campaign_start_date: todayIso,
-      campaign_end_date: endDateIso,
+      campaign_start_date: startIso,
+      campaign_end_date: computedEndIso,
       brand_template_id: brandId || null,
       autonomy_level: botConfig.defaultAutonomyLevel,
       approval_mode: mode,
@@ -1537,6 +1547,9 @@ async function commitGenerateDraft(args: {
         tone_of_voice: brandToneOfVoice,
         primary_persona: primaryPersona,
         topic_pool: topicPool.length > 0 ? topicPool : undefined,
+        // P2: lifecycle push routing + schedule hint
+        telegram_notify: { enabled: true, chat_id: chatId },
+        time_of_day: timeOfDay,
       },
     })
     .select("id, name")
