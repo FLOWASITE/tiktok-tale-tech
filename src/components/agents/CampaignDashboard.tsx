@@ -147,6 +147,39 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
     }
   };
 
+  const bulkSetPaused = async (paused: boolean) => {
+    const ids = Array.from(selectedGoalIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('agent_goals')
+        .update({ is_paused: paused } as any)
+        .in('id', ids);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['agent-goals', orgId] });
+      toast.success(`Đã ${paused ? 'tạm dừng' : 'chạy tiếp'} ${ids.length} campaign`);
+      clearSelection();
+    } catch (e: any) {
+      toast.error(`Lỗi: ${e.message}`);
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedGoalIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    const results = await Promise.allSettled(ids.map(id => deleteGoal.mutateAsync(id)));
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    const fail = results.length - ok;
+    if (fail > 0) toast.error(`Xoá: ${ok}/${results.length} thành công, ${fail} thất bại`);
+    else toast.success(`Đã xoá ${ok} campaign`);
+    clearSelection();
+    setBulkProcessing(false);
+  };
+
   // Auto-select plan from wizard navigation
   useEffect(() => {
     if (autoSelectPlanId && plans.length > 0 && !isLoading) {
