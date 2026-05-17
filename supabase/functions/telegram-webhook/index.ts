@@ -3040,7 +3040,13 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  // P1 /generate mode picker: gen:mode:auto|plan:<draftId>  |  gen:cancel:<draftId>
+  // P1 /generate mode picker + P2 schedule picker:
+  //   gen:mode:auto|plan:<draftId> | gen:cancel:<draftId>
+  //   gen:when:now|tmr9|tmr14|d3:<draftId>
+  if (data.startsWith("gen:when:") && chatId && fromTgId) {
+    await handleGenerateWhenCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
   if (data.startsWith("gen:") && chatId && fromTgId) {
     await handleGenerateModeCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
     return;
