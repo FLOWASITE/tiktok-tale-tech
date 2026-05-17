@@ -55,6 +55,13 @@ All colors MUST be HSL.
     --task-published: 142 76% 36%;
     --task-overdue: 0 94% 45%;
 
+    /* Content pillar dots (Soft Luxury — muted hues) */
+    --pillar-educate: 212 60% 52%;
+    --pillar-inspire: 268 50% 58%;
+    --pillar-sell: 158 55% 42%;
+    --pillar-entertain: 38 85% 52%;
+    --pillar-default: 240 4% 60%;
+
     /* Font */
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
 
