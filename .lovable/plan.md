@@ -1,57 +1,81 @@
-# P2 — Telegram Bot ↔ GoalWizard Parity (UX & Lifecycle)
+# Vì sao kênh & tần suất giống nhau giữa các lần tạo Campaign
 
-Sau P0 (multi-objective + AI channel pick) và P1 (topic pool + persona + approval_mode), P2 đóng nốt các gap về **brand selection, scheduling, lifecycle notification, regenerate** — để user dùng Telegram chạy campaign gần như đầy đủ như web.
+## Chẩn đoán (root cause)
 
-## Scope
+Toàn bộ logic gợi ý kênh nằm ở `supabase/functions/suggest-channels/index.ts`. Có **5 điểm cứng** khiến output gần như giống hệt nhau giữa các lần chạy với cùng brand + objective:
 
-### P2.1 — Brand selector (multi-brand)
-GoalWizard cho user chọn `brand_template_id`. Telegram hiện chỉ lấy brand mặc định của org → user có 3 brand không chọn được brand B/C qua bot.
+### 1. Bảng điểm `OBJECTIVE_SCORES` cố định (line 31-40)
+Mỗi objective map sang 1 bảng điểm tĩnh. Với cùng `objectives[0]` (ví dụ `awareness`) thì top channels luôn là `facebook=90, instagram=85, threads=70…` — không thay đổi giữa các lần.
 
-- **Lệnh mới:** `/brands` list brands của org (call `brand_templates` filter `organization_id`), inline keyboard `🎨 {name}` → callback `brand:set:<id>`
-- **Persist:** lưu `active_brand_id` vào `telegram_bindings.metadata.active_brand_id` (cột JSONB đã có)
-- **Auto-resolve trong `/generate`:** `getBrandContextById(metadata.active_brand_id ?? defaultBrand)`
-- **UI feedback:** sau khi pick, reply "✅ Brand hiện tại: {name}" + show domain/industry
+### 2. `DEFAULT_FREQ` 1-1 per channel (line 42-48)
+- `facebook → 3/week`, `instagram → 3/week`, `twitter → daily`, `website → weekly`...
+- **Fallback** (`scoreChannels`) trả thẳng `DEFAULT_FREQ[id]` ⇒ 100% trùng nhau khi AI fail/timeout.
+- Telegram có timeout 12s ⇒ rất hay rơi vào fallback.
 
-### P2.2 — Schedule picker
-GoalWizard có `start_date` + `time_of_day`. Telegram hiện hardcode `start_date = now()`.
+### 3. "RULE-BASED HINTS" block trong prompt (line 125-135, 268-269)
+Prompt **bơm top-6 channel scores trực tiếp vào LLM**. LLM (temp 0.6) bị anchor cực mạnh, hầu như luôn pick từ top hints. Trong khi mục tiêu thiết kế là "AI free pick".
 
-- **2-step flow trong `/generate` (sau khi pick approval_mode):**
-  - Hỏi "Bắt đầu khi nào?" → inline keyboard: `🚀 Ngay`, `📅 Hôm nay 9h`, `📅 Mai 9h`, `⚙️ Tự nhập`
-  - Callback `gen:when:now|today9|tmr9|custom`; nếu `custom` → reply `📝 Gửi giờ dạng "2025-05-20 14:30"` + đợi text message tiếp theo, parse bằng `Date.parse` + validate `> now()`
-- **Persist:** lưu vào `agent_goals.start_date` + `clarification_context.time_of_day`
+### 4. Không có random/diversity signal
+Prompt không truyền: `run_id`, `random_seed`, `previously_picked_channels`, `last_campaign_channels`. Cùng input ⇒ cùng output. Một số provider còn cache theo prompt hash ⇒ identical response.
 
-### P2.3 — Pipeline lifecycle notifications
-Hiện bot chỉ phản hồi tại `/generate`. Khi pipeline chạy 5-15 phút, user không biết gì.
+### 5. Frequency band quá hẹp (line 274-278)
+Chỉ 4 giá trị `daily | 3/week | 2/week | weekly` + rule "long-form max weekly, messaging max 2/week". Sau khi LLM tuân thủ rule, không gian còn 1-2 lựa chọn / channel ⇒ trùng là tất yếu.
 
-- **Trigger:** `agent-pipeline` (sync + async branch) sau khi update `agent_goals.status` → check `goal.clarification_context.telegram_notify` (set sẵn khi tạo từ Telegram), nếu có thì gọi `supabase.functions.invoke("telegram-notify", { chatId, goalId, event })`
-- **Event types:** `started`, `strategy_ready`, `content_ready`, `awaiting_approval`, `published`, `failed`
-- **New edge function `telegram-notify`:** load `telegram_bindings` theo `chatId`, format message theo event, gửi qua connector gateway. Inline buttons cho `awaiting_approval`: `✅ Approve`, `📝 Xem chi tiết` (deep-link `app.flowa.one/agents?goal=<id>`)
-- **Idempotent:** insert log row `telegram_notifications(goal_id, event, sent_at)` UNIQUE `(goal_id, event)` để tránh double-send khi pipeline retry
+### Bonus
+- `available_connections` thường chỉ 4-6 kênh active ⇒ candidate pool nhỏ, kết quả gần bão hòa.
+- `getSeasonHint()` chỉ đổi theo quý.
+- Validation `validateLLMResult` reject mọi frequency lạ ⇒ ép về 4 band cứng.
 
-### P2.4 — Regenerate / cancel / status
-GoalWizard có nút regenerate + cancel goal. Telegram chỉ có `/generate`.
+---
 
-- **`/status [goal_id?]`:** show `agent_goals` gần nhất của user (limit 5) — title + status badge + progress % + link
-- **`/cancel <goal_id>`:** update `agent_goals.status = 'cancelled'`, abort pipeline (đã có abort signal trong agent-pipeline)
-- **`/regenerate <goal_id>`:** clone `clarification_context` của goal cũ → tạo goal mới với cùng objectives/topic_pool/channels, reset `start_date = now()`
+## Plan giảm trùng (3 lớp)
 
-## Files
-- **Edit:** `supabase/functions/telegram-webhook/index.ts` (lệnh mới + callback handlers + schedule flow)
-- **Edit:** `supabase/functions/agent-pipeline/index.ts` (fire telegram-notify ở các transition điểm)
-- **New:** `supabase/functions/telegram-notify/index.ts` (notify dispatcher, verify_jwt=false, dùng service role + connector gateway)
-- **New migration:** `telegram_notifications` table (goal_id uuid, event text, sent_at timestamptz, PK composite); add column `telegram_bindings.metadata` nếu chưa có (đã có theo P1)
-- **Update `supabase/config.toml`:** `[functions.telegram-notify] verify_jwt = false`
+### P1 — Khử anchor cố định (impact lớn, ít rủi ro)
+**File:** `supabase/functions/suggest-channels/index.ts`
 
-## Technical notes
-- **Schedule timezone:** parse theo `Asia/Ho_Chi_Minh` (default), store UTC trong `start_date`
-- **Brand list pagination:** nếu >10 brands chia 2 keyboard rows; >20 thì page navigation (`brand:page:2`)
-- **Custom-time text capture:** dùng in-memory `Map<chatId, {waitingFor: 'custom_time', draftId}>` TTL 5min (giống P1 draft pattern); cleanup khi nhận message hoặc timeout
-- **Notification dedup:** `INSERT ... ON CONFLICT DO NOTHING RETURNING id`, chỉ send Telegram nếu trả về row
-- **Cancel race:** `cancel` check `status IN ('pending','running')` trước update; trả lỗi nếu đã `completed`/`failed`
-- **Regenerate quota:** vẫn check `tier_limits` trước khi tạo goal mới (tận dụng helper sẵn có)
+1. **Bỏ hint block khỏi prompt LLM** (hoặc downgrade sang "context" thay vì "scores")
+   - Thay `buildHintBlock` bằng mô tả định tính: "Facebook mạnh reach VN, LinkedIn mạnh B2B…" — không kèm số điểm.
+   - Giữ `OBJECTIVE_SCORES` chỉ cho fallback path.
 
-## Out of scope (defer to P3)
-- Image preview inline trong Telegram (cần upload qua `sendPhoto` + signed URL)
-- Voice command (Telegram voice → Whisper STT)
-- Multi-user collab (assign goal cho teammate qua bot)
-- Inline editing approved content trước publish
+2. **Inject diversity context vào prompt**
+   - Query 3 campaign gần nhất của brand: `SELECT channels, frequency FROM agent_goals WHERE brand_template_id=? ORDER BY created_at DESC LIMIT 3`.
+   - Thêm section: "RECENT CAMPAIGNS đã dùng: [list] — ưu tiên đa dạng hoá, đề xuất ít nhất 1 kênh khác biệt."
+
+3. **Tăng temperature 0.6 → 0.85** + thêm `seed` random vào prompt (timestamp + goal title hash) để force variation.
+
+### P2 — Frequency thông minh hơn
+1. **Mở rộng frequency band**: thêm `4/week`, `2/day` (cho social ngắn), `bi-weekly` (cho long-form ít cập nhật).
+2. **Tính frequency theo `target_post_count` thực**, không dựa preset:
+   - `freq_per_channel = round(channel_share × target_post_count / weeks)`
+   - Map số → label band gần nhất.
+3. **Fallback không dùng `DEFAULT_FREQ`** — derive từ `postsPerWeekTarget` × channel share weight.
+
+### P3 — UI/UX surface variation
+1. Trong GoalWizard hiển thị badge "AI-suggested" vs "Rule-based fallback" để user biết khi nào output là deterministic.
+2. Nút **"Tạo lại gợi ý"** force `bypass_cache=true` + random seed mới.
+3. Hiển thị `reasoning` để user thấy logic khác nhau giữa các lần (nếu reasoning trùng ⇒ rõ ràng do cache/fallback).
+
+### P4 — Quan sát (optional)
+- Log `ai_powered` + `model_used` + first-3-channel-ids vào `ai_metrics` để đo tỉ lệ fallback và mức độ trùng lặp thực tế. Nếu fallback >30% ⇒ AI provider không ổn định, cần fix timeout hoặc fallback model.
+
+---
+
+## Files dự kiến edit (khi triển khai)
+- `supabase/functions/suggest-channels/index.ts` — core fix (P1, P2)
+- `supabase/functions/telegram-webhook/index.ts` — pass `previous_channels` + tăng timeout 12s → 18s
+- `src/components/agents/GoalWizard*.tsx` — UI "Tạo lại gợi ý" + badge nguồn
+- (Optional) migration thêm cột `ai_metrics.channel_pick_signature`
+
+## Out of scope
+- Train custom model
+- A/B test framework cho channel mix
+- Real-time performance feedback loop (đợi có publish data)
+
+---
+
+## TL;DR cho user
+Hiện có 2 thủ phạm chính:
+1. **`DEFAULT_FREQ` cứng + fallback path** — mỗi khi AI chậm/lỗi (Telegram 12s timeout rất hay dính), bot trả về preset y hệt.
+2. **Prompt LLM bị "mớm" sẵn bảng điểm objective** ⇒ AI bám theo top channels của objective, gần như deterministic.
+
+Fix nhanh nhất: bỏ hint scores khỏi prompt + bơm "recent campaigns to avoid" + tăng temperature + tính frequency từ post_count thật thay vì lookup table.
