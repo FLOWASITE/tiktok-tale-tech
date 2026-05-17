@@ -1725,15 +1725,116 @@ async function handleGenerateModeCallback(args: {
   await rawAnswerCallback(botConfig.botToken, cbId,
     mode === "auto" ? "✅ Auto-approve" : "📝 Review plan first");
 
-  // Edit picker message to show progress
+  // P2: persist chosen mode on the draft, then ask the user WHEN to start.
+  draft.chosenMode = mode;
+
+  const scheduleKb = {
+    inline_keyboard: [
+      [
+        { text: "🚀 Bắt đầu ngay", callback_data: `gen:when:now:${draft.id}` },
+        { text: "📅 Mai 9h", callback_data: `gen:when:tmr9:${draft.id}` },
+      ],
+      [
+        { text: "📅 Mai 14h", callback_data: `gen:when:tmr14:${draft.id}` },
+        { text: "📅 +3 ngày 9h", callback_data: `gen:when:d3:${draft.id}` },
+      ],
+      [{ text: "❌ Hủy", callback_data: `gen:cancel:${draft.id}` }],
+    ],
+  };
+
   if (messageId) {
     try {
       await rawEditMessageText(botConfig.botToken, chatId, messageId,
-        `✅ Mode: ${mode === "auto" ? "Auto-approve" : "Review plan first"}\nĐang khởi chạy goal "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"…`);
+        `✅ Mode: ${mode === "auto" ? "Auto-approve" : "Review plan first"}\n\n📅 *Bắt đầu khi nào?*`,
+        { parse_mode: "Markdown", reply_markup: scheduleKb });
+    } catch { /* ignore */ }
+  } else {
+    await sendMessage(botConfig.botToken, chatId,
+      "📅 Bắt đầu khi nào?", { reply_markup: scheduleKb });
+  }
+}
+
+// =====================================================
+// P2: /generate schedule callback
+// gen:when:now|tmr9|tmr14|d3:<draftId>
+// =====================================================
+async function handleGenerateWhenCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  pruneGenerateDrafts();
+
+  const m = /^gen:when:(now|tmr9|tmr14|d3):([a-z0-9]+)$/i.exec(data);
+  if (!m) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
+    return;
+  }
+
+  const slot = m[1].toLowerCase();
+  const draftId = m[2].toLowerCase();
+  const draft = generateDrafts.get(draftId);
+  if (!draft) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "❌ Draft đã hết hạn. Gõ /generate lại.", true);
+    if (messageId) {
+      try {
+        await rawEditMessageText(botConfig.botToken, chatId, messageId,
+          "❌ Phiên /generate đã hết hạn (>10 phút). Gõ /generate lại.");
+      } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  if (draft.telegramUserId && fromTgId !== draft.telegramUserId) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Chỉ người gõ /generate mới chọn được lịch.", true);
+    return;
+  }
+
+  // Resolve start_date + time_of_day (VN time → store as UTC date).
+  // Use Asia/Ho_Chi_Minh wall-clock then take YYYY-MM-DD of that wall time.
+  const now = new Date();
+  const vnNow = new Date(now.getTime() + 7 * 60 * 60 * 1000); // shift to VN wall clock
+  let startDateIso = vnNow.toISOString().split("T")[0];
+  let timeOfDay = `${String(vnNow.getUTCHours()).padStart(2,"0")}:${String(vnNow.getUTCMinutes()).padStart(2,"0")}`;
+  let label = "ngay";
+
+  if (slot === "now") {
+    // keep startDateIso = today VN
+    label = "ngay bây giờ";
+  } else if (slot === "tmr9") {
+    const d = new Date(vnNow.getTime() + 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "09:00";
+    label = `mai (${startDateIso}) 9h`;
+  } else if (slot === "tmr14") {
+    const d = new Date(vnNow.getTime() + 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "14:00";
+    label = `mai (${startDateIso}) 14h`;
+  } else if (slot === "d3") {
+    const d = new Date(vnNow.getTime() + 3 * 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "09:00";
+    label = `+3 ngày (${startDateIso}) 9h`;
+  }
+
+  await rawAnswerCallback(botConfig.botToken, cbId, `📅 ${label}`);
+
+  if (messageId) {
+    try {
+      await rawEditMessageText(botConfig.botToken, chatId, messageId,
+        `📅 Bắt đầu: ${label}\nĐang khởi chạy goal "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"…`);
     } catch { /* ignore */ }
   }
 
-  await commitGenerateDraft({ supabase, botConfig, draft, mode });
+  const mode: ApprovalMode = draft.chosenMode || "approve_plan";
+  await commitGenerateDraft({ supabase, botConfig, draft, mode, startDateIso, timeOfDay });
 }
 
 
