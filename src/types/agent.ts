@@ -29,9 +29,14 @@ export interface AgentGoal {
   campaign_start_date: string | null;
   campaign_end_date: string | null;
   approval_mode: string | null;
+  period_type: 'month' | 'quarter' | 'year' | 'custom';
+  period_label: string | null;
+  parent_goal_id: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type CampaignPeriodType = 'month' | 'quarter' | 'year' | 'custom';
 
 export type CampaignPlanStatus = 'draft' | 'clarifying' | 'planning' | 'planned' | 'approved' | 'executing' | 'completed' | 'paused';
 export type CampaignApprovalMode = 'approve_plan' | 'approve_each' | 'full_auto';
