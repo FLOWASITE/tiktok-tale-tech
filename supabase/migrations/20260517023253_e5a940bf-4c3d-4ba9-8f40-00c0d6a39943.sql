@@ -1,0 +1,1 @@
+UPDATE public.agent_approvals SET status='approved', decided_at=now() WHERE id='83e69661-1397-4335-8a6c-826cae48cbdc';
