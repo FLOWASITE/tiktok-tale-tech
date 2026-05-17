@@ -180,17 +180,76 @@ function scoreChannels(opts: {
   });
 }
 
-// Top hint channels per objective for LLM context
-function buildHintBlock(objectives: string[]): string {
-  const objs = objectives.length > 0 ? objectives : ["awareness"];
-  const lines: string[] = [];
-  objs.slice(0, 3).forEach((o, i) => {
-    const tag = i === 0 ? "primary" : `secondary-${i}`;
-    const table = OBJECTIVE_SCORES[o.toLowerCase().trim()] || OBJECTIVE_SCORES.awareness!;
-    const top = Object.entries(table).sort((a, b) => (b[1] || 0) - (a[1] || 0)).slice(0, 6);
-    lines.push(`- ${o} (${tag}): ${top.map(([c, s]) => `${c}=${s}`).join(", ")}`);
-  });
-  return lines.join("\n");
+// Qualitative channel context — no numeric scores so LLM không bị anchor
+const CHANNEL_STRENGTHS: Partial<Record<ChannelId, string>> = {
+  facebook: "reach rộng VN, group/community, mid-funnel",
+  instagram: "visual-first, lifestyle/beauty, story+reel",
+  linkedin: "B2B authority, thought leadership, lead gen cao cấp",
+  threads: "conversational community, organic discovery",
+  twitter: "realtime, news jacking, tech audience",
+  bluesky: "early adopter, dev/creative niche",
+  pinterest: "evergreen discovery, search-driven visual",
+  telegram: "broadcast 1-many, loyal subscribers",
+  zalo: "messaging VN, customer care, local retail",
+  google_maps: "local SEO, reviews, foot traffic",
+  website: "owned media, SEO long-form, conversion landing",
+  blogger: "long-form SEO ngách, low-cost test",
+  wordpress: "long-form SEO chuyên sâu, content hub",
+  medium: "thought leadership cross-audience",
+  shopify: "commerce content, product storytelling",
+  wix: "owned site nhẹ, portfolio",
+  email: "nurture/retention, owned 1:1, conversion mạnh",
+};
+
+function buildQualitativeChannelBlock(available: Set<ChannelId>): string {
+  const ids = available.size > 0
+    ? Array.from(available)
+    : (Object.keys(CHANNEL_STRENGTHS) as ChannelId[]);
+  return ids
+    .filter((id) => CHANNEL_STRENGTHS[id])
+    .map((id) => `- ${id}: ${CHANNEL_STRENGTHS[id]}`)
+    .join("\n");
+}
+
+async function fetchRecentChannelUsage(
+  supabase: ReturnType<typeof createClient>,
+  brandTemplateId?: string,
+  organizationId?: string,
+): Promise<{ avoidIds: Set<ChannelId>; recentSignatures: string[] }> {
+  const avoidIds = new Set<ChannelId>();
+  const recentSignatures: string[] = [];
+  try {
+    let q = supabase
+      .from("agent_goals")
+      .select("target_channels, frequency, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (brandTemplateId) q = q.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) q = q.eq("organization_id", organizationId);
+    else return { avoidIds, recentSignatures };
+
+    const { data } = await q;
+    if (!Array.isArray(data)) return { avoidIds, recentSignatures };
+
+    const counts = new Map<ChannelId, number>();
+    for (const row of data as any[]) {
+      const chans = Array.isArray(row?.target_channels) ? row.target_channels : [];
+      for (const c of chans) {
+        const id = String(c).toLowerCase() as ChannelId;
+        if (VALID_CHANNEL_IDS.includes(id)) {
+          counts.set(id, (counts.get(id) || 0) + 1);
+        }
+      }
+      const freqObj = row?.frequency && typeof row.frequency === "object" ? row.frequency : {};
+      const sig = chans
+        .map((c: string) => `${c}:${freqObj[c] || "?"}`)
+        .join(", ");
+      if (sig) recentSignatures.push(`"${row?.name || "campaign"}" → ${sig}`);
+    }
+    // Avoid channels used in ≥2 of last 3 campaigns
+    for (const [id, n] of counts) if (n >= 2) avoidIds.add(id);
+  } catch { /* ignore */ }
+  return { avoidIds, recentSignatures };
 }
 
 function getSeasonHint(): string {
