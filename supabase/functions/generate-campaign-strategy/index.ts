@@ -144,8 +144,32 @@ ${(() => {
   }
   return lines.join('\n') + '\n';
 })()}
+${(() => {
+  const pool = params.topicPool;
+  if (!pool || pool.length === 0) return '';
+  const lines: string[] = [];
+  lines.push(`\nTOPIC POOL (CRITICAL — MUST pick titles FROM THIS POOL):`);
+  lines.push(`These topics were curated by Topic AI (scoring, trending, brand context). They are the source of truth for "title" of each piece.`);
+  lines.push(`Rules:`);
+  lines.push(`- For each piece, set "title" = a topic from the pool below (use verbatim; light copy-edit ≤15% words OK).`);
+  lines.push(`- Set "pool_index" = the [NN] number of the topic you picked.`);
+  lines.push(`- Prefer each pool topic AT MOST ONCE. If pool < total pieces, you MAY reuse a topic with a DIFFERENT angle/channel (same pool_index, distinct title wording).`);
+  lines.push(`- DO NOT invent titles outside the pool. If a topic doesn't fit, skip it.`);
+  lines.push(`- If pool key_message exists, use it as a strong hint for the piece's key_message.`);
+  lines.push(`\nPool (${pool.length} topics, sorted by quality):`);
+  pool.forEach((t, i) => {
+    const idx = String(i + 1).padStart(2, '0');
+    const score = t.scores?.overall ?? t.scores?.score ?? null;
+    const scorePart = typeof score === 'number' ? ` [score ${Math.round(score)}]` : '';
+    const hookPart = t.hook ? ` — hook: ${t.hook}` : '';
+    const kmPart = t.key_message ? ` — km: ${t.key_message}` : '';
+    const pillarPart = t.pillar ? ` — pillar: ${t.pillar}` : '';
+    lines.push(`[${idx}]${scorePart} ${t.title}${hookPart}${kmPart}${pillarPart}`);
+  });
+  return lines.join('\n') + '\n';
+})()}
 RULES:
-1. Create EXACTLY ${params.targetPostCount ?? `${params.pieceCount.min}-${params.pieceCount.max}`} content pieces spread across the campaign duration${params.targetPostCount ? ` (tolerance ${params.pieceCount.min}-${params.pieceCount.max})` : ''}.
+1. Create EXACTLY ${params.targetPostCount ?? `${params.pieceCount.min}-${params.pieceCount.max}`} content pieces spread across the campaign duration${params.targetPostCount ? ` (tolerance ${params.pieceCount.min}-${params.pieceCount.max})` : ''}.${params.topicPool && params.topicPool.length > 0 ? ' Every piece title MUST come from the TOPIC POOL above.' : ''}
 
 2. Each piece must have a DIFFERENT angle/hook — never repeat the same approach.
    Angle types: educational, comparison, case_study, behind_the_scenes,
