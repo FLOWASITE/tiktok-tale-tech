@@ -1263,6 +1263,45 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 Thêm thông tin để AI lên kế hoạch chính xác hơn. Bỏ trống = AI tự quyết.
               </p>
 
+              {/* Auto-suggest strategy toggle */}
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="auto-strat" className="text-xs font-medium cursor-pointer">
+                      Để AI chọn chiến lược giúp tôi
+                    </Label>
+                    <Switch
+                      id="auto-strat"
+                      checked={autoStrategyMode}
+                      disabled={suggestStrategy.isPending || objectives.length === 0}
+                      onCheckedChange={async (checked) => {
+                        setAutoStrategyMode(checked);
+                        if (!checked) {
+                          clearAutoStrategy();
+                          return;
+                        }
+                        const ok = await runAutoStrategy();
+                        if (!ok) setAutoStrategyMode(false);
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    AI sẽ gợi ý thông điệp, CTA, phân bổ ngân sách & pillar dựa trên mục tiêu + brand. Bạn có thể chỉnh tay.
+                  </p>
+                  {suggestStrategy.isPending && (
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang lên chiến lược…
+                    </div>
+                  )}
+                  {aiStrategyReasoning && !suggestStrategy.isPending && (
+                    <p className="text-[10px] text-muted-foreground italic mt-1.5">
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiStrategyReasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {/* Duration & Posts Target */}
               <div className="space-y-3">
                 <Label className="text-xs">Thời lượng chiến dịch</Label>
