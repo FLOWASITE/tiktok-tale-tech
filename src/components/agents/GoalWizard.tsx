@@ -34,6 +34,9 @@ import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { ClarificationStep } from './ClarificationStep';
+import ContentScheduleStudio from './ContentScheduleStudio';
+import { usePreviewSchedule } from '@/hooks/agents/usePreviewSchedule';
+import type { SchedulePiece } from '@/lib/scheduleExport';
 
 // ─── Constants ───
 
