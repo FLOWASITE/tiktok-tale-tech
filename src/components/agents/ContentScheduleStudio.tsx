@@ -37,10 +37,25 @@ const pillarColor = (p?: string) =>
   `hsl(${PILLAR_VAR[(p || '').toLowerCase()] || 'var(--pillar-default)'})`;
 
 const CONTENT_TYPES = [
-  { value: 'multichannel', label: 'Post' },
-  { value: 'carousel', label: 'Carousel' },
-  { value: 'video_script', label: 'Video' },
-];
+  {
+    value: 'multichannel',
+    label: 'Post',
+    icon: FileText,
+    description: 'Bài text/ảnh ngắn, đồng bộ nhiều kênh',
+  },
+  {
+    value: 'carousel',
+    label: 'Carousel',
+    icon: Layers,
+    description: '5–10 slide vuốt, tối ưu Facebook/Instagram/LinkedIn',
+  },
+  {
+    value: 'video_script',
+    label: 'Video',
+    icon: Video,
+    description: 'Kịch bản 15–180s cho Reels, TikTok, Shorts, YouTube',
+  },
+] as const;
 
 const GOLDEN_HOURS: Record<string, string> = {
   facebook: '19:30', instagram: '20:00', linkedin: '09:00', threads: '12:00',
