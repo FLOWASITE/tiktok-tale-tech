@@ -42,12 +42,26 @@ interface CampaignDashboardProps {
 }
 
 export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAutoSelectHandled }: CampaignDashboardProps) {
-  const { goals } = useAgentGoals();
+  const { goals, deleteGoal } = useAgentGoals();
   const { pipelines } = useAgentPipelines();
   const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
+  const queryClient = useQueryClient();
+  const { currentOrganization } = useOrganizationContext();
+  const orgId = currentOrganization?.id;
   const [selectedPlan, setSelectedPlan] = useState<{ planId: string; goalName: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'campaign'>('list');
+  const [selectedGoalIds, setSelectedGoalIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const toggleSelect = (goalId: string) => {
+    setSelectedGoalIds(prev => {
+      const next = new Set(prev);
+      if (next.has(goalId)) next.delete(goalId); else next.add(goalId);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedGoalIds(new Set());
 
   // Derive the actual plan from fresh query data to avoid stale state
   const currentPlan = selectedPlan ? plans.find(p => p.id === selectedPlan.planId) : null;
