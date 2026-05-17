@@ -605,6 +605,8 @@ function helpText(): string {
     "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/campaigns — Xem 5 campaign mới nhất",
+    "/cancel — Hủy pipeline đang chạy (trong 1h)",
+    "/regenerate <id8> — Chạy lại 1 campaign cũ với cùng setup",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — Admin dùng trong group để kết nối với tổ chức",
     "/help — Xem danh sách này",
