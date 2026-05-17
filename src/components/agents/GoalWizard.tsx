@@ -248,6 +248,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Multi-objective: max 3, objectives[0] = primary
   const [objectives, setObjectives] = useState<string[]>([]);
   const [kpiTargets, setKpiTargets] = useState<Record<string, number>>({});
+  // Auto-suggest mode
+  const [autoMode, setAutoMode] = useState(false);
+  const [aiObjectiveIds, setAiObjectiveIds] = useState<Set<string>>(new Set());
+  const [aiKpiKeys, setAiKpiKeys] = useState<Set<string>>(new Set());
+  const [aiReasoning, setAiReasoning] = useState<string>('');
+  const suggestObjectives = useSuggestObjectives();
   // Derived helper — kept as a local "selectedObjective" alias so legacy references work
   const selectedObjective = objectives[0] ?? null;
   const secondaryObjectives = objectives.slice(1);
