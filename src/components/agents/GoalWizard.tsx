@@ -328,11 +328,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // AI Preview computed values
   const estimatedPosts = useMemo(() => {
     if (selectedChannels.length === 0) return 0;
-    const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
-    const weeks = Math.ceil(effectiveDuration / 7);
+    // Per-week frequency → per-day rate, tính theo ngày thực tế (không round-up tuần)
+    const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
     return selectedChannels.reduce((total, ch) => {
       const f = frequency[ch] || 'weekly';
-      return total + weeks * (freqMultipliers[f] || 1);
+      const perDay = (freqPerWeek[f] || 1) / 7;
+      return total + Math.max(1, Math.round(effectiveDuration * perDay));
     }, 0);
   }, [selectedChannels, frequency, effectiveDuration]);
 
@@ -1259,11 +1260,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           {!isGenerating && step === confirmStep && (() => {
             const endDate = new Date(new Date(campaignStartDate).getTime() + effectiveDuration * 86400000).toISOString().split('T')[0];
             const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
-            const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
-            const weeks = Math.ceil(effectiveDuration / 7);
+            const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
             const estCarousels = selectedChannels
               .filter(ch => visualChannelIds.includes(ch))
-              .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+              .reduce((sum, ch) => {
+                const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+                return sum + Math.max(1, Math.round(effectiveDuration * perDay));
+              }, 0);
             const approvalLabel = APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label;
 
             return (
