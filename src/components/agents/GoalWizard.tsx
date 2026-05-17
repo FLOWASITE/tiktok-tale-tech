@@ -286,6 +286,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
   const [scheduleStale, setScheduleStale] = useState(false);
+  const [topicPoolUsed, setTopicPoolUsed] = useState<Array<{ title: string; hook?: string; key_message?: string; pillar?: string; scores?: Record<string, number> }>>([]);
+  const [topicPoolPhase, setTopicPoolPhase] = useState<'idle' | 'topics' | 'schedule'>('idle');
   const previewSchedule = usePreviewSchedule();
 
   // Step 2: Kênh
