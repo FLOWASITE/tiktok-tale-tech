@@ -1066,16 +1066,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
           {/* ═══ Step 0: Mục tiêu ═══ */}
           {!isGenerating && step === 0 && (
-            <div className="space-y-5">
+            <TooltipProvider delayDuration={200}>
+            <div className="space-y-4">
               {/* ─── Brief card ─── */}
               <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-medium">
-                    Brief chiến dịch
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">Bước 1/4</span>
-                </div>
-
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="campaign-name" className="text-xs font-medium">
@@ -1115,7 +1109,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     id="campaign-desc"
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder="Mục tiêu chính, đối tượng, điểm khác biệt, ưu đãi…"
+                    placeholder="Mục tiêu, đối tượng, USP, ưu đãi…"
                     maxLength={500}
                     rows={3}
                     className="text-sm resize-none"
@@ -1125,362 +1119,325 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
                 <p id="brief-hint" className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
                   <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span>Brief càng rõ → AI gợi ý càng đúng. Thử 2-3 câu ngắn về mục tiêu, khách hàng và USP.</span>
+                  <span>Brief càng rõ → AI làm càng đúng. Vài câu ngắn về mục tiêu, khách hàng và USP là đủ.</span>
                 </p>
               </section>
 
-              {/* ─── AI mode picker ─── */}
-              <TooltipProvider delayDuration={200}>
-              <section className="space-y-2">
+              {/* ─── AI mode picker + action zone ─── */}
+              <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-medium">
-                    Cách AI hỗ trợ
+                    Cách triển khai
                   </span>
                   {!name.trim() && !description.trim() && (
                     <span className="text-[10px] text-muted-foreground">Cần brief để bật AI</span>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  {/* Option A: Assist */}
-                  <button
-                    type="button"
-                    onClick={() => setAiMode('assist')}
-                    disabled={autoPilotRunning}
-                    className={cn(
-                      "w-full text-left rounded-lg border p-3 transition-colors",
-                      "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      aiMode === 'assist'
-                        ? "border-foreground/25 bg-accent/40"
-                        : "border-border bg-card"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={cn(
-                        "h-4 w-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center",
-                        aiMode === 'assist' ? "border-foreground" : "border-muted-foreground/40"
-                      )}>
-                        {aiMode === 'assist' && <div className="h-1.5 w-1.5 rounded-full bg-foreground" />}
-                      </div>
-                      <Sparkles className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold">Trợ lý gợi ý từng bước</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          AI gợi ý mục tiêu, kênh, chiến lược. Bạn quyết định ở mỗi bước.
-                        </p>
-                      </div>
-                    </div>
-
-                    {aiMode === 'assist' && (
-                      <div className="mt-3 pl-7 space-y-2 border-t border-border/60 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <Label htmlFor="auto-obj" className="text-[11px] font-medium cursor-pointer">
-                            Để AI chọn mục tiêu giúp tôi
-                          </Label>
-                          <Switch
-                            id="auto-obj"
-                            checked={autoMode}
-                            disabled={suggestObjectives.isPending || (!name.trim() && !description.trim())}
-                            onClick={(e) => e.stopPropagation()}
-                            onCheckedChange={async (checked) => {
-                              setAutoMode(checked);
-                              if (!checked) {
-                                setObjectives(prev => prev.filter(id => !aiObjectiveIds.has(id)));
-                                setKpiTargets(prev => {
-                                  const next = { ...prev };
-                                  aiKpiKeys.forEach(k => { delete next[k]; });
-                                  return next;
-                                });
-                                setAiObjectiveIds(new Set());
-                                setAiKpiKeys(new Set());
-                                setAiReasoning('');
-                                return;
-                              }
-                              try {
-                                const result = await suggestObjectives.mutateAsync({
-                                  title: name,
-                                  description,
-                                  channels: selectedChannels,
-                                  brand_template_id: brandTemplateId || currentBrand?.id,
-                                  brand_name: currentBrand?.brand_name,
-                                  industry: Array.isArray(currentBrand?.industry)
-                                    ? currentBrand.industry[0]
-                                    : (currentBrand?.industry as string | undefined),
-                                  organization_id: currentOrganization?.id,
-                                });
-                                const aiIds = result.objectives.slice(0, 3);
-                                setObjectives(aiIds);
-                                setAiObjectiveIds(new Set(aiIds));
-                                setKpiTargets(prev => {
-                                  const next = { ...prev };
-                                  const filled: string[] = [];
-                                  Object.entries(result.kpis).forEach(([k, v]) => {
-                                    if (next[k] === undefined || next[k] === 0) {
-                                      next[k] = v;
-                                      filled.push(k);
-                                    }
-                                  });
-                                  setAiKpiKeys(new Set(filled));
-                                  return next;
-                                });
-                                setAiReasoning(result.reasoning || '');
-                                toast.success('AI đã gợi ý mục tiêu', { description: result.reasoning });
-                              } catch (err: any) {
-                                const msg = String(err?.message || '');
-                                if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
-                                else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
-                                else toast.error('AI gợi ý thất bại', { description: msg });
-                                setAutoMode(false);
-                              }
-                            }}
-                          />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          AI phân tích brief + brand để chọn 1 mục tiêu Chính + 1-2 phụ và đề xuất KPI.
-                        </p>
-                        {suggestObjectives.isPending && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-foreground">
-                            <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích brief…
-                          </div>
-                        )}
-                        {aiReasoning && !suggestObjectives.isPending && (
-                          <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground italic">
-                            <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                            <span>{aiReasoning}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Option B: Full auto */}
-                  <button
-                    type="button"
-                    onClick={() => setAiMode('auto')}
-                    disabled={autoPilotRunning}
-                    className={cn(
-                      "w-full text-left rounded-lg border p-3 transition-colors",
-                      "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      aiMode === 'auto'
-                        ? "border-foreground/25 bg-accent/40"
-                        : "border-border bg-card"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={cn(
-                        "h-4 w-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center",
-                        aiMode === 'auto' ? "border-foreground" : "border-muted-foreground/40"
-                      )}>
-                        {aiMode === 'auto' && <div className="h-1.5 w-1.5 rounded-full bg-foreground" />}
-                      </div>
-                      <Wand2 className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold">AI tự chạy toàn bộ <span className="font-normal text-muted-foreground">(mặc định)</span></p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          AI chọn mục tiêu + kênh + chiến lược. Bạn chỉ review ở bước cuối.
-                        </p>
-                      </div>
-                    </div>
-
-                    {aiMode === 'auto' && (
-                      <div className="mt-3 pl-7 space-y-2 border-t border-border/60 pt-3">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-block" onClick={(e) => e.stopPropagation()}>
-                              <Button
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); runAutoPilot(); }}
-                                disabled={autoPilotRunning || (!name.trim() && !description.trim())}
-                                className="text-xs h-8 gap-1.5"
-                              >
-                                {autoPilotRunning
-                                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                                  : <Wand2 className="w-3 h-3" />}
-                                {autoPilotRunning ? 'Đang chạy…' : 'Bắt đầu AI tự chạy'}
-                                {!autoPilotRunning && <ArrowRight className="w-3 h-3" />}
-                              </Button>
-                            </span>
-                          </TooltipTrigger>
-                          {(!name.trim() && !description.trim()) && (
-                            <TooltipContent side="top" className="text-[11px]">
-                              Cần ít nhất tên hoặc mô tả chiến dịch
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-
-                        {autoPilotRunning && (
-                          <div className="space-y-1.5 pt-1">
-                            {([
-                              { key: 'objectives', label: 'Phân tích mục tiêu' },
-                              { key: 'channels', label: 'Chọn kênh phù hợp' },
-                              { key: 'strategy', label: 'Lên chiến lược nội dung' },
-                            ] as const).map(({ key, label }) => {
-                              const stages = ['objectives', 'channels', 'strategy', 'done'];
-                              const currentIdx = stages.indexOf(autoPilotStage);
-                              const myIdx = stages.indexOf(key);
-                              const done = currentIdx > myIdx;
-                              const active = currentIdx === myIdx;
-                              return (
-                                <div key={key} className="flex items-center gap-2 text-[11px]">
-                                  {done ? <Check className="w-3.5 h-3.5 text-foreground" /> :
-                                   active ? <Loader2 className="w-3.5 h-3.5 animate-spin text-foreground" /> :
-                                   <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/30" />}
-                                  <span className={cn(
-                                    done ? "text-muted-foreground" :
-                                    active ? "text-foreground font-medium" :
-                                    "text-muted-foreground/60"
-                                  )}>
-                                    {label}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                </div>
-              </section>
-
-
-              {/* Objective Cards — multi-select max 3, [0] = primary */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Mục tiêu chiến dịch * <span className="text-muted-foreground font-normal">({objectives.length}/3)</span></Label>
-                  {objectives.length > 1 && (
-                    <span className="text-[9px] text-muted-foreground">Click mục tiêu đã chọn để đặt làm Chính</span>
-                  )}
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Chọn tối đa 3 mục tiêu. Mục tiêu <span className="font-medium text-foreground">Chính</span> nhận 70% trọng số nội dung, phụ 30%.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {OBJECTIVES.map(obj => {
-                    const Icon = obj.icon;
-                    const idx = objectives.indexOf(obj.id);
-                    const isSelected = idx >= 0;
-                    const isPrimary = idx === 0;
-                    const isAiPick = aiObjectiveIds.has(obj.id);
+                {/* Segmented mode picker */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {([
+                    { id: 'auto' as const, icon: Wand2, title: 'AI tự chạy toàn bộ', desc: 'AI lo objective + kênh + kế hoạch. Bạn duyệt cuối.' },
+                    { id: 'assist' as const, icon: Sparkles, title: 'Tự chọn từng bước', desc: 'AI gợi ý, bạn quyết định ở mỗi bước.' },
+                  ]).map(({ id, icon: Icon, title, desc }) => {
+                    const active = aiMode === id;
                     return (
                       <button
-                        key={obj.id}
-                        onClick={() => {
-                          setObjectives(prev => {
-                            const i = prev.indexOf(obj.id);
-                            if (i === 0) return prev.filter(x => x !== obj.id);      // primary click → remove
-                            if (i > 0) return [obj.id, ...prev.filter(x => x !== obj.id)]; // secondary → promote
-                            if (prev.length >= 3) { toast.warning('Tối đa 3 mục tiêu / chiến dịch'); return prev; }
-                            return [...prev, obj.id];                                 // add new
-                          });
-                          // User-overridden → drop AI flag for this id
-                          setAiObjectiveIds(prev => {
-                            const next = new Set(prev);
-                            next.delete(obj.id);
-                            return next;
-                          });
-                        }}
+                        key={id}
+                        type="button"
+                        onClick={() => setAiMode(id)}
+                        disabled={autoPilotRunning}
                         className={cn(
-                          "relative flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
-                          isPrimary ? "border-primary bg-primary/10 ring-1 ring-primary/30" :
-                          isSelected ? "border-primary/50 bg-primary/5" :
-                          "border-border hover:border-primary/30"
+                          "text-left rounded-lg border p-3 transition-colors",
+                          "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "disabled:opacity-60 disabled:cursor-not-allowed",
+                          active ? "border-foreground/30 bg-accent/40" : "border-border bg-card"
                         )}
                       >
-                        <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", obj.color)} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <p className="text-xs font-medium leading-tight">{obj.label}</p>
-                            {isPrimary && (
-                              <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded bg-primary text-primary-foreground">
-                                <Star className="w-2 h-2 fill-current" />Chính
-                              </span>
-                            )}
-                            {isSelected && !isPrimary && (
-                              <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">Phụ</span>
-                            )}
-                            {isAiPick && isSelected && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex items-center gap-0.5 text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">
-                                    <Sparkles className="w-2 h-2" />AI
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[220px] text-[10px]">
-                                  {aiReasoning || 'AI đề xuất dựa trên brief của bạn'}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
+                        <div className="flex items-start gap-2.5">
+                          <div className={cn(
+                            "h-4 w-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center",
+                            active ? "border-foreground" : "border-muted-foreground/40"
+                          )}>
+                            {active && <div className="h-1.5 w-1.5 rounded-full bg-foreground" />}
                           </div>
-                          <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{obj.description}</p>
+                          <Icon className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold leading-tight">{title}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{desc}</p>
+                          </div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-                {hasObjectiveConflict && (
-                  <div className="flex items-start gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                    <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-tight">
-                      <span className="font-medium">Awareness + Revenue</span> thường khó đạt cùng campaign (cold audience ít convert ngay). Cân nhắc tách 2 chiến dịch riêng.
-                    </p>
-                  </div>
-                )}
-              </div>
-              </TooltipProvider>
 
-              {/* KPI Targets — show when objective selected */}
-              {selectedObj && (
-                <div className="space-y-2 p-3 rounded-lg bg-muted/50 border">
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-primary" />
-                    <Label className="text-xs">Chỉ tiêu (KPI) — tùy chọn</Label>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Nhập con số mong muốn để AI đánh giá hiệu quả.</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedObj.kpis.map(kpi => {
-                      const isAiKpi = aiKpiKeys.has(kpi.key);
-                      return (
-                        <div key={kpi.key} className="space-y-1">
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            {kpi.label}
-                            {isAiKpi && <Sparkles className="w-2.5 h-2.5 text-primary" />}
+                {/* Action zone */}
+                <div className="pt-1">
+                  {aiMode === 'auto' ? (
+                    <div className="space-y-2.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block">
+                            <Button
+                              onClick={() => runAutoPilot()}
+                              disabled={autoPilotRunning || (!name.trim() && !description.trim())}
+                              className="w-full h-11 gap-2"
+                            >
+                              {autoPilotRunning
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <Wand2 className="w-4 h-4" />}
+                              {autoPilotRunning ? 'AI đang chạy…' : 'Bắt đầu AI tự chạy'}
+                              {!autoPilotRunning && <ArrowRight className="w-4 h-4" />}
+                            </Button>
                           </span>
-                          <Input
-                            type="number"
-                            value={kpiTargets[kpi.key] || ''}
-                            onChange={e => {
-                              setKpiTargets({ ...kpiTargets, [kpi.key]: Number(e.target.value) });
-                              if (isAiKpi) {
-                                setAiKpiKeys(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(kpi.key);
-                                  return next;
-                                });
-                              }
-                            }}
-                            placeholder={kpi.placeholder}
-                            className={cn("text-sm h-8", isAiKpi && "border-primary/40 bg-primary/5")}
-                          />
+                        </TooltipTrigger>
+                        {(!name.trim() && !description.trim()) && (
+                          <TooltipContent side="top" className="text-[11px]">
+                            Cần ít nhất tên hoặc mô tả chiến dịch
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+
+                      {autoPilotRunning && (
+                        <div className="space-y-1.5 px-1">
+                          {([
+                            { key: 'objectives', label: 'Phân tích mục tiêu' },
+                            { key: 'channels', label: 'Chọn kênh phù hợp' },
+                            { key: 'strategy', label: 'Lên chiến lược nội dung' },
+                          ] as const).map(({ key, label }) => {
+                            const stages = ['objectives', 'channels', 'strategy', 'done'];
+                            const currentIdx = stages.indexOf(autoPilotStage);
+                            const myIdx = stages.indexOf(key);
+                            const done = currentIdx > myIdx;
+                            const active = currentIdx === myIdx;
+                            return (
+                              <div key={key} className="flex items-center gap-2 text-[11px]">
+                                {done ? <Check className="w-3.5 h-3.5 text-foreground" /> :
+                                 active ? <Loader2 className="w-3.5 h-3.5 animate-spin text-foreground" /> :
+                                 <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/30" />}
+                                <span className={cn(
+                                  done ? "text-muted-foreground" :
+                                  active ? "text-foreground font-medium" :
+                                  "text-muted-foreground/60"
+                                )}>
+                                  {label}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 rounded-lg bg-accent/30 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="auto-obj" className="text-[11px] font-medium cursor-pointer">
+                          Để AI chọn mục tiêu giúp tôi
+                        </Label>
+                        <Switch
+                          id="auto-obj"
+                          checked={autoMode}
+                          disabled={suggestObjectives.isPending || (!name.trim() && !description.trim())}
+                          onCheckedChange={async (checked) => {
+                            setAutoMode(checked);
+                            if (!checked) {
+                              setObjectives(prev => prev.filter(id => !aiObjectiveIds.has(id)));
+                              setKpiTargets(prev => {
+                                const next = { ...prev };
+                                aiKpiKeys.forEach(k => { delete next[k]; });
+                                return next;
+                              });
+                              setAiObjectiveIds(new Set());
+                              setAiKpiKeys(new Set());
+                              setAiReasoning('');
+                              return;
+                            }
+                            try {
+                              const result = await suggestObjectives.mutateAsync({
+                                title: name,
+                                description,
+                                channels: selectedChannels,
+                                brand_template_id: brandTemplateId || currentBrand?.id,
+                                brand_name: currentBrand?.brand_name,
+                                industry: Array.isArray(currentBrand?.industry)
+                                  ? currentBrand.industry[0]
+                                  : (currentBrand?.industry as string | undefined),
+                                organization_id: currentOrganization?.id,
+                              });
+                              const aiIds = result.objectives.slice(0, 3);
+                              setObjectives(aiIds);
+                              setAiObjectiveIds(new Set(aiIds));
+                              setKpiTargets(prev => {
+                                const next = { ...prev };
+                                const filled: string[] = [];
+                                Object.entries(result.kpis).forEach(([k, v]) => {
+                                  if (next[k] === undefined || next[k] === 0) {
+                                    next[k] = v;
+                                    filled.push(k);
+                                  }
+                                });
+                                setAiKpiKeys(new Set(filled));
+                                return next;
+                              });
+                              setAiReasoning(result.reasoning || '');
+                              toast.success('AI đã gợi ý mục tiêu', { description: result.reasoning });
+                            } catch (err: any) {
+                              const msg = String(err?.message || '');
+                              if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+                              else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+                              else toast.error('AI gợi ý thất bại', { description: msg });
+                              setAutoMode(false);
+                            }
+                          }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        AI phân tích brief + brand để chọn 1 mục tiêu Chính + 1-2 phụ và đề xuất KPI.
+                      </p>
+                      {suggestObjectives.isPending && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích brief…
+                        </div>
+                      )}
+                      {aiReasoning && !suggestObjectives.isPending && (
+                        <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground italic">
+                          <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                          <span>{aiReasoning}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </section>
+
+              {/* ═══ Objective + KPI — chỉ hiện ở chế độ Assist ═══ */}
+              {aiMode === 'assist' && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Mục tiêu chiến dịch * <span className="text-muted-foreground font-normal">({objectives.length}/3)</span></Label>
+                      {objectives.length > 1 && (
+                        <span className="text-[9px] text-muted-foreground">Click mục tiêu đã chọn để đặt làm Chính</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Chọn tối đa 3 mục tiêu. Mục tiêu <span className="font-medium text-foreground">Chính</span> nhận 70% trọng số nội dung, phụ 30%.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {OBJECTIVES.map(obj => {
+                        const Icon = obj.icon;
+                        const idx = objectives.indexOf(obj.id);
+                        const isSelected = idx >= 0;
+                        const isPrimary = idx === 0;
+                        const isAiPick = aiObjectiveIds.has(obj.id);
+                        return (
+                          <button
+                            key={obj.id}
+                            onClick={() => {
+                              setObjectives(prev => {
+                                const i = prev.indexOf(obj.id);
+                                if (i === 0) return prev.filter(x => x !== obj.id);
+                                if (i > 0) return [obj.id, ...prev.filter(x => x !== obj.id)];
+                                if (prev.length >= 3) { toast.warning('Tối đa 3 mục tiêu / chiến dịch'); return prev; }
+                                return [...prev, obj.id];
+                              });
+                              setAiObjectiveIds(prev => {
+                                const next = new Set(prev);
+                                next.delete(obj.id);
+                                return next;
+                              });
+                            }}
+                            className={cn(
+                              "relative flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
+                              isPrimary ? "border-primary bg-primary/10 ring-1 ring-primary/30" :
+                              isSelected ? "border-primary/50 bg-primary/5" :
+                              "border-border hover:border-primary/30"
+                            )}
+                          >
+                            <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", obj.color)} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <p className="text-xs font-medium leading-tight">{obj.label}</p>
+                                {isPrimary && (
+                                  <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded bg-primary text-primary-foreground">
+                                    <Star className="w-2 h-2 fill-current" />Chính
+                                  </span>
+                                )}
+                                {isSelected && !isPrimary && (
+                                  <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">Phụ</span>
+                                )}
+                                {isAiPick && isSelected && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-0.5 text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                                        <Sparkles className="w-2 h-2" />AI
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-[220px] text-[10px]">
+                                      {aiReasoning || 'AI đề xuất dựa trên brief của bạn'}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{obj.description}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {hasObjectiveConflict && (
+                      <div className="flex items-start gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-tight">
+                          <span className="font-medium">Awareness + Revenue</span> thường khó đạt cùng campaign (cold audience ít convert ngay). Cân nhắc tách 2 chiến dịch riêng.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedObj && (
+                    <div className="space-y-2 p-3 rounded-lg bg-muted/50 border">
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                        <Label className="text-xs">Chỉ tiêu (KPI) — tùy chọn</Label>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Nhập con số mong muốn để AI đánh giá hiệu quả.</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedObj.kpis.map(kpi => {
+                          const isAiKpi = aiKpiKeys.has(kpi.key);
+                          return (
+                            <div key={kpi.key} className="space-y-1">
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                {kpi.label}
+                                {isAiKpi && <Sparkles className="w-2.5 h-2.5 text-primary" />}
+                              </span>
+                              <Input
+                                type="number"
+                                value={kpiTargets[kpi.key] || ''}
+                                onChange={e => {
+                                  setKpiTargets({ ...kpiTargets, [kpi.key]: Number(e.target.value) });
+                                  if (isAiKpi) {
+                                    setAiKpiKeys(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(kpi.key);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                placeholder={kpi.placeholder}
+                                className={cn("text-sm h-8", isAiKpi && "border-primary/40 bg-primary/5")}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-
-              <div className="space-y-2">
-                <Label className="text-xs">Mô tả bổ sung</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="VD: Tập trung vào khách hàng nữ 25-35 tuổi, quảng bá chương trình khuyến mãi hè..." rows={2} className="text-sm resize-none" />
-              </div>
-
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  💡 AI sẽ tự động lên lịch, chọn loại nội dung và viết bài phù hợp dựa trên mục tiêu bạn chọn.
-                </p>
-              </div>
             </div>
+            </TooltipProvider>
           )}
 
           {/* ═══ Step 1: Chiến lược ═══ */}
