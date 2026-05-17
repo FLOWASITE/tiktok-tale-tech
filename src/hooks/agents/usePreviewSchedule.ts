@@ -45,6 +45,8 @@ export function usePreviewSchedule() {
         content_mix: data.content_mix,
         campaign_start_date: data.campaign_start_date,
         campaign_end_date: data.campaign_end_date,
+        target_post_count: data.target_post_count ?? null,
+        plan_warning: data.plan_warning ?? null,
       };
     } catch (e: any) {
       const msg = e?.message || 'Không sinh được lịch';
