@@ -1260,13 +1260,18 @@ async function handleStatus(ctx: HandlerCtx & { telegramUserId?: number }): Prom
 async function handleGenerate(
   ctx: HandlerCtx & { telegramUserId?: number; prompt: string },
 ): Promise<void> {
-  const { supabase, botConfig, chatId, telegramUserId, prompt } = ctx;
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
+  pruneGenerateDrafts();
+
+  // P1: parse --auto / --plan flag from prompt body
+  const { mode: flagMode, prompt: cleanPrompt } = parseApprovalModeFlag(ctx.prompt || "");
+  const prompt = cleanPrompt;
 
   if (!prompt) {
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Cú pháp: /generate <mô tả campaign>\nVí dụ: /generate viết 3 idea content cho spa làm đẹp",
+      "Cú pháp: /generate <mô tả campaign> [--auto | --plan]\nVí dụ: /generate viết 3 idea content cho spa làm đẹp",
     );
     return;
   }
@@ -1300,12 +1305,19 @@ async function handleGenerate(
   const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
 
   // AI-extract campaign params from prompt (channels, duration, frequency).
-  // Falls back to safe defaults if LLM fails.
   const availableChannels = await getAvailableChannels(
     supabase,
     botConfig.organizationId,
     (activeBrandGen as any)?.id ?? null,
   );
+
+  // Send a "thinking" placeholder so the user sees progress while we prep context (~5–15s)
+  const thinkingMsg = await sendMessageReturn(
+    botConfig.botToken,
+    chatId,
+    "🧠 AI đang phân tích yêu cầu, chọn kênh & chủ đề phù hợp…",
+  );
+
   const extracted = await extractCampaignParams(prompt, availableChannels);
   console.log("[handleGenerate] AI extract:", extracted);
 
@@ -1313,53 +1325,185 @@ async function handleGenerate(
   const durationDays = extracted.duration_days;
   const endDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-  // Compute target_post_count from cadence × duration weeks
+  // target_post_count from cadence × duration weeks
   const durationWeeks = Math.max(1, Math.ceil(durationDays / 7));
   const targetPostCount = extracted.cadence === "daily"
     ? durationDays
     : extracted.per_week * durationWeeks;
 
-  // AI-driven channel pick: call suggest-channels with full campaign context
-  // (objectives, duration, post_count, brand, available_connections) — same as GoalWizard.
-  // Fallback to extracted.channels (rule-based) on failure.
-  let finalChannels: string[] = extracted.channels;
-  let suggestReasoning: string | undefined;
-  let suggestAiPowered = false;
-  let perChannelFreq: Array<{ id: string; frequency: string }> = [];
-  try {
-    const sgRes = await Promise.race([
-      supabase.functions.invoke("suggest-channels", {
-        body: {
-          title: extracted.suggested_name,
-          description: prompt,
-          objectives: extracted.objectives,
-          brand_template_id: (activeBrandGen as any)?.id || undefined,
-          organization_id: botConfig.organizationId,
-          brand_name: (activeBrandGen as any)?.brand_name || undefined,
-          industry: Array.isArray((activeBrandGen as any)?.industry)
-            ? (activeBrandGen as any).industry[0]
-            : (activeBrandGen as any)?.industry || undefined,
-          campaign_duration_days: durationDays,
-          target_post_count: targetPostCount,
-          available_connections: availableChannels,
-        },
-      }),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 12000)),
-    ]) as { data?: any; error?: any };
+  // ─── AI-driven channel pick + topic-AI pool in parallel ───
+  const brandId = (activeBrandGen as any)?.id || undefined;
+  const brandIndustry = Array.isArray((activeBrandGen as any)?.industry)
+    ? (activeBrandGen as any).industry[0]
+    : (activeBrandGen as any)?.industry || undefined;
 
-    const sg = sgRes?.data;
-    if (sg && Array.isArray(sg.channels) && sg.channels.length > 0) {
-      perChannelFreq = sg.channels.map((c: any) => ({ id: String(c.id), frequency: String(c.frequency) }));
-      finalChannels = perChannelFreq.map((c) => c.id);
-      suggestReasoning = typeof sg.reasoning === "string" ? sg.reasoning : undefined;
-      suggestAiPowered = !!sg.ai_powered;
-      console.log("[handleGenerate] suggest-channels:", { ai_powered: suggestAiPowered, channels: finalChannels });
-    } else {
-      console.warn("[handleGenerate] suggest-channels empty, using extracted fallback");
+  const suggestChannelsP = (async () => {
+    try {
+      const sgRes = await Promise.race([
+        supabase.functions.invoke("suggest-channels", {
+          body: {
+            title: extracted.suggested_name,
+            description: prompt,
+            objectives: extracted.objectives,
+            brand_template_id: brandId,
+            organization_id: botConfig.organizationId,
+            brand_name: (activeBrandGen as any)?.brand_name || undefined,
+            industry: brandIndustry,
+            campaign_duration_days: durationDays,
+            target_post_count: targetPostCount,
+            available_connections: availableChannels,
+          },
+        }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 12000)),
+      ]) as { data?: any; error?: any };
+      const sg = sgRes?.data;
+      if (sg && Array.isArray(sg.channels) && sg.channels.length > 0) {
+        return {
+          perChannelFreq: sg.channels.map((c: any) => ({ id: String(c.id), frequency: String(c.frequency) })),
+          finalChannels: sg.channels.map((c: any) => String(c.id)),
+          suggestReasoning: typeof sg.reasoning === "string" ? sg.reasoning : undefined,
+          suggestAiPowered: !!sg.ai_powered,
+        };
+      }
+    } catch (e) {
+      console.warn("[handleGenerate] suggest-channels failed:", (e as Error).message);
     }
-  } catch (e) {
-    console.warn("[handleGenerate] suggest-channels failed:", (e as Error).message);
+    return {
+      perChannelFreq: [] as Array<{ id: string; frequency: string }>,
+      finalChannels: extracted.channels,
+      suggestReasoning: undefined as string | undefined,
+      suggestAiPowered: false,
+    };
+  })();
+
+  const topicPoolP = fetchTopicPoolForTelegram(supabase, {
+    organizationId: botConfig.organizationId,
+    brandTemplateId: brandId,
+    primaryObjective: extracted.objectives[0],
+    industry: brandIndustry,
+    categoryHint: extracted.suggested_name || prompt,
+  });
+
+  const personaP = fetchPrimaryPersona(supabase, brandId);
+
+  const [channelRes, topicPool, primaryPersona] = await Promise.all([
+    suggestChannelsP,
+    topicPoolP,
+    personaP,
+  ]);
+
+  const draft: GenerateDraft = {
+    id: makeDraftId(),
+    chatId,
+    telegramUserId: telegramUserId || 0,
+    userId: binding.userId,
+    organizationId: botConfig.organizationId,
+    prompt,
+    extracted,
+    durationDays,
+    endDateIso: endDate.toISOString().split("T")[0],
+    targetPostCount,
+    finalChannels: channelRes.finalChannels,
+    perChannelFreq: channelRes.perChannelFreq,
+    suggestReasoning: channelRes.suggestReasoning,
+    suggestAiPowered: channelRes.suggestAiPowered,
+    brandId,
+    brandName: (activeBrandGen as any)?.brand_name || undefined,
+    brandIndustry,
+    brandTargetAudience: (activeBrandGen as any)?.target_audience || undefined,
+    brandPositioning: (activeBrandGen as any)?.brand_positioning || undefined,
+    brandToneOfVoice: (activeBrandGen as any)?.tone_of_voice || undefined,
+    primaryPersona,
+    topicPool,
+    createdAt: Date.now(),
+  };
+
+  // Shortcut: --auto / --plan flag skips mode picker
+  if (flagMode) {
+    generateDrafts.set(draft.id, draft);
+    // Clear the thinking placeholder; commit will send confirmation messages.
+    if (thinkingMsg?.message_id) {
+      try {
+        await rawEditMessageText(
+          botConfig.botToken,
+          chatId,
+          thinkingMsg.message_id,
+          `✅ Đã hiểu yêu cầu. Mode: ${flagMode === "auto" ? "Auto-approve" : "Review plan first"}.\nĐang khởi chạy…`,
+        );
+      } catch { /* ignore */ }
+    }
+    await commitGenerateDraft({ supabase, botConfig, draft, mode: flagMode });
+    return;
   }
+
+  // 2-step UX: store draft + ask user to pick approval mode
+  generateDrafts.set(draft.id, draft);
+  const poolNote = topicPool.length > 0 ? `🧠 ${topicPool.length} chủ đề từ Topic AI` : "AI sẽ tự sinh chủ đề";
+  const personaNote = primaryPersona?.name ? `\n👤 Persona: ${primaryPersona.name}` : "";
+  const summary =
+    `🎯 *${escMdNotif(extracted.suggested_name || prompt.slice(0, 80))}*\n` +
+    `📊 Mục tiêu: ${escMdNotif(extracted.objectives.join(", ") || "awareness")}\n` +
+    `📅 ${durationDays} ngày · ~${targetPostCount} bài\n` +
+    `📡 Kênh: ${escMdNotif(draft.finalChannels.join(", ") || "—")}\n` +
+    `${poolNote}${personaNote}\n\n` +
+    `Chọn chế độ vận hành:`;
+
+  const pickerKb = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "📝 Review plan first", callback_data: `gen:mode:plan:${draft.id}` },
+          { text: "✅ Auto-approve & run", callback_data: `gen:mode:auto:${draft.id}` },
+        ],
+        [{ text: "❌ Hủy", callback_data: `gen:cancel:${draft.id}` }],
+      ],
+    },
+  };
+
+  // Replace the thinking placeholder with the picker (edit if possible, else send new).
+  let pickerMessageId: number | undefined;
+  if (thinkingMsg?.message_id) {
+    try {
+      await rawEditMessageText(
+        botConfig.botToken,
+        chatId,
+        thinkingMsg.message_id,
+        summary,
+        { parse_mode: "Markdown", reply_markup: pickerKb.reply_markup },
+      );
+      pickerMessageId = thinkingMsg.message_id;
+    } catch (e) {
+      console.warn("[handleGenerate] edit picker failed, sending new:", (e as Error).message);
+    }
+  }
+  if (!pickerMessageId) {
+    const sent = await sendMessageReturn(botConfig.botToken, chatId, summary, {
+      parse_mode: "Markdown",
+      reply_markup: pickerKb.reply_markup,
+    });
+    pickerMessageId = sent?.message_id;
+  }
+  draft.pickerMessageId = pickerMessageId;
+}
+
+// =====================================================
+// commitGenerateDraft — Step 2 of /generate:
+// insert agent_goals (with chosen approval_mode + full clarification_context
+// including topic_pool, audience, persona) + trigger pipeline.
+// =====================================================
+async function commitGenerateDraft(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  draft: GenerateDraft;
+  mode: ApprovalMode;
+}): Promise<void> {
+  const { supabase, botConfig, draft, mode } = args;
+  const { chatId, userId, prompt, extracted, durationDays, endDateIso, targetPostCount,
+    finalChannels, perChannelFreq, suggestReasoning, suggestAiPowered, brandId, brandName,
+    brandTargetAudience, brandPositioning, brandToneOfVoice, primaryPersona, topicPool } = draft;
+
+  const todayIso = new Date().toISOString().split("T")[0];
 
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
@@ -1367,16 +1511,16 @@ async function handleGenerate(
       name: (extracted.suggested_name || prompt).slice(0, 120),
       description: prompt,
       organization_id: botConfig.organizationId,
-      created_by: binding.userId,
+      created_by: userId,
       target_topics: [],
       target_channels: finalChannels,
       frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
       campaign_duration_days: durationDays,
-      campaign_start_date: today.toISOString().split("T")[0],
-      campaign_end_date: endDate.toISOString().split("T")[0],
-      brand_template_id: (activeBrandGen as any)?.id || null,
+      campaign_start_date: todayIso,
+      campaign_end_date: endDateIso,
+      brand_template_id: brandId || null,
       autonomy_level: botConfig.defaultAutonomyLevel,
-      approval_mode: "approve_plan",
+      approval_mode: mode,
       is_active: true,
       is_paused: false,
       clarification_context: {
@@ -1386,78 +1530,75 @@ async function handleGenerate(
         secondary_objectives: extracted.objectives.slice(1),
         target_post_count: targetPostCount,
         channel_frequencies: perChannelFreq,
-        suggest_channels: {
-          reasoning: suggestReasoning,
-          ai_powered: suggestAiPowered,
-        },
+        suggest_channels: { reasoning: suggestReasoning, ai_powered: suggestAiPowered },
+        // P1: audience + persona + topic pool
+        target_audience: brandTargetAudience,
+        brand_positioning: brandPositioning,
+        tone_of_voice: brandToneOfVoice,
+        primary_persona: primaryPersona,
+        topic_pool: topicPool.length > 0 ? topicPool : undefined,
       },
     })
     .select("id, name")
     .single();
 
+  // Drop draft now that goal is created (or failed).
+  generateDrafts.delete(draft.id);
+
   if (goalError || !goal) {
     console.error("[telegram-webhook] insert goal failed:", goalError);
-    await sendMessage(
-      botConfig.botToken,
-      chatId,
-      "❌ Không tạo được goal. Thử lại sau.",
-    );
+    await sendMessage(botConfig.botToken, chatId, "❌ Không tạo được goal. Thử lại sau.");
     return;
   }
 
-  // Log execution
   await supabase.from("agent_execution_logs").insert({
     session_id: crypto.randomUUID(),
     agent_name: "telegram-bot",
     status: "completed",
-    input_summary: `Telegram /generate: ${prompt.slice(0, 200)}`,
-    output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${binding.userId}`,
+    input_summary: `Telegram /generate (${mode}): ${prompt.slice(0, 200)}`,
+    output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${userId} | pool=${topicPool.length} persona=${primaryPersona?.name || "-"}`,
   });
 
-  // Await pipeline trigger with timeout, surface real status
-  console.log("[handleGenerate] triggering pipeline for goal", goal.id);
+  console.log("[handleGenerate] triggering pipeline for goal", goal.id, "mode=", mode);
   const editRow = [
     { text: "✏️ Sửa kênh / thời lượng", callback_data: `cw:edit:${goal.id}` },
     { text: "🗑️ Hủy goal", callback_data: `cw:cancel:${goal.id}` },
   ];
-  const brandRow = activeBrandGen?.brand_name ? buildBrandFooterKeyboard() : [];
-  const footerKb = {
-    reply_markup: { inline_keyboard: [editRow, ...brandRow] },
-  };
+  const brandRow = brandName ? buildBrandFooterKeyboard() : [];
+  const footerKb = { reply_markup: { inline_keyboard: [editRow, ...brandRow] } };
+
+  const modeLabel = mode === "auto" ? "Auto-approve" : "Review plan first";
+  const poolBadge = topicPool.length > 0 ? "🧠 Topic AI" : "AI tự sinh";
 
   try {
-    // agent-pipeline dispatches strategy in background and returns 202 quickly.
-    // Short timeout (6s) only to catch early auth / 402 / 429 / routing errors.
     const r = await Promise.race([
       triggerPipeline(goal.id, botConfig.organizationId),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000)),
     ]) as { success?: boolean; status?: number | string; pipelines_created?: number; error?: string };
 
     console.log("[handleGenerate] pipeline result:", r);
-
     const errMsg = (r?.error || "").toLowerCase();
     const statusNum = typeof r?.status === "number" ? r.status : 0;
 
     if (statusNum === 402 || errMsg.includes("402") || errMsg.includes("credit") || errMsg.includes("payment")) {
       await sendMessage(botConfig.botToken, chatId,
-        appendBrandFooter(`🤖 AI đang hết credits. Goal "${goal.name}" đã lưu — admin nạp thêm credit rồi chạy lại bằng /status hoặc Mini App.`, activeBrandGen?.brand_name),
+        appendBrandFooter(`🤖 AI đang hết credits. Goal "${goal.name}" đã lưu — admin nạp thêm credit rồi chạy lại bằng /status hoặc Mini App.`, brandName),
         footerKb);
     } else if (statusNum === 429 || errMsg.includes("429") || errMsg.includes("rate")) {
       await sendMessage(botConfig.botToken, chatId,
-        appendBrandFooter(`⏳ AI đang quá tải (rate limit). Goal "${goal.name}" đã lưu — thử lại sau 1-2 phút.`, activeBrandGen?.brand_name),
+        appendBrandFooter(`⏳ AI đang quá tải (rate limit). Goal "${goal.name}" đã lưu — thử lại sau 1-2 phút.`, brandName),
         footerKb);
     } else if (r?.success === false && r?.error) {
       await sendMessage(botConfig.botToken, chatId,
-        appendBrandFooter(`⚠️ Goal "${goal.name}" đã lưu nhưng trigger pipeline lỗi: ${String(r.error).slice(0,120)}. Thử /status sau ít phút.`, activeBrandGen?.brand_name),
+        appendBrandFooter(`⚠️ Goal "${goal.name}" đã lưu nhưng trigger pipeline lỗi: ${String(r.error).slice(0,120)}. Thử /status sau ít phút.`, brandName),
         footerKb);
     } else {
-      // Happy path: accepted (202) — background job is running
       await sendMessage(
         botConfig.botToken,
         chatId,
         appendBrandFooter(
-          `✅ Goal "${goal.name}" đã nhận.\nAI đang dựng kế hoạch & pipeline trong nền (thường 20-60 giây).\nDùng /status sau ~1 phút để xem pipeline đã tạo.`,
-          activeBrandGen?.brand_name,
+          `✅ Goal "${goal.name}" đã nhận. (${modeLabel} · ${poolBadge})\nAI đang dựng kế hoạch & pipeline trong nền (thường 20-60 giây).\nDùng /status sau ~1 phút để xem pipeline đã tạo.`,
+          brandName,
         ),
         footerKb,
       );
@@ -1465,14 +1606,13 @@ async function handleGenerate(
   } catch (e) {
     console.error("[handleGenerate] pipeline trigger error:", e);
     const msg = String((e as Error)?.message || e);
-    // Timeout = agent-pipeline didn't ack in 6s. Background job may still run; don't claim failure.
     if (msg.includes("timeout")) {
       await sendMessage(
         botConfig.botToken,
         chatId,
         appendBrandFooter(
-          `✅ Goal "${goal.name}" đã lưu. Hệ thống đang xử lý nền (phản hồi chậm hơn thường lệ).\nDùng /status sau 1-2 phút để kiểm tra pipeline.`,
-          activeBrandGen?.brand_name,
+          `✅ Goal "${goal.name}" đã lưu. (${modeLabel} · ${poolBadge}) Hệ thống đang xử lý nền (phản hồi chậm hơn thường lệ).\nDùng /status sau 1-2 phút để kiểm tra pipeline.`,
+          brandName,
         ),
         footerKb,
       );
@@ -1482,16 +1622,16 @@ async function handleGenerate(
         chatId,
         appendBrandFooter(
           `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${msg.slice(0,100)}).\nThử lại sau bằng /status hoặc Mini App.`,
-          activeBrandGen?.brand_name,
+          brandName,
         ),
         footerKb,
       );
     }
   }
 
-  // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
+  // P2: quota threshold check after creating goal
   try {
-    const post = await assertCanCreateGoal(supabase, botConfig.organizationId, binding.userId);
+    const post = await assertCanCreateGoal(supabase, botConfig.organizationId, userId);
     if (post.ok && post.monthlyLimit && post.monthlyLimit > 0) {
       const pct = (post.pipelinesUsed / post.monthlyLimit) * 100;
       const { data: sub } = await supabase
@@ -1501,7 +1641,6 @@ async function handleGenerate(
         .eq("status", "active")
         .maybeSingle();
       const periodStart = sub?.current_period_start || new Date(0).toISOString();
-
       if (pct >= 100) {
         await notifyQuotaThreshold(supabase, botConfig.organizationId, 100, post.pipelinesUsed, post.monthlyLimit, periodStart);
       } else if (pct >= 80) {
@@ -1512,6 +1651,7 @@ async function handleGenerate(
     console.warn("[telegram-webhook] quota alert check failed:", qErr);
   }
 }
+
 
 // =====================================================
 // handleGenerateSingle — tạo NHANH 1 bài cho 1 kênh,
