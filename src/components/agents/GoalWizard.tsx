@@ -37,6 +37,7 @@ import { ClarificationStep } from './ClarificationStep';
 import ContentScheduleStudio from './ContentScheduleStudio';
 import { usePreviewSchedule } from '@/hooks/agents/usePreviewSchedule';
 import type { SchedulePiece } from '@/lib/scheduleExport';
+import { analyzeCampaignName, type NameQualityResult } from '@/lib/campaignNameQuality';
 
 // ─── Constants ───
 
