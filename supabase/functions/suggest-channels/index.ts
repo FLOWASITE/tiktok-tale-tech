@@ -19,8 +19,37 @@ const VALID_CHANNEL_IDS = [
 ] as const;
 type ChannelId = typeof VALID_CHANNEL_IDS[number];
 
-const VALID_FREQ = ["daily", "3/week", "2/week", "weekly"] as const;
+const VALID_FREQ = ["2/day", "daily", "5/week", "4/week", "3/week", "2/week", "weekly", "bi-weekly"] as const;
 type Freq = typeof VALID_FREQ[number];
+
+// Frequency → posts per week (for math + fallback derivation)
+const FREQ_PER_WEEK: Record<Freq, number> = {
+  "2/day": 14, "daily": 7, "5/week": 5, "4/week": 4, "3/week": 3,
+  "2/week": 2, "weekly": 1, "bi-weekly": 0.5,
+};
+
+const LONGFORM_IDS = new Set(["website", "blogger", "wordpress", "medium", "shopify", "wix", "email"]);
+const MESSAGING_IDS = new Set(["zalo", "telegram", "google_maps"]);
+
+function pickFreqLabel(perWeek: number, channelId: ChannelId): Freq {
+  // Clamp per channel medium
+  let p = perWeek;
+  if (LONGFORM_IDS.has(channelId)) p = Math.min(p, 1);
+  else if (MESSAGING_IDS.has(channelId)) p = Math.min(p, 2);
+  else p = Math.min(p, 14);
+
+  // Nearest band
+  const bands: Array<[Freq, number]> = [
+    ["2/day", 14], ["daily", 7], ["5/week", 5], ["4/week", 4],
+    ["3/week", 3], ["2/week", 2], ["weekly", 1], ["bi-weekly", 0.5],
+  ];
+  let best: Freq = "weekly"; let bestDiff = Infinity;
+  for (const [label, val] of bands) {
+    const d = Math.abs(val - p);
+    if (d < bestDiff) { bestDiff = d; best = label; }
+  }
+  return best;
+}
 
 const MIN_CHANNELS = 3;
 const MAX_CHANNELS = 6;
