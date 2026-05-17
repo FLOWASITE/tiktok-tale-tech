@@ -56,7 +56,7 @@ const COST_LABEL: Record<string, { text: string; className: string }> = {
   high: { text: '$$$', className: 'text-red-500' },
 };
 
-export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact }: FunctionCardProps) {
+export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact, highlightTerms }: FunctionCardProps) {
   const typeBadge = TYPE_BADGES[fn.type];
   const borderClass = CATEGORY_BORDER[fn.category] || 'border-l-muted';
   const hasOverride = !!config?.modelOverride;
