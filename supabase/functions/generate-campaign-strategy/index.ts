@@ -40,6 +40,14 @@ function buildStrategyPrompt(params: {
   existingTitles: string[];
   targetPostCount?: number | null;
   perChannelTargets?: Record<string, number> | null;
+  topicPool?: Array<{
+    title: string;
+    hook?: string;
+    key_message?: string;
+    pillar?: string;
+    category?: string;
+    scores?: Record<string, number>;
+  }> | null;
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
