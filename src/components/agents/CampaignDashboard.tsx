@@ -13,8 +13,12 @@ import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
+import { useQueryClient } from '@tanstack/react-query';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { CampaignContentPlan, CampaignContentPiece, AgentGoal } from '@/types/agent';
 import { CampaignPlanReview } from './CampaignPlanReview';
+import { CampaignBulkActionsBar } from './CampaignBulkActionsBar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,12 +42,26 @@ interface CampaignDashboardProps {
 }
 
 export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAutoSelectHandled }: CampaignDashboardProps) {
-  const { goals } = useAgentGoals();
+  const { goals, deleteGoal } = useAgentGoals();
   const { pipelines } = useAgentPipelines();
   const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
+  const queryClient = useQueryClient();
+  const { currentOrganization } = useOrganizationContext();
+  const orgId = currentOrganization?.id;
   const [selectedPlan, setSelectedPlan] = useState<{ planId: string; goalName: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'campaign'>('list');
+  const [selectedGoalIds, setSelectedGoalIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const toggleSelect = (goalId: string) => {
+    setSelectedGoalIds(prev => {
+      const next = new Set(prev);
+      if (next.has(goalId)) next.delete(goalId); else next.add(goalId);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedGoalIds(new Set());
 
   // Derive the actual plan from fresh query data to avoid stale state
   const currentPlan = selectedPlan ? plans.find(p => p.id === selectedPlan.planId) : null;
@@ -127,6 +145,39 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
     } finally {
       setBackfilling(false);
     }
+  };
+
+  const bulkSetPaused = async (paused: boolean) => {
+    const ids = Array.from(selectedGoalIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('agent_goals')
+        .update({ is_paused: paused } as any)
+        .in('id', ids);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['agent-goals', orgId] });
+      toast.success(`Đã ${paused ? 'tạm dừng' : 'chạy tiếp'} ${ids.length} campaign`);
+      clearSelection();
+    } catch (e: any) {
+      toast.error(`Lỗi: ${e.message}`);
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedGoalIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    const results = await Promise.allSettled(ids.map(id => deleteGoal.mutateAsync(id)));
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    const fail = results.length - ok;
+    if (fail > 0) toast.error(`Xoá: ${ok}/${results.length} thành công, ${fail} thất bại`);
+    else toast.success(`Đã xoá ${ok} campaign`);
+    clearSelection();
+    setBulkProcessing(false);
   };
 
   // Auto-select plan from wizard navigation
@@ -333,8 +384,21 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
       </div>
 
       {/* View Toggle */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{plans.length} kế hoạch · {campaignData.length} chiến dịch</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">{plans.length} kế hoạch · {campaignData.length} chiến dịch</p>
+          {campaignData.length > 0 && (
+            <button
+              className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              onClick={() => {
+                if (selectedGoalIds.size === campaignData.length) clearSelection();
+                else setSelectedGoalIds(new Set(campaignData.map(c => c.goal.id)));
+              }}
+            >
+              {selectedGoalIds.size === campaignData.length && campaignData.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
+          )}
+        </div>
         <div className="flex items-center border rounded-lg overflow-hidden">
           <button
             className={cn('flex items-center gap-1 px-2.5 py-1 text-[10px] transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
@@ -372,11 +436,23 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
               return (
                 <Card
                   key={plan.id}
-                  className="group cursor-pointer hover:border-primary/30 transition-colors"
+                  className={cn(
+                    'group cursor-pointer hover:border-primary/30 transition-colors',
+                    selectedGoalIds.has(plan.goal_id) && 'border-primary/50 bg-primary/5'
+                  )}
                   onClick={() => setSelectedPlan({ planId: plan.id, goalName })}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between gap-3">
+                      <div
+                        className={cn(
+                          'shrink-0 transition-opacity',
+                          selectedGoalIds.has(plan.goal_id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(plan.goal_id); }}
+                      >
+                        <Checkbox checked={selectedGoalIds.has(plan.goal_id)} />
+                      </div>
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium truncate">{goalName}</p>
@@ -428,13 +504,25 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
             return (
               <Card
                 key={goal.id}
-                className="group cursor-pointer hover:border-primary/30 transition-colors"
+                className={cn(
+                  'group cursor-pointer hover:border-primary/30 transition-colors',
+                  selectedGoalIds.has(goal.id) && 'border-primary/50 bg-primary/5'
+                )}
                 onClick={() => {
                   if (plan) setSelectedPlan({ planId: plan.id, goalName: goal.name });
                 }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
+                    <div
+                      className={cn(
+                        'shrink-0 mt-0.5 transition-opacity',
+                        selectedGoalIds.has(goal.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      )}
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(goal.id); }}
+                    >
+                      <Checkbox checked={selectedGoalIds.has(goal.id)} />
+                    </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold">{goal.name}</p>
@@ -501,6 +589,23 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
           })}
         </div>
       )}
+
+      <CampaignBulkActionsBar
+        selectedCount={selectedGoalIds.size}
+        hasRunning={Array.from(selectedGoalIds).some(id => {
+          const g = goals.find(x => x.id === id);
+          return g && !g.is_paused;
+        })}
+        hasPaused={Array.from(selectedGoalIds).some(id => {
+          const g = goals.find(x => x.id === id);
+          return g && g.is_paused;
+        })}
+        onPause={() => bulkSetPaused(true)}
+        onResume={() => bulkSetPaused(false)}
+        onDelete={bulkDelete}
+        onClear={clearSelection}
+        isProcessing={bulkProcessing}
+      />
     </div>
   );
 }
