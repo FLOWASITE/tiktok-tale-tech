@@ -3958,12 +3958,16 @@ async function getAvailableChannels(supabase: any, organizationId: string, brand
 }
 
 // LLM extract for /generate Quick mode. Falls back to safe defaults.
+const VALID_OBJECTIVES = ["awareness","engagement","traffic","leads","conversion","revenue","retention","community"] as const;
+type Objective = typeof VALID_OBJECTIVES[number];
+
 async function extractCampaignParams(prompt: string, availableChannels: string[]): Promise<{
   channels: string[];
   duration_days: number;
   cadence: "weekly" | "daily";
   per_week: number;
   suggested_name: string;
+  objectives: Objective[];
   reasoning?: string;
 }> {
   const fallback = {
@@ -3974,6 +3978,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
     cadence: "weekly" as const,
     per_week: 3,
     suggested_name: prompt.slice(0, 80),
+    objectives: ["awareness"] as Objective[],
   };
   // Ensure at least one channel
   if (fallback.channels.length === 0) fallback.channels = ["facebook", "website"];
