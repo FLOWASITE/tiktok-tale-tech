@@ -1,103 +1,93 @@
-## Tích hợp topic-ai vào tạo Campaign
+## Mục tiêu
 
-### Mục tiêu
+Khắc phục việc gợi ý kênh & tần suất **luôn giống nhau** giữa các campaign. Thay edge function rule-based hiện tại bằng **LLM** đọc đủ context (title, description, objectives, duration, post count, audience, brand industry/voice, available connections) → trả channels + frequency phù hợp với từng campaign cụ thể.
 
-Khi user tạo AI Campaign, mỗi piece phải có chủ đề chất lượng cao từ pipeline **topic-ai** (scoring, trending, cluster, Topic Bank) — không còn để strategy AI tự bịa title.
+## Vấn đề hiện tại (root cause)
 
-### Kiến trúc
+`supabase/functions/suggest-channels/index.ts` là **rule-based 100%**:
+- `OBJECTIVE_SCORES` + `DEFAULT_FREQ` là bảng tra cứu cứng
+- Industry classifier = regex thô (5 nhóm)
+- Bỏ qua: `campaign_duration_days`, `target_post_count`, brand voice, lịch sử campaign, mùa vụ
+- Không có randomness/diversity → cùng input → cùng output
 
-```text
-GoalWizard Step 4 "Sinh lịch"
-      ↓
-[NEW] Pre-fetch topic pool từ topic-ai (action: suggest)
-      ↓ pool {title, hook, key_message, scores, source}
-generate-campaign-strategy (preview)
-      ↓ AI nhận topic_pool → chọn N topic + gán channel/role/date/angle
-plan rendered ở Step 4
-      ↓ user confirm
-[NEW] Auto-save các topic đã dùng vào Topic Bank (status: planned)
-```
-
-Topic-ai là **nguồn topic duy nhất**; strategy AI chỉ làm **orchestrator** (chia channel/role/lịch), không sinh title tự do nữa.
-
-### Thay đổi cụ thể
-
-**1. Hook mới `useCampaignTopicPool` (frontend)**
-- Gọi `topic-ai` (action `suggest`) qua `useTopicAI` hiện có, với:
-  - `brandTemplateId`, `contentGoal` map từ primary objective (awareness→awareness, conversion→sales, …)
-  - `categoryHint` = campaign title
-  - `count` = `estimatedPosts * 1.5` (dư để AI chọn lọc), cap 60
-- Trả `pool: { title, hook, key_message, scores, source }[]`
-
-**2. `generate-campaign-strategy` — nhận `topic_pool`**
-- Body thêm: `topic_pool?: Array<{title, hook, key_message, scores?}>`
-- Khi có pool:
-  - Inject vào system prompt block **TOPIC POOL (MUST pick from here)**:
-    ```
-    Bạn PHẢI chọn title từ pool này (không được bịa). Mỗi piece = 1 topic từ pool.
-    Pool (sorted by quality score):
-    [01] {title} — hook: {hook} — score: {scores.overall}
-    ...
-    ```
-  - Đổi rule (1): "Pick EXACTLY N topics FROM POOL, mỗi topic dùng đúng 1 lần"
-  - Thêm field `pool_index: number` vào tool schema để track topic gốc
-- Khi pool rỗng/thiếu → fallback logic cũ (AI tự sinh) + warning.
-
-**3. `GoalWizard.tsx` — `triggerSchedulePreview`**
-- Trước khi gọi `previewSchedule.run`, gọi `useCampaignTopicPool.fetch()` → đợi pool về.
-- UI: hiện trạng thái 2-phase loading: "🧠 Đang chọn chủ đề từ Topic AI…" → "📅 Đang sắp lịch…"
-- Truyền `topic_pool` vào payload preview.
-
-**4. Auto-save Topic Bank khi confirm**
-- Trong `handleConfirm` (nơi user bấm "Tạo campaign"):
-- Sau khi `generate-campaign-strategy` (non-preview) thành công, batch insert vào bảng `topics` với:
-  - `status='planned'`, `source='campaign'`, `campaign_id`, `brand_template_id`, `organization_id`
-  - title/hook/key_message lấy từ pool đã match
-- Dùng RPC hoặc direct insert (tái dùng pattern từ `useTopicAI.suggestions.saveSuggestion`)
-
-**5. `PieceTopicSuggestPopover` — nâng cấp dùng topic-ai**
-- Đổi `useSuggestPieceTopics` → wrap `useTopicAI({...}).suggestions.refresh()` để gợi ý thay-thế cũng dùng topic-ai (scoring + trending + Topic Bank cache).
-- Giữ nguyên UX: popover, click chọn → cập nhật piece.
-
-### Files sẽ chỉnh
+## Kiến trúc mới
 
 ```text
-[NEW] src/hooks/agents/useCampaignTopicPool.ts
-        - Wrap useTopicAI, map primary_objective → contentGoal,
-          trả Promise<TopicPoolItem[]>
-
-src/components/agents/GoalWizard.tsx
-        - triggerSchedulePreview: pre-fetch pool → pass topic_pool
-        - 2-phase loading UI
-        - handleConfirm: auto-save pool topics vào Topic Bank
-
-src/hooks/agents/usePreviewSchedule.ts
-        - PreviewRequest thêm topic_pool?
-
-supabase/functions/generate-campaign-strategy/index.ts
-        - Đọc topic_pool từ body
-        - buildStrategyPrompt: thêm TOPIC POOL block + đổi rule (1)
-        - Tool schema: thêm pool_index field
-        - Apply ở cả primary + fallback call
-
-src/components/agents/PieceTopicSuggestPopover.tsx
-        - Đổi sang useTopicAI suggestions (giữ UI)
-
-src/hooks/agents/useSuggestPieceTopics.ts
-        - Mark @deprecated, redirect sang useTopicAI internally
-          (giữ backward-compat cho call sites khác nếu có)
+GoalWizard (Step 2/3)
+   ↓ payload: {title, description, objectives, duration, post_count,
+                brand{industry, voice, audience}, available_connections}
+suggest-channels (AI-driven)
+   ↓ Lovable AI Gateway · google/gemini-2.5-flash · Output.object schema
+   ↓ Prompt có rule-based scoring làm "hint" + context campaign
+   ↓ LLM chọn 3–6 kênh + frequency phù hợp + reasoning ngắn
+Response: { channels: [{id, frequency, reason}], reasoning }
 ```
 
-### Edge cases
+Rule-based cũ giữ làm **fallback** khi LLM timeout/429/402.
 
-- **Pool rỗng** (brand chưa setup, topic-ai timeout): fallback strategy AI tự sinh + banner amber "Không lấy được Topic AI, dùng AI tự do".
-- **Pool < số piece cần**: AI được phép bịa thêm phần thiếu, log warning.
-- **User edit title thủ công sau khi sinh**: không auto-save vào Topic Bank với title cũ — chỉ save title cuối cùng lúc confirm.
-- **Multi-objective**: contentGoal = mapping từ `primary_objective`; secondary objectives chỉ ảnh hưởng rule 70/30 cũ (không đổi pool).
+## Thay đổi chi tiết
 
-### Không làm
+### 1. `supabase/functions/suggest-channels/index.ts` (rewrite)
 
-- Không đổi schema `topics` table.
-- Không sửa `_shared/` (tránh ảnh hưởng 157 functions).
-- Không đụng pipeline agent execution sau khi confirm.
-- Không bắt buộc Topic Bank — vẫn save best-effort, fail silent.
+- Giữ `VALID_CHANNEL_IDS`, `VALID_FREQ`, `OBJECTIVE_SCORES` (làm hint vector trong prompt).
+- Thêm: gọi `callAI` từ `_shared/ai-provider.ts` với model mặc định `google/gemini-2.5-flash`, đăng ký `ai_function_configs` (category `agent`) cho admin override.
+- Structured output schema (Zod/JSON):
+  ```ts
+  {
+    channels: Array<{
+      id: ChannelId,
+      frequency: "daily"|"3/week"|"2/week"|"weekly",
+      reason: string  // 1 câu VN, lý do cụ thể cho campaign này
+    }>,  // 3-6 items
+    reasoning: string  // 1-2 câu tổng quan
+  }
+  ```
+- Prompt structure:
+  - **Context block**: title, description, objectives (primary đầu), duration, target_post_count, brand industry/voice/audience, available_connections, current month/season.
+  - **Scoring hint**: dump `OBJECTIVE_SCORES[objective]` top 8 channels để LLM tham khảo (không bắt buộc theo).
+  - **Rules**: (a) chỉ pick từ `available_connections` nếu có; (b) frequency phải khớp với `target_post_count / duration_weeks`; (c) đa dạng — không repeat preset; (d) reason phải reference context cụ thể.
+- Validate output bằng Zod; nếu fail/timeout → fallback `scoreChannels()` cũ + log warning.
+- Trả thêm `ai_powered: boolean` để UI biết hiển thị badge.
+
+### 2. `src/hooks/agents/useSuggestChannels.ts`
+
+- `SuggestChannelsInput` thêm: `campaign_duration_days?: number`, `target_post_count?: number`, `audience?: string`, `available_connections?: string[]`.
+- `SuggestChannelsResult` thêm: `ai_powered?: boolean`.
+
+### 3. `src/components/agents/GoalWizard.tsx`
+
+- Cả 2 call site (`autoPilot` line ~776 và toggle "Để AI chọn kênh" line ~1937) truyền thêm:
+  - `campaign_duration_days: durationDays`
+  - `target_post_count: estimatedPosts`
+  - `audience: audienceText` (nếu có field)
+  - `available_connections`: query từ `social_connections` của brand (cached)
+- Badge `✨ AI` cạnh reasoning khi `ai_powered === true`.
+- Loading text: "🧠 AI đang phân tích kênh phù hợp cho campaign này…"
+
+### 4. Available connections helper (mới)
+
+`src/hooks/useAvailableSocialChannels.ts` (nếu chưa có): query `social_connections` theo `brand_template_id`, trả `string[]` channel ids đã kết nối → truyền vào suggest-channels.
+
+## Files sẽ chỉnh
+
+```text
+supabase/functions/suggest-channels/index.ts   (rewrite — AI-driven + fallback)
+src/hooks/agents/useSuggestChannels.ts         (thêm input/output fields)
+src/components/agents/GoalWizard.tsx           (truyền context đầy đủ + badge)
+[NEW] src/hooks/useAvailableSocialChannels.ts  (nếu chưa có hook tương đương)
+```
+
+## Edge cases
+
+- **LLM timeout (>15s)** → fallback rule-based + log warning.
+- **402 credit exhausted / 429 rate limit** → fallback rule-based, không throw lên UI.
+- **available_connections rỗng** → AI vẫn chọn theo objective+industry như trước.
+- **Output không hợp lệ** (channel id không thuộc whitelist, freq sai) → strip + fill bằng rule-based.
+- **Cost control**: cache 5 phút theo hash `{objectives+industry+duration+post_count+available}` để tránh re-call khi user toggle switch.
+
+## Không làm
+
+- Không sửa `_shared/` (chỉ import `callAI`, `ai-config`).
+- Không đổi schema DB.
+- Không đụng `suggest-strategy` / `generate-campaign-strategy` (scope giới hạn ở channel & frequency).
+- Không bỏ rule-based — vẫn dùng làm hint + fallback.
