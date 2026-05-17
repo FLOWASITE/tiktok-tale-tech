@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // ─── Heuristic helpers ───
-// Budget allocation per primary objective (content/ads/kol summing 100)
+// Budget allocation per primary objective (base table — jittered per run)
 const BUDGET_BY_OBJ: Record<string, { content: number; ads: number; kol: number }> = {
   awareness:  { content: 40, ads: 35, kol: 25 },
   engagement: { content: 55, ads: 25, kol: 20 },
@@ -19,6 +19,24 @@ const BUDGET_BY_OBJ: Record<string, { content: number; ads: number; kol: number 
   retention:  { content: 75, ads: 15, kol: 10 },
   community:  { content: 65, ads: 15, kol: 20 },
 };
+
+function jitterBudget(
+  base: { content: number; ads: number; kol: number },
+  seed: number,
+): { content: number; ads: number; kol: number } {
+  // Seeded RNG — small ±6 swing then renormalize to sum 100
+  let s = seed | 0;
+  const rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const c = Math.max(15, Math.min(80, base.content + (rng() - 0.5) * 12));
+  const a = Math.max(10, Math.min(70, base.ads + (rng() - 0.5) * 12));
+  const k = Math.max(5,  Math.min(40, base.kol + (rng() - 0.5) * 10));
+  const sum = c + a + k;
+  return {
+    content: Math.round((c / sum) * 100),
+    ads:     Math.round((a / sum) * 100),
+    kol:     Math.max(0, 100 - Math.round((c / sum) * 100) - Math.round((a / sum) * 100)),
+  };
+}
 
 // Channels-per-day baseline → posts target ≈ duration * avgFreq * channels
 function estimatePostsTarget(durationDays: number, channelCount: number): number {
@@ -37,6 +55,34 @@ function evenSplit(keys: string[]): Record<string, number> {
   keys.forEach((k, i) => { out[k] = base + (i === 0 ? rem : 0); });
   return out;
 }
+
+async function fetchRecentKeyMessages(
+  supabase: any,
+  brandTemplateId?: string,
+  organizationId?: string,
+): Promise<string[]> {
+  try {
+    let q = supabase
+      .from("agent_goals")
+      .select("strategy, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (brandTemplateId) q = q.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) q = q.eq("organization_id", organizationId);
+    else return [];
+    const { data } = await q;
+    if (!Array.isArray(data)) return [];
+    const out: string[] = [];
+    for (const row of data as any[]) {
+      const km = row?.strategy?.key_messages;
+      if (Array.isArray(km)) {
+        for (const m of km) if (typeof m === "string" && m.trim()) out.push(m.trim().slice(0, 80));
+      }
+    }
+    return out.slice(0, 8);
+  } catch { return []; }
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -93,16 +139,24 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
     }
 
-    // ─── Heuristic part (deterministic, không cần AI) ───
+    // ─── Heuristic part (jittered per run để khác nhau giữa các lần) ───
     const primary = (objectives[0] || "awareness").toLowerCase();
-    const budgetAllocation = BUDGET_BY_OBJ[primary] || BUDGET_BY_OBJ.awareness;
+    const baseBudget = BUDGET_BY_OBJ[primary] || BUDGET_BY_OBJ.awareness;
+    const jitterSeed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+    const budgetAllocation = jitterBudget(baseBudget, jitterSeed);
     const pillarAllocation = evenSplit(contentPillars);
     const totalPostsTarget = estimatePostsTarget(durationDays, channels.length || 3);
+
+    // Diversity: recent key_messages to avoid repeating
+    const recentKeyMessages = await fetchRecentKeyMessages(supabase, brandTemplateId, organizationId);
+    const avoidBlock = recentKeyMessages.length > 0
+      ? recentKeyMessages.map((m, i) => `- [${i + 1}] "${m}"`).join("\n")
+      : "(chưa có campaign trước)";
 
     // ─── AI part: key_messages + primary_cta (cần ngôn ngữ + brand voice) ───
     const objectivesLabel = objectives.join(", ") || "awareness";
     const channelsLabel = channels.join(", ") || "facebook, instagram";
-    const prompt = `Bạn là content strategist cho thương hiệu Việt Nam. Đề xuất CHIẾN LƯỢC NỘI DUNG cho campaign sau:
+    const prompt = `Bạn là content strategist cho thương hiệu Việt Nam. Đề xuất CHIẾN LƯỢC NỘI DUNG cho campaign sau. Mỗi lần gọi PHẢI tạo ra bộ thông điệp khác — KHÔNG lặp lại preset hay campaign cũ.
 
 Brand: ${brandName || "(chưa rõ)"}
 Ngành: ${industry || "(chưa rõ)"}
@@ -115,11 +169,16 @@ Mô tả: ${description || "(không có)"}
 Mục tiêu (primary đầu tiên): ${objectivesLabel}
 Kênh: ${channelsLabel}
 Thời gian: ${durationDays} ngày
+Run seed: ${jitterSeed} (đảm bảo mỗi lần gọi sinh kết quả khác nhau)
+
+DIVERSITY CONTEXT — key messages đã dùng ở 3 campaign gần nhất:
+${avoidBlock}
+→ TUYỆT ĐỐI không trả về thông điệp trùng/gần trùng nghĩa với danh sách trên. Góc nhìn phải MỚI.
 
 Yêu cầu:
 1. Gợi ý 3–5 KEY MESSAGES (thông điệp chính khách hàng cần nhớ) — ngắn gọn ≤ 60 ký tự, cụ thể, khớp brand voice & objective. KHÔNG generic kiểu "Chất lượng hàng đầu".
-2. Gợi ý 1 PRIMARY CTA (lời kêu gọi hành động chính) — 2–4 từ, mạnh, phù hợp objective ${primary}.
-3. Reasoning: 1 câu ngắn giải thích tại sao chọn bộ thông điệp & CTA này.
+2. Gợi ý 1 PRIMARY CTA (lời kêu gọi hành động chính) — 2–4 từ, mạnh, phù hợp objective ${primary}. Tránh CTA quá quen ("Mua ngay" / "Tìm hiểu thêm") trừ khi thật sự là lựa chọn tốt nhất cho campaign này.
+3. Reasoning: 1 câu ngắn giải thích tại sao chọn bộ thông điệp & CTA này, có reference context campaign.
 
 CHỈ trả về JSON hợp lệ theo shape:
 {
@@ -131,13 +190,14 @@ CHỈ trả về JSON hợp lệ theo shape:
     let keyMessages: string[] = [];
     let primaryCta = "";
     let aiReasoning = "";
+    let aiPowered = false;
 
     try {
       const aiResult = await callAI({
         functionName: "suggest-strategy",
         organizationId,
         messages: [{ role: "user", content: prompt }],
-        temperatureOverride: 0.7,
+        temperatureOverride: 0.85,
         maxTokensOverride: 600,
       } as any);
 
@@ -163,6 +223,7 @@ CHỈ trả về JSON hợp lệ theo shape:
           if (typeof parsed.reasoning === "string") {
             aiReasoning = parsed.reasoning.trim().slice(0, 200);
           }
+          if (keyMessages.length > 0) aiPowered = true;
         }
       } else {
         const errMsg = aiResult?.error || "";
@@ -213,6 +274,11 @@ CHỈ trả về JSON hợp lệ theo shape:
         pillar_allocation: pillarAllocation,
         total_posts_target: totalPostsTarget,
         reasoning,
+        ai_powered: aiPowered,
+        diversity: {
+          recent_messages_count: recentKeyMessages.length,
+          seed: jitterSeed,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
