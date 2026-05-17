@@ -1087,8 +1087,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
                     {/* Content type breakdown */}
                     {(() => {
-                      const visualChannelIds = ['instagram', 'tiktok', 'facebook', 'pinterest'];
-                      const videoChannelIds = ['tiktok', 'youtube', 'instagram'];
+                      const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
+                      const videoChannelIds: string[] = []; // TikTok/YouTube đi qua Video Studio, không thuộc AI Campaign
                       const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
                       const weeks = Math.ceil(effectiveDuration / 7);
 
@@ -1096,9 +1096,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                         .filter(ch => visualChannelIds.includes(ch))
                         .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
 
-                      const estVideos = selectedChannels
-                        .filter(ch => videoChannelIds.includes(ch))
-                        .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+                án const estVideos = 0;
 
                       const breakdownItems = [
                         { icon: FileText, label: 'Nội dung đa kênh', count: estimatedPosts },
