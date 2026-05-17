@@ -281,6 +281,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [customDuration, setCustomDuration] = useState('');
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [totalPostsTarget, setTotalPostsTarget] = useState<number | ''>('');
+  // Period scope (Tháng / Quý / Năm / Tự chọn) + parent campaign
+  const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year' | 'custom'>('custom');
+  const [periodLabel, setPeriodLabel] = useState<string | null>(null);
+  const [parentGoalId, setParentGoalId] = useState<string | null>(null);
 
   // Content Schedule Studio state
   const [editableSchedule, setEditableSchedule] = useState<SchedulePiece[] | null>(null);
