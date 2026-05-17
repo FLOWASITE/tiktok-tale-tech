@@ -21,7 +21,7 @@ import {
   Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
   PieChart, TrendingUp, Settings2, FileText, Images, Video,
   Loader2, CheckCircle2, AlertCircle, ArrowRight, Save, Brain, Star,
-  CalendarDays
+  CalendarDays, Wand2, Lightbulb
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
