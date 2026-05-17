@@ -241,25 +241,18 @@ function deterministicStagger(pipelineId: string, maxMs = 15000): number {
  * Returns claim token if acquired, null otherwise.
  */
 async function claimPipelineStage(supabase: any, pipelineId: string, expectedStage?: string): Promise<string | null> {
-  const token = crypto.randomUUID();
-  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
-  let q = supabase
-    .from("agent_pipelines")
-    .update({ stage_claim_token: token, stage_claim_at: new Date().toISOString() } as any)
-    .eq("id", pipelineId)
-    .or(`stage_claim_token.is.null,stage_claim_at.lt.${staleBefore}`);
-  if (expectedStage) q = q.eq("current_stage", expectedStage);
-  const { data, error } = await q.select("id");
-  if (error) { console.warn("[claim] CAS error:", error.message); return null; }
-  return (data && data.length > 0) ? token : null;
+  // Use SECURITY DEFINER RPC to bypass PostgREST schema cache for stage_claim_* columns
+  const { data, error } = await supabase.rpc("claim_pipeline_stage", {
+    p_pipeline_id: pipelineId,
+    p_expected_stage: expectedStage ?? null,
+    p_stale_seconds: 300,
+  });
+  if (error) { console.warn("[claim] RPC error:", error.message); return null; }
+  return (data as string | null) || null;
 }
 
 async function releasePipelineClaim(supabase: any, pipelineId: string, token: string) {
-  await supabase
-    .from("agent_pipelines")
-    .update({ stage_claim_token: null, stage_claim_at: null } as any)
-    .eq("id", pipelineId)
-    .eq("stage_claim_token", token);
+  await supabase.rpc("release_pipeline_claim", { p_pipeline_id: pipelineId, p_token: token });
 }
 
 /**
