@@ -1,186 +1,61 @@
 ## Mục tiêu
+Thêm vào Step "Xác nhận" của `GoalWizard` một **Lịch nội dung chi tiết theo ngày** — mỗi dòng = 1 bài: Ngày + Kênh + Trụ cột nội dung + Gợi ý chủ đề/angle, để user thấy rõ campaign sẽ chạy ra sao trước khi tạo.
 
-Step "Xác nhận" hiện tại (ảnh chụp) chỉ hiển thị summary tối thiểu (4 hero metrics + mục tiêu + brand + thông điệp + CTA + kênh). Nhiều dữ liệu user/AI đã chọn ở 3 step trước đang **bị ẩn** vào collapsible hoặc không hiện ra → user khó verify trước khi "Khởi chạy Campaign".
+## Vị trí
+Chèn ngay sau khối "Kênh & Tần suất" (~line 1838) trong `src/components/agents/GoalWizard.tsx`, trước "KPI Mục tiêu".
 
-Phát triển UI để hiển thị **đầy đủ** mọi quyết định của campaign, vẫn giữ design "Soft Luxury" gọn gàng.
+## Cách build lịch (deterministic, client-side, không gọi AI)
+Tạo helper `buildContentSchedule()` trong component, dùng dữ liệu sẵn có:
+- **Input**: `selectedChannels`, `frequency`, `pillarAllocation`, `effectiveDuration`, `campaignStartDate`, `aiSuggestedTopics`/`campaignName`.
+- **Bước 1 — Sinh slot cho từng kênh**: với mỗi channel, dùng `freqPerWeek` (daily=7, 3/week=[T2,T4,T6], 2/week=[T3,T5], weekly=[T3]) → ra danh sách ngày cụ thể trong khoảng `[start, start+duration)`.
+- **Bước 2 — Gán pillar (round-robin theo tỉ lệ)**: tạo "pillar pool" theo weight (vd Educate 50/Inspire 30/Sell 20 → mảng E,E,E,E,E,I,I,I,S,S) rồi shuffle ổn định (seed = campaignName) → gán tuần tự cho từng slot.
+- **Bước 3 — Gợi ý chủ đề**: 
+  - Nếu có `aiSuggestedTopics` (mảng topic AI gợi) → cycle qua list.
+  - Fallback: template `"{Pillar} • {channelLabel} #${index}"` (vd "Educate • Instagram #1").
+- **Bước 4 — Sort theo ngày tăng dần**, group theo tuần.
 
-## Phạm vi
-
-Chỉ sửa block render Step "Xác nhận" trong `src/components/agents/GoalWizard.tsx` (dòng ~1613-1779). Không đổi logic backend, không đổi state, không đổi 3 step trước.
-
-## Thông tin mới sẽ bổ sung
-
-### 1. Hero strip — thêm cards
-
-- Giữ 4 card hiện tại (Bài viết / Kênh / Ngày / Carousel)
-- Thêm card **"Posts/tuần"** (tính từ `estimatedPosts / (effectiveDuration/7)`) — giúp user cảm nhận cadence
-- Nếu `totalBudget > 0`: thêm card **Ngân sách** (format VNĐ rút gọn: "12tr", "1.5M")
-
-### 2. Timeline mini-bar (mới)
-
-Thay dòng "📅 date → date" bằng 1 thanh ngang nhỏ:
-
-- Hiển thị start → end với marker tuần (W1, W2…)
-- Badge nhỏ "X tuần Y ngày" bên cạnh
-
-### 3. Section "Chiến lược nội dung" (mới — collapsible mở mặc định)
-
-Hiện tại pillar allocation & budget breakdown bị giấu hoàn toàn. Show ra:
-
-**Budget breakdown** (nếu `totalBudget > 0` hoặc allocation ≠ default):
+## UI rendering
+Khối mới: collapsible card "Lịch nội dung chi tiết" (mở mặc định nếu `estimatedPosts ≤ 14`, đóng nếu nhiều hơn để tránh tràn).
 
 ```
-Content  ████████ 50%    6,000,000 đ
-Ads      █████    30%    3,600,000 đ
-KOL      ███      20%    2,400,000 đ
+┌─ 📅 Lịch nội dung chi tiết        [42 bài • 6 tuần]  ▼ ─┐
+│  Tuần 1 (20/01 – 26/01)                          8 bài  │
+│  ─────────────────────────────────────────────────────  │
+│  T2 20/01  [IG]  Educate   "Quy trình filler an toàn"   │
+│  T2 20/01  [FB]  Inspire   "Khách hàng trước/sau"       │
+│  T4 22/01  [IG]  Sell      "Ưu đãi tháng 1"             │
+│  ...                                                     │
+│  Tuần 2 (27/01 – 02/02)                          7 bài  │
+│  ...                                                     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Bar chart ngang dùng `bg-primary/20` + `bg-primary` fill.
+Mỗi row:
+- Cột 1: Thứ + dd/MM (w-16, text-[10px], text-muted-foreground, tabular-nums)
+- Cột 2: `ChannelIcon` + label kênh (w-24, dùng `channelIconColors`)
+- Cột 3: Pillar badge (variant outline, color theo pillar — Educate=blue/Inspire=violet/Sell=emerald, fallback muted)
+- Cột 4: Topic gợi ý (flex-1, truncate, text-[11px])
 
-**Content Pillars** (nếu `pillarAllocation` có data):
+Header tuần: `bg-muted/30 sticky top-0` trong vùng scroll, hiển thị range ngày + đếm bài.
 
-```
-[Educate]  40%   ~14 bài
-[Inspire]  35%   ~12 bài
-[Sell]     25%   ~9 bài
-```
+Container: `max-h-[280px] overflow-y-auto` để tránh chiếm hết viewport (đặc biệt mobile 707px). Có nút "Xem tất cả" mở `Dialog` nếu user muốn xem full.
 
-Tính số bài = `Math.round(estimatedPosts * pct/100)`.
-
-### 4. Section "Kênh & Tần suất" (nâng cấp)
-
-Thay vì chỉ chip kênh, render bảng nhỏ 1 dòng/kênh:
-
-```
-[IG icon] Instagram      3/week    ~6 bài
-[FB icon] Facebook       Daily     ~14 bài
-[X  icon] X (Twitter)    Daily     ~14 bài
-```
-
-Frequency badge + estimated posts per channel (dùng `freqPerWeek` map có sẵn × `effectiveDuration/7`).
-
-### 5. Section "KPI Targets" (mới, nếu có)
-
-Hiện `kpiTargets` đang bị ẩn. Render khi `Object.keys(kpiTargets).length > 0`:
-
-```
-Reach: 50,000   |   Engagement: 5%   |   Conversions: 200
-```
-
-Grid 2-3 cột, badge style.
-
-### 6. AI Reasoning panel (mới, conditional)
-
-Nếu `autoMode || autoChannelMode || autoStrategyMode`:
-
-- Show 1 card nhỏ "🪄 AI đã đề xuất" với accordion chứa 3 reasoning text: `aiReasoning` (objectives), `aiChannelReasoning`, `aiStrategyReasoning`
-- Mỗi dòng kèm icon ✓ check nhỏ
-
-### 7. Clarification understanding (nâng cấp)
-
-Nếu `clarificationUnderstanding` có giá trị, show 1 callout xanh "AI hiểu mục tiêu của bạn là: …" **luôn hiển thị** (không chỉ trong showClarification flow).
-
-### 8. Campaign name + description (mới)
-
-Hiện `name` + `description` không hiển thị ở Step xác nhận. Show header nhỏ trên cùng:
-
-```
-"Tháng 4 - Niềm vui mỗi ngày"
-14 ngày · 5 kênh · Awareness + Engagement
-```
-
-Nếu `description` có giá trị → 1 dòng truncate 2 lines.
-
-### 9. Cài đặt nâng cao (giữ collapsible)
-
-Vẫn giữ collapsible cho:
-
-- Chế độ AI (approve_each / full_auto / hybrid)
-- Linked Campaign
-- Smart Auto-Approve thresholds
-Nhưng **mặc định mở** nếu `autoApproveEnabled = true` để user thấy ngưỡng.
-
-## Layout mới (mobile-first vì user xem trên 707px)
-
-```text
-┌─────────────────────────────────┐
-│ ✨ Tạo AI Campaign         [X]  │
-│ Stepper: ✓ ✓ ✓ ● Xác nhận       │
-├─────────────────────────────────┤
-│ [Campaign name]                 │ ← mới
-│ [description 2 lines]           │ ← mới
-│                                 │
-│ [34][5][14][18][2/w][6tr]       │ ← +2 card
-│ ──●────────●────────●──         │ ← timeline bar mới
-│ 2 tuần · 17/5 → 31/5            │
-│                                 │
-│ ┌─ Mục tiêu & Brand ─────────┐  │
-│ │ ♥ Tăng tương tác           │  │
-│ │ +1 phụ: Tăng nhận biết     │  │
-│ │ 🅵 Flowa Brand             │  │
-│ └────────────────────────────┘  │
-│                                 │
-│ ┌─ Chiến lược nội dung ──────┐  │ ← mới
-│ │ THÔNG ĐIỆP (4)             │  │
-│ │ [chip][chip][chip][+1]     │  │
-│ │ ⚡ CTA: Chia sẻ khoảnh khắc│  │
-│ │ ─────────────              │  │
-│ │ NGÂN SÁCH                  │  │
-│ │ Content ███████ 50%        │  │
-│ │ Ads     ████    30%        │  │
-│ │ KOL     ██      20%        │  │
-│ │ ─────────────              │  │
-│ │ CONTENT PILLARS            │  │
-│ │ Educate 40% · 14 bài       │  │
-│ │ Inspire 35% · 12 bài       │  │
-│ └────────────────────────────┘  │
-│                                 │
-│ ┌─ Kênh & Tần suất ──────────┐  │ ← nâng cấp
-│ │ 📷 Instagram  3/w  ~6 bài  │  │
-│ │ 📘 Facebook   Daily ~14 bài│  │
-│ │ 🧵 Threads    2/w  ~4 bài  │  │
-│ └────────────────────────────┘  │
-│                                 │
-│ ┌─ KPI Targets ──────────────┐  │ ← mới (conditional)
-│ │ Reach 50k · Eng 5% · …     │  │
-│ └────────────────────────────┘  │
-│                                 │
-│ ┌─ 🪄 AI đã đề xuất ─────────┐  │ ← mới (conditional)
-│ │ ✓ Objectives: …            │  │
-│ │ ✓ Channels: …              │  │
-│ │ ✓ Strategy: …              │  │
-│ └────────────────────────────┘  │
-│                                 │
-│ [⚙ Cài đặt nâng cao ▾]         │
-├─────────────────────────────────┤
-│ < Quay lại   [⚡ Khởi chạy]     │
-└─────────────────────────────────┘
-```
+## Edge cases
+- `estimatedPosts === 0` → không render khối này.
+- `campaignStartDate` chưa set → dùng `new Date()` làm mặc định + ghi chú "(từ hôm nay)".
+- Duration > 60 ngày → chỉ render 4 tuần đầu trong card, còn lại trong Dialog.
+- Pillar pool rỗng → toàn bộ slot = "Mixed".
 
 ## Technical details
+- Helper thuần (không hook), gọi trong cùng IIFE `(() => { ... })()` đã có ở Step Confirm để tránh re-render thừa.
+- Date format: `date-fns` (`format(date, 'EEE dd/MM', { locale: vi })`) — package đã import sẵn ở các file khác.
+- Seed shuffle: hash đơn giản từ `campaignName` (mulberry32) để mỗi lần render cùng campaign ra cùng thứ tự, nhưng campaign khác nhau ra layout khác.
+- Pillar color map: thêm const local `pillarBadgeClass: Record<string, string>` với 3-4 màu semantic.
+- Không thêm dependency mới, không sửa state/backend, không sửa schema.
 
-- File: `src/components/agents/GoalWizard.tsx`, block `step === confirmStep` (~165 dòng JSX hiện tại sẽ tăng lên ~280 dòng)
-- Reuse helpers có sẵn: `freqPerWeek`, `visualChannelIds`, `estimatedPosts`, `effectiveDuration`, `selectedObj`, `currentBrand`
-- Thêm helper inline:
-  - `formatBudgetShort(n)` → "6tr", "1.2M"
-  - `getChannelPosts(ch)` → `Math.max(1, Math.round((freqPerWeek[freq]/7) * effectiveDuration))`
-  - `getPillarPosts(pct)` → `Math.round(estimatedPosts * pct/100)`
-- Dùng semantic tokens: `bg-primary/10`, `bg-muted`, `border-border`, `text-muted-foreground` (không hard-code màu)
-- Bar chart: `<div className="h-1.5 rounded-full bg-muted overflow-hidden"><div style={{width: pct+'%'}} className="h-full bg-primary" /></div>`
-- Timeline bar: flex row với 3-4 dots biểu thị tuần
-- Tất cả section mới wrap trong `rounded-lg border bg-card p-2.5` (consistent với existing)
-- Text size giữ nguyên `text-[11px]` / `text-[9px]` để không phá layout compact hiện tại
-- Conditional rendering: chỉ show section nếu có data tương ứng (tránh empty state lộn xộn)
+## File chỉnh sửa
+- `src/components/agents/GoalWizard.tsx` — chỉ JSX + helper trong Step 4.
 
-## Không thay đổi
-
-- 3 step trước (Mục tiêu / Chiến lược / Kênh)
-- Logic auto-pilot, suggest-* hooks
-- Backend edge functions
-- Footer buttons (Quay lại / Khởi chạy Campaign)
-- ClarificationStep flow
-
-## Risk
-
-- JSX block dài hơn (~280 dòng) → có thể tách thành sub-component `ConfirmStepSummary` nếu cần. Plan này giữ inline để diff sạch, refactor sau nếu user muốn.
-- Trên viewport 707px (user đang xem) — bar chart và timeline phải responsive: dùng `flex-wrap` và `min-w-0` cẩn thận.
+## Out of scope
+- Không persist lịch vào DB (chỉ preview UI; backend `generate-campaign-strategy` vẫn là nguồn truth khi user bấm "Tạo").
+- Không cho phép edit từng slot ở bước này (sẽ làm ở Campaign Detail sau).
