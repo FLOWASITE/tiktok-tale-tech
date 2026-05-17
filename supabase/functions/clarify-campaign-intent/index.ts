@@ -218,6 +218,14 @@ Respond in the SAME LANGUAGE as the campaign title/description.`;
       parsed.questions = parsed.questions.slice(0, 2);
     }
     parsed.completeness_score = completenessScore;
+    parsed.heuristic_name_quality = nameQuality.status;
+
+    // Cap suggestions to 3, sanitize
+    if (parsed?.suggested_names && Array.isArray(parsed.suggested_names)) {
+      parsed.suggested_names = parsed.suggested_names
+        .filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+        .slice(0, 3);
+    }
 
     return new Response(
       JSON.stringify(parsed),
