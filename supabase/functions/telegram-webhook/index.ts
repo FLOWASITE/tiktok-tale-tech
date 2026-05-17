@@ -1313,6 +1313,54 @@ async function handleGenerate(
   const durationDays = extracted.duration_days;
   const endDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
+  // Compute target_post_count from cadence × duration weeks
+  const durationWeeks = Math.max(1, Math.ceil(durationDays / 7));
+  const targetPostCount = extracted.cadence === "daily"
+    ? durationDays
+    : extracted.per_week * durationWeeks;
+
+  // AI-driven channel pick: call suggest-channels with full campaign context
+  // (objectives, duration, post_count, brand, available_connections) — same as GoalWizard.
+  // Fallback to extracted.channels (rule-based) on failure.
+  let finalChannels: string[] = extracted.channels;
+  let suggestReasoning: string | undefined;
+  let suggestAiPowered = false;
+  let perChannelFreq: Array<{ id: string; frequency: string }> = [];
+  try {
+    const sgRes = await Promise.race([
+      supabase.functions.invoke("suggest-channels", {
+        body: {
+          title: extracted.suggested_name,
+          description: prompt,
+          objectives: extracted.objectives,
+          brand_template_id: (activeBrandGen as any)?.id || undefined,
+          organization_id: botConfig.organizationId,
+          brand_name: (activeBrandGen as any)?.brand_name || undefined,
+          industry: Array.isArray((activeBrandGen as any)?.industry)
+            ? (activeBrandGen as any).industry[0]
+            : (activeBrandGen as any)?.industry || undefined,
+          campaign_duration_days: durationDays,
+          target_post_count: targetPostCount,
+          available_connections: availableChannels,
+        },
+      }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 12000)),
+    ]) as { data?: any; error?: any };
+
+    const sg = sgRes?.data;
+    if (sg && Array.isArray(sg.channels) && sg.channels.length > 0) {
+      perChannelFreq = sg.channels.map((c: any) => ({ id: String(c.id), frequency: String(c.frequency) }));
+      finalChannels = perChannelFreq.map((c) => c.id);
+      suggestReasoning = typeof sg.reasoning === "string" ? sg.reasoning : undefined;
+      suggestAiPowered = !!sg.ai_powered;
+      console.log("[handleGenerate] suggest-channels:", { ai_powered: suggestAiPowered, channels: finalChannels });
+    } else {
+      console.warn("[handleGenerate] suggest-channels empty, using extracted fallback");
+    }
+  } catch (e) {
+    console.warn("[handleGenerate] suggest-channels failed:", (e as Error).message);
+  }
+
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
     .insert({
@@ -1321,7 +1369,7 @@ async function handleGenerate(
       organization_id: botConfig.organizationId,
       created_by: binding.userId,
       target_topics: [],
-      target_channels: extracted.channels,
+      target_channels: finalChannels,
       frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
       campaign_duration_days: durationDays,
       campaign_start_date: today.toISOString().split("T")[0],
@@ -1331,7 +1379,18 @@ async function handleGenerate(
       approval_mode: "approve_plan",
       is_active: true,
       is_paused: false,
-      clarification_context: { telegram_ai_extracted: extracted },
+      clarification_context: {
+        telegram_ai_extracted: extracted,
+        objectives: extracted.objectives,
+        primary_objective: extracted.objectives[0],
+        secondary_objectives: extracted.objectives.slice(1),
+        target_post_count: targetPostCount,
+        channel_frequencies: perChannelFreq,
+        suggest_channels: {
+          reasoning: suggestReasoning,
+          ai_powered: suggestAiPowered,
+        },
+      },
     })
     .select("id, name")
     .single();
