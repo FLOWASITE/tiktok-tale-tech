@@ -339,6 +339,14 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  'suggest-objectives': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.7,
+    max_tokens: 600,
+    cache_ttl_seconds: 300,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   'generate-seo-landing': {
     model: 'google/gemini-2.5-flash',
     temperature: 0.6,
