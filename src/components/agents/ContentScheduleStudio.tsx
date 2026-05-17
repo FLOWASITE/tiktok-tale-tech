@@ -408,13 +408,51 @@ export default function ContentScheduleStudio({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] text-muted-foreground">Loại</label>
+                  <div className="flex items-center gap-1">
+                    <label className="text-[11px] text-muted-foreground">Loại</label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="inline-flex text-muted-foreground/70 hover:text-foreground" aria-label="Giải thích loại nội dung">
+                          <Info className="w-3 h-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+                        <div className="space-y-1.5">
+                          <div><span className="font-semibold">Post:</span> Bài ngắn text + ảnh, tự chuyển đổi sang nhiều kênh social.</div>
+                          <div><span className="font-semibold">Carousel:</span> Chuỗi 5–10 slide vuốt, phù hợp giới thiệu sản phẩm hoặc storytelling.</div>
+                          <div><span className="font-semibold">Video:</span> Kịch bản 15–180 giây, xuất ra Reels / TikTok / Shorts / YouTube.</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Select value={p.content_type} onValueChange={(v) => updatePiece(p.piece_number, { content_type: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs">
+                      {(() => {
+                        const sel = CONTENT_TYPES.find((t) => t.value === p.content_type);
+                        const Icon = sel?.icon;
+                        return (
+                          <span className="flex items-center gap-1.5 truncate">
+                            {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+                            <span className="truncate">{sel?.label ?? p.content_type}</span>
+                          </span>
+                        );
+                      })()}
+                    </SelectTrigger>
                     <SelectContent>
-                      {CONTENT_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>
-                      ))}
+                      {CONTENT_TYPES.map((t) => {
+                        const Icon = t.icon;
+                        return (
+                          <SelectItem key={t.value} value={t.value} textValue={t.label} className="text-xs py-2">
+                            <div className="flex items-start gap-2">
+                              <Icon className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium leading-tight">{t.label}</span>
+                                <span className="text-[11px] text-muted-foreground leading-snug">{t.description}</span>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
