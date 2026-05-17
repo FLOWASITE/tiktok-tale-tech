@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSuggestObjectives } from '@/hooks/agents/useSuggestObjectives';
+import { useSuggestChannels } from '@/hooks/agents/useSuggestChannels';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
@@ -274,6 +275,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
+  // Auto-suggest channels mode
+  const [autoChannelMode, setAutoChannelMode] = useState(false);
+  const [aiChannelIds, setAiChannelIds] = useState<Set<string>>(new Set());
+  const [aiChannelReasoning, setAiChannelReasoning] = useState<string>('');
+  const suggestChannels = useSuggestChannels();
 
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
@@ -1226,6 +1232,83 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
               <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
+
+              {/* Auto-suggest channels toggle */}
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="auto-ch" className="text-xs font-medium cursor-pointer">
+                      Để AI chọn kênh hợp lý
+                    </Label>
+                    <Switch
+                      id="auto-ch"
+                      checked={autoChannelMode}
+                      disabled={suggestChannels.isPending || (!name.trim() && !description.trim())}
+                      onCheckedChange={async (checked) => {
+                        setAutoChannelMode(checked);
+                        if (!checked) {
+                          // Remove only AI-picked channels, keep user-added ones
+                          setSelectedChannels(prev => prev.filter(id => !aiChannelIds.has(id)));
+                          setFrequency(prev => {
+                            const next = { ...prev };
+                            aiChannelIds.forEach(id => { delete next[id]; });
+                            return next;
+                          });
+                          setAiChannelIds(new Set());
+                          setAiChannelReasoning('');
+                          return;
+                        }
+                        try {
+                          const result = await suggestChannels.mutateAsync({
+                            title: name,
+                            description,
+                            objectives,
+                            brand_template_id: brandTemplateId || currentBrand?.id,
+                            brand_name: currentBrand?.brand_name,
+                            industry: Array.isArray(currentBrand?.industry)
+                              ? currentBrand.industry[0]
+                              : (currentBrand?.industry as string | undefined),
+                            organization_id: currentOrganization?.id,
+                          });
+                          const aiIds = result.channels.map(c => c.id);
+                          setSelectedChannels(prev => Array.from(new Set([...prev, ...aiIds])));
+                          setFrequency(prev => {
+                            const next = { ...prev };
+                            result.channels.forEach(c => {
+                              if (!next[c.id]) next[c.id] = c.frequency;
+                            });
+                            return next;
+                          });
+                          setAiChannelIds(new Set(aiIds));
+                          setAiChannelReasoning(result.reasoning || '');
+                          toast.success('AI đã gợi ý kênh', { description: result.reasoning });
+                        } catch (err: any) {
+                          const msg = String(err?.message || '');
+                          if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+                          else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+                          else toast.error('AI gợi ý thất bại', { description: msg });
+                          setAutoChannelMode(false);
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    AI sẽ chọn 2–5 kênh phù hợp với mục tiêu & ngành nghề và đề xuất tần suất đăng. Bạn vẫn có thể chỉnh.
+                  </p>
+                  {suggestChannels.isPending && (
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích kênh phù hợp…
+                    </div>
+                  )}
+                  {aiChannelReasoning && !suggestChannels.isPending && (
+                    <p className="text-[10px] text-muted-foreground italic mt-1.5">
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiChannelReasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {(['longform', 'social'] as const).map(group => {
                 const items = AVAILABLE_CHANNELS.filter(c => c.group === group);
                 return (
@@ -1236,14 +1319,20 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     <div className="grid grid-cols-2 gap-2">
                       {items.map(ch => {
                         const selected = selectedChannels.includes(ch.id);
+                        const isAiPick = aiChannelIds.has(ch.id);
                         return (
                           <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
-                            selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                            "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all relative",
+                            selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30",
+                            isAiPick && selected && "ring-1 ring-primary/40"
                           )}>
                             <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
                             <span className="text-xs font-medium">{ch.label}</span>
-                            {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
+                            {isAiPick && (
+                              <Sparkles className="w-3 h-3 text-primary ml-auto shrink-0" />
+                            )}
+                            {selected && !isAiPick && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
+                            {selected && isAiPick && <Check className="w-3 h-3 text-primary shrink-0" />}
                           </button>
                         );
                       })}
