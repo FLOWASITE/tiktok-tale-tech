@@ -8,7 +8,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function calculatePieceCount(durationDays: number): { min: number; max: number } {
+const PIECE_HARD_CAP = 200;
+
+function calculatePieceCount(
+  durationDays: number,
+  targetCount?: number | null,
+): { min: number; max: number } {
+  if (typeof targetCount === "number" && Number.isFinite(targetCount) && targetCount >= 1) {
+    const clamped = Math.min(PIECE_HARD_CAP, Math.max(1, Math.round(targetCount)));
+    // ±10% tolerance, but at least ±2 to give AI breathing room
+    const tol = Math.max(2, Math.round(clamped * 0.1));
+    return { min: Math.max(1, clamped - tol), max: Math.min(PIECE_HARD_CAP, clamped + tol) };
+  }
   if (durationDays <= 7) return { min: 3, max: 4 };
   if (durationDays <= 14) return { min: 5, max: 7 };
   if (durationDays <= 30) return { min: 8, max: 12 };
