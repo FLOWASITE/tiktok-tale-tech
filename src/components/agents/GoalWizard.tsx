@@ -931,7 +931,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden" onInteractOutside={(e) => { if (isGenerating) e.preventDefault(); }}>
+      <DialogContent className="w-screen h-screen max-w-none sm:max-w-none p-0 gap-0 overflow-hidden rounded-none sm:rounded-none flex flex-col" onInteractOutside={(e) => { if (isGenerating) e.preventDefault(); }}>
+        <div className="flex-1 min-h-0 overflow-y-auto"><div className="max-w-5xl mx-auto w-full">
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -2466,6 +2467,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             </>
           )}
         </div>
+        </div></div>
       </DialogContent>
     </Dialog>
   );
