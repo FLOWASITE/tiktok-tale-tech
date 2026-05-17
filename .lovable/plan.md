@@ -1,64 +1,58 @@
-## Bối cảnh
+# Tối ưu 2 AI function: rule-based + cache
 
-Kế hoạch campaign (`generate-campaign-strategy`) hiện tạo title trong 1 lượt LLM chung — title hay bị chung chung, không sát brand/industry vì model phải làm quá nhiều việc cùng lúc (angle + role + channel + schedule + title). User muốn: với mỗi piece, có thể **xem 3–5 gợi ý chủ đề** sát brand và **chọn 1** để thay title.
+## 1. `suggest-channels` → Rule-based (bỏ AI)
 
-## Mục tiêu
+Thay AI call bằng bảng điểm `CHANNEL_FIT` deterministic.
 
-Trong `CampaignPlanReview`, mỗi piece có nút **"Gợi ý chủ đề khác"** → mở popover hiển thị 3–5 suggestion (title + 1 dòng angle/hook) do AI tạo riêng cho piece đó dựa trên: brand voice + industry + pillar + angle + role + key_message + dedup với titles đã có trong plan. Click 1 gợi ý → cập nhật `title` (và optional `key_message`) của piece, lưu vào `campaign_content_plans.plan_data`.
+**Logic:**
+- Bảng `OBJECTIVE_CHANNEL_SCORES`: map `objective × channel → score (0-100)`
+  - `awareness`: tiktok 95, facebook 90, instagram 85, youtube 80, linkedin 40, blog 50, zalo 60
+  - `engagement`: instagram 95, tiktok 90, facebook 85, threads 80, linkedin 60
+  - `conversion`: facebook 90, instagram 85, blog 80, website 85, linkedin 75, google_business 70
+  - `retention`: zalo 90, email 95, blog 70, facebook 60
+  - `seo/traffic`: blog 95, website 90, youtube 75
+  - `b2b/leads`: linkedin 95, blog 80, website 75
+- **Modifier theo brand/industry:**
+  - Industry `beauty/aesthetic` → +10 instagram, +15 tiktok, −20 linkedin
+  - Industry `b2b/saas/legal` → +20 linkedin, +10 blog, −15 tiktok
+  - Brand tone `professional` → +5 linkedin/blog
+  - Brand tone `playful/genz` → +10 tiktok/instagram
+- **Filter:** chỉ giữ channels có trong `available_connections` (đã connect)
+- **Output:** top 3-6 channels theo score giảm dần, kèm `reason` ngắn ("Phù hợp awareness + audience trẻ trên TikTok")
 
-Không đụng pipeline thực thi, không sửa schema.
+**Code:** rewrite `supabase/functions/suggest-channels/index.ts`
+- Bỏ `callAI`, bỏ AI config
+- Pure function `scoreChannels({ objective, industry, brandTone, available })`
+- Latency <5ms, 0$ cost, deterministic
+- Xóa entry `suggest-channels` khỏi `ai-config.ts` + admin UI (migration soft-delete row trong `ai_function_configs`)
 
-## Phạm vi
+## 2. `suggest-piece-topics` → Giữ AI + thêm Cache 7 ngày
 
-**Mới**
-- `supabase/functions/suggest-piece-topics/index.ts` — edge function nhận `{ piece, brand_template_id, organization_id, existing_titles[], campaign_title, clarification_context }` → return `{ suggestions: [{ title, hook, key_message }] }` (3–5 items). Dùng `callAIWithMetrics`, model nhỏ (gemini-3-flash-preview), prompt tập trung 1 piece duy nhất, inject brand voice + industry + pillar.
-- `src/hooks/agents/useSuggestPieceTopics.ts` — TanStack mutation wrapper.
-- `src/components/agents/PieceTopicSuggestPopover.tsx` — popover UI: loading skeleton, 3–5 card chọn được, nút "Tạo lại". Click apply → callback `onPick(suggestion)`.
+**Cache key:** `hash(brand_id + pillar + angle + role + channel + existing_titles.join('|'))`
 
-**Sửa**
-- `src/components/agents/CampaignPlanReview.tsx` — mỗi piece card (3 layout: card/list/timeline) thêm nút icon `Sparkles` cạnh title. Mở popover → khi pick → cập nhật `localPieces[i].title` (+ optional `key_message`) → `updatePlan.mutate`.
+**Triển khai:**
+- Dùng `withCache()` từ `_shared/cache-utils.ts` (đã có)
+- TTL: 7 ngày = 604800s
+- Scope: `'org'` (cache per organization, không cross-tenant)
+- Update `ai-config.ts`: `cache_ttl_seconds: 604800`
+- Update DB row trong `ai_function_configs` cho `suggest-piece-topics`
 
-## Chi tiết kỹ thuật
+**Expected impact:**
+- 70-80% cache hit rate (user thường suggest lại cùng pillar/angle trong 1 campaign)
+- Cost giảm từ ~$0.0003/call → ~$0.00006/call trung bình
+- Latency cache hit <50ms (thay vì 2-4s gọi AI)
 
-### Edge function `suggest-piece-topics`
-- Auth: JWT bắt buộc (Lovable Cloud default).
-- Input validate: piece object (angle, content_role, target_channel, content_type, pillar?, key_message?), `brand_template_id` optional.
-- Fetch `brand_templates` → `brand_name`, `industry`, `tone_of_voice`, `brand_positioning`, `target_audience`.
-- Prompt structure (English instruction → Vietnamese output, theo pattern Prompt Localization):
-  - Role: SEA content strategist.
-  - Context: brand, industry, pillar, campaign title, angle, role, channel, key_message.
-  - Constraint: 3–5 titles, KHÁC `existing_titles`, mỗi title kèm `hook` (1 câu) và `key_message` ngắn. Bám brand voice. Không click-bait.
-  - Output: structured tool-calling `return_topic_suggestions({ suggestions: [{title, hook, key_message}] })`.
-- Error: 429/402 trả về codes chuẩn để FE hiển thị toast.
+## Files thay đổi
 
-### Popover UI
-- Trigger: button ghost size `xs` icon Sparkles, tooltip "Gợi ý chủ đề khác".
-- Content: width 360, header "Gợi ý cho góc: {angle}", list 3–5 card click-to-pick (title bold + hook muted), footer "Tạo lại" + "Đóng".
-- Loading: 4 skeleton row.
-- Theo Soft Luxury: neutral gray ring, không gradient màu.
-
-### Apply logic trong `CampaignPlanReview`
-```ts
-const handleApplySuggestion = (pieceNumber, s) => {
-  const updated = pieces.map(p => p.piece_number === pieceNumber
-    ? { ...p, title: s.title, key_message: s.key_message || p.key_message }
-    : p);
-  setLocalPieces(updated);
-  updatePlan.mutate({ id: plan.id, plan_data: updated as any });
-};
+```text
+supabase/functions/suggest-channels/index.ts          [rewrite - bỏ AI]
+supabase/functions/suggest-piece-topics/index.ts      [thêm withCache wrap]
+supabase/functions/_shared/ai-config.ts               [xóa suggest-channels, set TTL 604800 cho suggest-piece-topics]
+supabase/migrations/<new>.sql                         [DELETE suggest-channels row, UPDATE TTL cho suggest-piece-topics]
 ```
 
-## Ngoài phạm vi
+## Verify sau khi deploy
 
-- Không sửa `generate-campaign-strategy` (giữ flow tạo plan ban đầu).
-- Không thêm bulk "Regenerate all titles" (có thể làm sau nếu user muốn).
-- Không động vào `agent_pipelines` đã chạy — chỉ edit khi plan ở trạng thái `planned`/chưa approve.
-- Không thay đổi schema DB.
-
-## Bước triển khai
-
-1. Tạo `supabase/functions/suggest-piece-topics/index.ts` + verify_jwt mặc định.
-2. Tạo hook `useSuggestPieceTopics`.
-3. Tạo component `PieceTopicSuggestPopover`.
-4. Wire vào 3 layout (card/list/timeline) trong `CampaignPlanReview` cạnh title; chỉ hiện khi `isEditable && !isApproved`.
-5. Test thủ công: tạo 1 campaign mới → mở plan review → click Sparkles → pick → title đổi và DB cập nhật.
+1. Curl `suggest-channels` với 3 objective khác nhau → check score ranking đúng
+2. Curl `suggest-piece-topics` 2 lần liên tiếp cùng input → lần 2 phải hit cache (check `x-cache: HIT` header hoặc log)
+3. Check Admin AI Management UI → `suggest-channels` không còn, `suggest-piece-topics` hiện TTL 7d

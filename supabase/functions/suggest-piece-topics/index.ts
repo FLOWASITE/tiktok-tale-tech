@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { callAI } from "../_shared/ai-provider.ts";
+import { withCache } from "../_shared/cache-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,55 +121,100 @@ Return ONLY valid JSON in this exact shape:
   ]
 }`;
 
-    const aiResult = await callAI({
-      functionName: "suggest-piece-topics",
-      organizationId,
-      messages: [{ role: "user", content: prompt }],
-      temperatureOverride: 0.7,
-      maxTokensOverride: 900,
-    } as any);
+    type Suggestion = { title: string; hook: string; key_message: string };
 
-    if (!aiResult?.success) {
-      const errMsg = aiResult?.error || "AI call failed";
-      console.error("[suggest-piece-topics] AI error:", errMsg);
-      if (errMsg.includes("429") || errMsg.toLowerCase().includes("rate limit")) {
+    const generateSuggestions = async (): Promise<Suggestion[]> => {
+      const aiResult = await callAI({
+        functionName: "suggest-piece-topics",
+        organizationId,
+        messages: [{ role: "user", content: prompt }],
+        temperatureOverride: 0.7,
+        maxTokensOverride: 900,
+      } as any);
+
+      if (!aiResult?.success) {
+        const errMsg = aiResult?.error || "AI call failed";
+        console.error("[suggest-piece-topics] AI error:", errMsg);
+        const err = new Error(errMsg) as Error & { code?: string };
+        if (errMsg.includes("429") || errMsg.toLowerCase().includes("rate limit")) err.code = "RATE_LIMIT";
+        else if (errMsg.includes("402") || errMsg.includes("Payment") || errMsg.includes("credits")) err.code = "CREDITS_EXHAUSTED";
+        throw err;
+      }
+
+      const content = aiResult.data?.choices?.[0]?.message?.content || "";
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        const m = content.match(/\{[\s\S]*\}/);
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch { /* ignore */ }
+        }
+      }
+
+      const rawList = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
+      return rawList
+        .map((s: any) => ({
+          title: typeof s?.title === "string" ? s.title.trim().slice(0, 140) : "",
+          hook: typeof s?.hook === "string" ? s.hook.trim().slice(0, 180) : "",
+          key_message: typeof s?.key_message === "string" ? s.key_message.trim().slice(0, 200) : "",
+        }))
+        .filter((s: Suggestion) => s.title.length > 0)
+        .slice(0, 5);
+    };
+
+    let suggestions: Suggestion[] = [];
+    let fromCache = false;
+
+    try {
+      if (organizationId) {
+        // 7-day cache scoped to org. Key includes brand + pillar + angle + role + channel + existing titles.
+        const cached = await withCache<Suggestion[]>({
+          functionName: "suggest-piece-topics",
+          scope: "org",
+          organizationId,
+          brandTemplateId,
+          input: {
+            brand_template_id: brandTemplateId || "",
+            pillar,
+            angle: piece.angle,
+            content_role: piece.content_role,
+            channel,
+            current_title: currentTitle,
+            current_key_message: currentKeyMessage,
+            campaign_title: campaignTitle,
+            existing_titles: existingTitles,
+            key_messages: keyMessages,
+          },
+          versions: { brandVoice: brandTemplateId || "none" },
+          ttlDays: 7,
+          generateFn: generateSuggestions,
+          validateFn: (data) => Array.isArray(data) && data.length > 0,
+        });
+        suggestions = cached.data;
+        fromCache = cached.fromCache;
+      } else {
+        suggestions = await generateSuggestions();
+      }
+    } catch (err) {
+      const e = err as Error & { code?: string };
+      if (e.code === "RATE_LIMIT") {
         return new Response(
           JSON.stringify({ error: "Quá nhiều yêu cầu, thử lại sau ít giây", errorCode: "RATE_LIMIT" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (errMsg.includes("402") || errMsg.includes("Payment") || errMsg.includes("credits")) {
+      if (e.code === "CREDITS_EXHAUSTED") {
         return new Response(
           JSON.stringify({ error: "Hết AI credits. Vui lòng nạp tại Settings → Usage.", errorCode: "CREDITS_EXHAUSTED" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
       return new Response(
-        JSON.stringify({ error: errMsg }),
+        JSON.stringify({ error: e.message || "AI call failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const content = aiResult.data?.choices?.[0]?.message?.content || "";
-    let parsed: any = null;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      const m = content.match(/\{[\s\S]*\}/);
-      if (m) {
-        try { parsed = JSON.parse(m[0]); } catch { /* ignore */ }
-      }
-    }
-
-    const rawList = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
-    const suggestions = rawList
-      .map((s: any) => ({
-        title: typeof s?.title === "string" ? s.title.trim().slice(0, 140) : "",
-        hook: typeof s?.hook === "string" ? s.hook.trim().slice(0, 180) : "",
-        key_message: typeof s?.key_message === "string" ? s.key_message.trim().slice(0, 200) : "",
-      }))
-      .filter((s: any) => s.title.length > 0)
-      .slice(0, 5);
 
     if (suggestions.length === 0) {
       return new Response(
@@ -178,9 +224,10 @@ Return ONLY valid JSON in this exact shape:
     }
 
     return new Response(
-      JSON.stringify({ suggestions }),
+      JSON.stringify({ suggestions, cached: fromCache }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (e) {
     console.error("[suggest-piece-topics] Error:", e);
     return new Response(
