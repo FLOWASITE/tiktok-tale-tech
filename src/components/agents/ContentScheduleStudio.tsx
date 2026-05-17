@@ -640,7 +640,7 @@ export default function ContentScheduleStudio({
       ) : isWide ? (
         <CalendarGrid
           startDate={startDate} duration={duration} dayGroups={dayGroups}
-          channelKey={channelKey} channelLabel={channelLabel}
+          channelKey={channelKey}
           onAdd={addPiece} onDelete={deletePiece}
           onEdit={(p) => { setView('list'); setDraftTitle(p.title); setEditingId(p.piece_number); }}
         />
@@ -669,13 +669,12 @@ export default function ContentScheduleStudio({
 /* ---------- calendar grid (wide only) ---------- */
 
 function CalendarGrid({
-  startDate, duration, dayGroups, channelKey, channelLabel, onAdd, onDelete, onEdit,
+  startDate, duration, dayGroups, channelKey, onAdd, onDelete, onEdit,
 }: {
   startDate: string;
   duration: number;
   dayGroups: [string, SchedulePiece[]][];
   channelKey: (id: string) => string;
-  channelLabel: (id: string) => string;
   onAdd: (d: string) => void;
   onDelete: (n: number) => void;
   onEdit: (p: SchedulePiece) => void;
