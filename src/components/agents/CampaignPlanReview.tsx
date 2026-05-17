@@ -529,6 +529,41 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
     approvePlan.mutate(plan.id);
   };
 
+  const handleApplySuggestion = (pieceNumber: number, s: PieceTopicSuggestion) => {
+    const updated = pieces.map(p =>
+      p.piece_number === pieceNumber
+        ? { ...p, title: s.title, key_message: s.key_message || p.key_message }
+        : p,
+    );
+    setLocalPieces(updated);
+    updatePlan.mutate({ id: plan.id, plan_data: updated as any });
+  };
+
+  const renderSuggest = (piece: CampaignContentPiece) => (
+    <PieceTopicSuggestPopover
+      variant="icon-xs"
+      input={{
+        piece: {
+          angle: piece.angle,
+          content_role: piece.content_role,
+          target_channel: piece.target_channel,
+          title: piece.title,
+          key_message: piece.key_message ?? undefined,
+          pillar: (piece as any).pillar,
+        } as SuggestPieceTopicsInput['piece'],
+        brand_template_id: brandTemplateId || undefined,
+        organization_id: plan.organization_id,
+        campaign_title: goalName,
+        existing_titles: pieces
+          .filter(p => p.piece_number !== piece.piece_number)
+          .map(p => p.title)
+          .filter(Boolean),
+        clarification_context: plan.clarification_context || undefined,
+      }}
+      onPick={(s) => handleApplySuggestion(piece.piece_number, s)}
+    />
+  );
+
   return (
     <div className="space-y-4">
       {/* Plan Header */}
