@@ -1066,7 +1066,6 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
           {/* ═══ Step 0: Mục tiêu ═══ */}
           {!isGenerating && step === 0 && (
-            <div className="space-y-4">
             <div className="space-y-5">
               {/* ─── Brief card ─── */}
               <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
