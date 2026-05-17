@@ -1,71 +1,186 @@
-# AI Auto-Pilot cho GoalWizard
-
-## Hiện trạng
-GoalWizard có 4 step: **Mục tiêu → Chiến lược → Kênh → Xác nhận**. Đã có AI suggest cho 2/4:
-- ✅ `suggest-objectives` (Step 0) — autoMode toggle có sẵn
-- ❌ Step 1 Chiến lược (budget %, key messages, CTA, pillar allocation, posts target) — toàn bộ user nhập tay
-- ✅ `suggest-channels` (Step 2) — autoChannelMode có sẵn
-- ✅ `suggest-piece-topics` (Step Topic) — đã có nhưng chỉ trigger sau khi tạo plan, không phải trong wizard
-
 ## Mục tiêu
-Thêm **một nút "🪄 AI tự chạy toàn bộ"** ở đầu wizard + **AI auto-suggest cho Step Chiến lược** để user chỉ cần nhập tên + mô tả ngắn, AI tự fill 4 step rồi user review.
 
-## Việc cần làm
+Step "Xác nhận" hiện tại (ảnh chụp) chỉ hiển thị summary tối thiểu (4 hero metrics + mục tiêu + brand + thông điệp + CTA + kênh). Nhiều dữ liệu user/AI đã chọn ở 3 step trước đang **bị ẩn** vào collapsible hoặc không hiện ra → user khó verify trước khi "Khởi chạy Campaign".
 
-### 1. Edge function mới: `suggest-strategy`
-- Input: `brand_template_id`, `objectives[]`, `target_channels[]`, `campaign_duration_days`, `description`
-- Output:
-  ```ts
-  {
-    key_messages: string[],       // 3-5 thông điệp
-    primary_cta: string,
-    budget_allocation: { content, ads, kol },  // % cộng 100
-    pillar_allocation: Record<string, number>, // tên pillar -> %
-    total_posts_target: number,
-    reasoning: string
-  }
-  ```
-- Logic: dùng Lovable Gateway (`google/gemini-3-flash-preview`), prompt dựa trên brand voice + industry memory + objectives. Đăng ký vào `ai_function_configs` (category=`agent`).
-- Pattern theo `suggest-channels` (vừa refactor sang heuristic không cần AI). Cân nhắc: phần `key_messages`/`primary_cta` cần AI, phần `budget_allocation`/`pillar_allocation`/`total_posts_target` có thể tính heuristic theo objective + duration (giống `suggest-channels`). → Hybrid: heuristic cho số, AI cho text.
+Phát triển UI để hiển thị **đầy đủ** mọi quyết định của campaign, vẫn giữ design "Soft Luxury" gọn gàng.
 
-### 2. Hook mới: `useSuggestStrategy.ts` (React Query mutation, pattern giống `useSuggestChannels`).
+## Phạm vi
 
-### 3. UI Step 1 (Chiến lược) — thêm Auto mode
-- Toggle "🪄 AI tự chọn chiến lược" ở đầu Step 1 (giống pattern Step 0/2).
-- Khi bật:
-  - Gọi `suggestStrategy` với context từ Step 0+2.
-  - Fill: `keyMessages`, `primaryCta`, `budgetAllocation`, `pillarAllocation`, `totalPostsTarget`.
-  - Hiển thị reasoning badge + cho phép user edit thủ công (giữ origin AI marker giống Step 0).
-- Loading skeleton + retry button khi error.
+Chỉ sửa block render Step "Xác nhận" trong `src/components/agents/GoalWizard.tsx` (dòng ~1613-1779). Không đổi logic backend, không đổi state, không đổi 3 step trước.
 
-### 4. Master "AI tự chạy toàn bộ" button (đầu wizard, Step 0)
-- 1 button lớn `<Sparkles/> Để AI lo hết` ở header dialog.
-- Khi click:
-  1. Bật `autoMode` (objectives) → chờ kết quả → tự next.
-  2. Bật `autoChannelMode` (channels) → chờ → tự next.
-  3. Bật auto strategy → chờ → tự next.
-  4. Dừng ở Step "Xác nhận" cho user review trước khi save+generate.
-- Progress overlay: "Đang chọn mục tiêu... Đang chọn kênh... Đang lên chiến lược..." với 3 bullet checkmark.
-- User vẫn có thể bấm Back để chỉnh từng bước.
+## Thông tin mới sẽ bổ sung
 
-### 5. Topic auto-pick (đã có, chỉ link lại)
-- `suggest-piece-topics` đã chạy tự động trong `agent-pipeline` sau khi plan được duyệt.
-- Đảm bảo khi `approval_mode = full_auto`, topics được generate ngay không chờ user → check flow hiện tại trong `agent-pipeline` (chỉ verify, không sửa nếu đã đúng).
+### 1. Hero strip — thêm cards
 
-## File ảnh hưởng
-- **Tạo mới**:
-  - `supabase/functions/suggest-strategy/index.ts`
-  - `src/hooks/agents/useSuggestStrategy.ts`
-- **Sửa**:
-  - `src/components/agents/GoalWizard.tsx` — thêm autoStrategyMode state, render auto toggle Step 1, thêm master "AI tự chạy" button + orchestration logic
-  - `supabase/config.toml` — đăng ký `suggest-strategy` (verify_jwt=true, dùng auth user)
-- **Migration**: insert row vào `ai_function_configs` cho function mới (category=`agent`).
+- Giữ 4 card hiện tại (Bài viết / Kênh / Ngày / Carousel)
+- Thêm card **"Posts/tuần"** (tính từ `estimatedPosts / (effectiveDuration/7)`) — giúp user cảm nhận cadence
+- Nếu `totalBudget > 0`: thêm card **Ngân sách** (format VNĐ rút gọn: "12tr", "1.5M")
 
-## Không đụng vào
-- `agent-pipeline`, `generate-campaign-strategy` (đã chạy tốt sau khi user duyệt plan).
-- `suggest-piece-topics` (Topic) — đã wire sẵn.
-- Industry/Brand cascade.
+### 2. Timeline mini-bar (mới)
 
-## Risk & Trade-offs
-- Master button làm 3 API call tuần tự → ~6-10s tổng. Cần loading UX rõ ràng.
-- AI strategy có thể đề xuất pillar không khớp brand → giữ edit thủ công + reasoning hiển thị để user verify.
+Thay dòng "📅 date → date" bằng 1 thanh ngang nhỏ:
+
+- Hiển thị start → end với marker tuần (W1, W2…)
+- Badge nhỏ "X tuần Y ngày" bên cạnh
+
+### 3. Section "Chiến lược nội dung" (mới — collapsible mở mặc định)
+
+Hiện tại pillar allocation & budget breakdown bị giấu hoàn toàn. Show ra:
+
+**Budget breakdown** (nếu `totalBudget > 0` hoặc allocation ≠ default):
+
+```
+Content  ████████ 50%    6,000,000 đ
+Ads      █████    30%    3,600,000 đ
+KOL      ███      20%    2,400,000 đ
+```
+
+Bar chart ngang dùng `bg-primary/20` + `bg-primary` fill.
+
+**Content Pillars** (nếu `pillarAllocation` có data):
+
+```
+[Educate]  40%   ~14 bài
+[Inspire]  35%   ~12 bài
+[Sell]     25%   ~9 bài
+```
+
+Tính số bài = `Math.round(estimatedPosts * pct/100)`.
+
+### 4. Section "Kênh & Tần suất" (nâng cấp)
+
+Thay vì chỉ chip kênh, render bảng nhỏ 1 dòng/kênh:
+
+```
+[IG icon] Instagram      3/week    ~6 bài
+[FB icon] Facebook       Daily     ~14 bài
+[X  icon] X (Twitter)    Daily     ~14 bài
+```
+
+Frequency badge + estimated posts per channel (dùng `freqPerWeek` map có sẵn × `effectiveDuration/7`).
+
+### 5. Section "KPI Targets" (mới, nếu có)
+
+Hiện `kpiTargets` đang bị ẩn. Render khi `Object.keys(kpiTargets).length > 0`:
+
+```
+Reach: 50,000   |   Engagement: 5%   |   Conversions: 200
+```
+
+Grid 2-3 cột, badge style.
+
+### 6. AI Reasoning panel (mới, conditional)
+
+Nếu `autoMode || autoChannelMode || autoStrategyMode`:
+
+- Show 1 card nhỏ "🪄 AI đã đề xuất" với accordion chứa 3 reasoning text: `aiReasoning` (objectives), `aiChannelReasoning`, `aiStrategyReasoning`
+- Mỗi dòng kèm icon ✓ check nhỏ
+
+### 7. Clarification understanding (nâng cấp)
+
+Nếu `clarificationUnderstanding` có giá trị, show 1 callout xanh "AI hiểu mục tiêu của bạn là: …" **luôn hiển thị** (không chỉ trong showClarification flow).
+
+### 8. Campaign name + description (mới)
+
+Hiện `name` + `description` không hiển thị ở Step xác nhận. Show header nhỏ trên cùng:
+
+```
+"Tháng 4 - Niềm vui mỗi ngày"
+14 ngày · 5 kênh · Awareness + Engagement
+```
+
+Nếu `description` có giá trị → 1 dòng truncate 2 lines.
+
+### 9. Cài đặt nâng cao (giữ collapsible)
+
+Vẫn giữ collapsible cho:
+
+- Chế độ AI (approve_each / full_auto / hybrid)
+- Linked Campaign
+- Smart Auto-Approve thresholds
+Nhưng **mặc định mở** nếu `autoApproveEnabled = true` để user thấy ngưỡng.
+
+## Layout mới (mobile-first vì user xem trên 707px)
+
+```text
+┌─────────────────────────────────┐
+│ ✨ Tạo AI Campaign         [X]  │
+│ Stepper: ✓ ✓ ✓ ● Xác nhận       │
+├─────────────────────────────────┤
+│ [Campaign name]                 │ ← mới
+│ [description 2 lines]           │ ← mới
+│                                 │
+│ [34][5][14][18][2/w][6tr]       │ ← +2 card
+│ ──●────────●────────●──         │ ← timeline bar mới
+│ 2 tuần · 17/5 → 31/5            │
+│                                 │
+│ ┌─ Mục tiêu & Brand ─────────┐  │
+│ │ ♥ Tăng tương tác           │  │
+│ │ +1 phụ: Tăng nhận biết     │  │
+│ │ 🅵 Flowa Brand             │  │
+│ └────────────────────────────┘  │
+│                                 │
+│ ┌─ Chiến lược nội dung ──────┐  │ ← mới
+│ │ THÔNG ĐIỆP (4)             │  │
+│ │ [chip][chip][chip][+1]     │  │
+│ │ ⚡ CTA: Chia sẻ khoảnh khắc│  │
+│ │ ─────────────              │  │
+│ │ NGÂN SÁCH                  │  │
+│ │ Content ███████ 50%        │  │
+│ │ Ads     ████    30%        │  │
+│ │ KOL     ██      20%        │  │
+│ │ ─────────────              │  │
+│ │ CONTENT PILLARS            │  │
+│ │ Educate 40% · 14 bài       │  │
+│ │ Inspire 35% · 12 bài       │  │
+│ └────────────────────────────┘  │
+│                                 │
+│ ┌─ Kênh & Tần suất ──────────┐  │ ← nâng cấp
+│ │ 📷 Instagram  3/w  ~6 bài  │  │
+│ │ 📘 Facebook   Daily ~14 bài│  │
+│ │ 🧵 Threads    2/w  ~4 bài  │  │
+│ └────────────────────────────┘  │
+│                                 │
+│ ┌─ KPI Targets ──────────────┐  │ ← mới (conditional)
+│ │ Reach 50k · Eng 5% · …     │  │
+│ └────────────────────────────┘  │
+│                                 │
+│ ┌─ 🪄 AI đã đề xuất ─────────┐  │ ← mới (conditional)
+│ │ ✓ Objectives: …            │  │
+│ │ ✓ Channels: …              │  │
+│ │ ✓ Strategy: …              │  │
+│ └────────────────────────────┘  │
+│                                 │
+│ [⚙ Cài đặt nâng cao ▾]         │
+├─────────────────────────────────┤
+│ < Quay lại   [⚡ Khởi chạy]     │
+└─────────────────────────────────┘
+```
+
+## Technical details
+
+- File: `src/components/agents/GoalWizard.tsx`, block `step === confirmStep` (~165 dòng JSX hiện tại sẽ tăng lên ~280 dòng)
+- Reuse helpers có sẵn: `freqPerWeek`, `visualChannelIds`, `estimatedPosts`, `effectiveDuration`, `selectedObj`, `currentBrand`
+- Thêm helper inline:
+  - `formatBudgetShort(n)` → "6tr", "1.2M"
+  - `getChannelPosts(ch)` → `Math.max(1, Math.round((freqPerWeek[freq]/7) * effectiveDuration))`
+  - `getPillarPosts(pct)` → `Math.round(estimatedPosts * pct/100)`
+- Dùng semantic tokens: `bg-primary/10`, `bg-muted`, `border-border`, `text-muted-foreground` (không hard-code màu)
+- Bar chart: `<div className="h-1.5 rounded-full bg-muted overflow-hidden"><div style={{width: pct+'%'}} className="h-full bg-primary" /></div>`
+- Timeline bar: flex row với 3-4 dots biểu thị tuần
+- Tất cả section mới wrap trong `rounded-lg border bg-card p-2.5` (consistent với existing)
+- Text size giữ nguyên `text-[11px]` / `text-[9px]` để không phá layout compact hiện tại
+- Conditional rendering: chỉ show section nếu có data tương ứng (tránh empty state lộn xộn)
+
+## Không thay đổi
+
+- 3 step trước (Mục tiêu / Chiến lược / Kênh)
+- Logic auto-pilot, suggest-* hooks
+- Backend edge functions
+- Footer buttons (Quay lại / Khởi chạy Campaign)
+- ClarificationStep flow
+
+## Risk
+
+- JSX block dài hơn (~280 dòng) → có thể tách thành sub-component `ConfirmStepSummary` nếu cần. Plan này giữ inline để diff sạch, refactor sau nếu user muốn.
+- Trên viewport 707px (user đang xem) — bar chart và timeline phải responsive: dùng `flex-wrap` và `min-w-0` cẩn thận.
