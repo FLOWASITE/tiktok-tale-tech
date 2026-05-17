@@ -129,6 +129,7 @@ export function FunctionCategoryGroup({
   categoryConfig: dbCategoryConfig,
   groupModelOverride,
   getEffectiveModel,
+  highlightTerms,
 }: FunctionCategoryGroupProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   
