@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSuggestObjectives } from '@/hooks/agents/useSuggestObjectives';
+import { useSuggestChannels } from '@/hooks/agents/useSuggestChannels';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
@@ -274,6 +275,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
+  // Auto-suggest channels mode
+  const [autoChannelMode, setAutoChannelMode] = useState(false);
+  const [aiChannelIds, setAiChannelIds] = useState<Set<string>>(new Set());
+  const [aiChannelReasoning, setAiChannelReasoning] = useState<string>('');
+  const suggestChannels = useSuggestChannels();
 
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
