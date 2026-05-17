@@ -516,7 +516,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
     setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
-    setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
+    setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null); setNameIssue(null);
     setAutoMode(false); setAutoChannelMode(false); setAutoStrategyMode(false);
     setAiObjectiveIds(new Set()); setAiKpiKeys(new Set()); setAiChannelIds(new Set());
     setAiReasoning(''); setAiChannelReasoning(''); setAiStrategyReasoning('');
