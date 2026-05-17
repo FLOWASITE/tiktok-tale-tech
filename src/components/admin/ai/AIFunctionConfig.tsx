@@ -56,7 +56,11 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredQuery = useDeferredValue(searchQuery);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<FunctionStatus[]>([]);
+  const [providerFilter, setProviderFilter] = useState<FunctionProvider[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Check if OpenRouter provider has API key configured
