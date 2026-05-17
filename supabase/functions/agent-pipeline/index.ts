@@ -1541,6 +1541,66 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
     // ========== STAGE: create ==========
     } else if (stage === "create") {
+      // ===== Option B: poll deferred async task (carousel images) on re-entry =====
+      const pendingAsyncTaskId = pState.stages?.create?.async_task_id;
+      if (pendingAsyncTaskId) {
+        console.log(`[create] Polling pending async task ${pendingAsyncTaskId} for pipeline ${pipeline.id}`);
+        const { data: task } = await supabase
+          .from("generation_tasks")
+          .select("status, progress, error_message")
+          .eq("id", pendingAsyncTaskId)
+          .single();
+
+        if (!task) {
+          throw new Error(`Async task ${pendingAsyncTaskId} not found`);
+        }
+        if (task.status === "failed") {
+          throw new Error(`Async carousel batch failed: ${task.error_message || "unknown"}`);
+        }
+        if (task.status !== "completed") {
+          console.log(`[create] Async task still ${task.status} (progress=${task.progress ?? 0}). Will re-poll later.`);
+          result.status = "awaiting_async";
+          result.output = {
+            async_task_id: pendingAsyncTaskId,
+            task_status: task.status,
+            progress: task.progress ?? 0,
+          };
+          shouldAutoAdvance = false;
+        } else {
+          console.log(`[create] Async task ${pendingAsyncTaskId} completed — finalising create stage.`);
+          let seamlessScore: number | null = null;
+          let imageCount = 0;
+          try {
+            const { data: car } = await supabase
+              .from("carousels")
+              .select("seamless_consistency_score")
+              .eq("id", pipeline.content_id)
+              .single();
+            seamlessScore = car?.seamless_consistency_score ?? null;
+            const { count } = await supabase
+              .from("carousel_images")
+              .select("id", { count: "exact", head: true })
+              .eq("carousel_id", pipeline.content_id)
+              .eq("is_selected", true);
+            imageCount = count ?? 0;
+          } catch { /* ignore */ }
+
+          if (imageCount === 0) {
+            throw new Error("Carousel async task completed but no selected images persisted");
+          }
+
+          // Clear async marker so dedup/auto-advance works normally
+          pState.stages.create.async_task_id = null;
+          pState.stages.create.async_completed_at = new Date().toISOString();
+          result.output = {
+            ...(pState.stages.create.output || {}),
+            async_resolved: true,
+            seamless_score: seamlessScore,
+            image_count: imageCount,
+          };
+          // shouldAutoAdvance stays true → quality stage fires
+        }
+      } else {
       const campaignCtx = meta.campaign_context;
 
       // Derive topic
