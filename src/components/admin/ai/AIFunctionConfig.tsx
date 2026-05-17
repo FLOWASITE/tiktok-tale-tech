@@ -488,18 +488,25 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               onQuickModelChange={handleQuickModelChange}
               onBulkReset={handleBulkReset}
               categoryConfig={getCategoryConfig(category)}
-              defaultExpanded={category === 'content' || category === 'ideation'}
+              defaultExpanded={category === 'content' || category === 'ideation' || !!deferredQuery.trim()}
               getEnhancedModelInfo={getEnhancedModelInfo}
               groupModelOverride={groupConfig?.modelOverride || null}
               getEffectiveModel={getEffectiveModel}
+              highlightTerms={highlightTerms}
             />
           );
         })}
 
         {groupedFunctions.size === 0 && (
           <Card>
-            <CardContent className="p-8 text-center">
+            <CardContent className="p-8 text-center space-y-3">
               <p className="text-muted-foreground">Không tìm thấy function nào phù hợp</p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                  <XIcon className="h-3.5 w-3.5 mr-1" />
+                  Xóa bộ lọc
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
