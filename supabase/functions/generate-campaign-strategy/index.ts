@@ -200,6 +200,8 @@ Deno.serve(async (req) => {
       organization_id,
       preview,            // if true → don't insert, return pieces only
       pre_generated_plan, // if array → skip AI, use these pieces directly
+      target_post_count,  // FE-estimated total pieces
+      per_channel_targets,// FE-estimated per-channel pieces
     } = await req.json();
 
     const isPreview = !!preview;
