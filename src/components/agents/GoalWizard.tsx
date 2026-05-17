@@ -1170,8 +1170,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     <div className="flex items-start gap-1.5">
                       <selectedObj.icon className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", selectedObj.color)} />
                       <div className="min-w-0">
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Mục tiêu</p>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Mục tiêu chính</p>
                         <p className="font-medium truncate">{selectedObj.label}</p>
+                        {secondaryObjectives.length > 0 && (
+                          <p className="text-[9px] text-muted-foreground truncate">
+                            +{secondaryObjectives.length} phụ: {secondaryObjectives.map(id => OBJECTIVES.find(o => o.id === id)?.label).filter(Boolean).join(', ')}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
