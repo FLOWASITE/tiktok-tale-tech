@@ -44,6 +44,41 @@ function fallback(description: string): { primary: ObjId; secondary: ObjId[]; re
   return { primary: "engagement", secondary: ["awareness"], reasoning: "Mặc định cân bằng tương tác và nhận biết." };
 }
 
+async function fetchRecentObjectives(
+  supabase: any,
+  brandTemplateId?: string,
+  organizationId?: string,
+): Promise<{ avoidPrimary: Set<ObjId>; recentSignatures: string[] }> {
+  const avoidPrimary = new Set<ObjId>();
+  const recentSignatures: string[] = [];
+  try {
+    let q = supabase
+      .from("agent_goals")
+      .select("objectives, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (brandTemplateId) q = q.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) q = q.eq("organization_id", organizationId);
+    else return { avoidPrimary, recentSignatures };
+
+    const { data } = await q;
+    if (!Array.isArray(data)) return { avoidPrimary, recentSignatures };
+
+    const counts = new Map<ObjId, number>();
+    for (const row of data as any[]) {
+      const objs = Array.isArray(row?.objectives) ? row.objectives : [];
+      const primary = String(objs[0] || "").toLowerCase() as ObjId;
+      if (VALID_IDS.includes(primary)) {
+        counts.set(primary, (counts.get(primary) || 0) + 1);
+      }
+      if (objs.length > 0) recentSignatures.push(`"${row?.name || "campaign"}" → primary=${objs[0]}, mix=[${objs.join(", ")}]`);
+    }
+    // Avoid primary that appeared in ≥2 of last 3 campaigns
+    for (const [id, n] of counts) if (n >= 2) avoidPrimary.add(id);
+  } catch { /* ignore */ }
+  return { avoidPrimary, recentSignatures };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -83,16 +118,32 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
     }
 
+    // Diversity: recent campaign objectives
+    const { avoidPrimary, recentSignatures } = await fetchRecentObjectives(
+      supabase, brandTemplateId, organizationId,
+    );
+    const jitterSeed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+
     const channelList = channels.join(", ") || "chưa chọn";
     const fb = fallback(description || title);
+    const recentBlock = recentSignatures.length > 0
+      ? recentSignatures.map((s, i) => `- [${i + 1}] ${s}`).join("\n")
+      : "(chưa có campaign trước)";
+    const avoidList = avoidPrimary.size > 0 ? Array.from(avoidPrimary).join(", ") : "(không có)";
 
-    const prompt = `You are a senior marketing strategist. Suggest the BEST marketing objectives for this campaign.
+    const prompt = `You are a senior marketing strategist. Suggest the BEST marketing objectives for this campaign. Each call must reflect THIS campaign's specifics — do NOT default to the same objective every time.
 
 Campaign: "${title}"
 Description: "${description || "(no extra description)"}"
 Brand: "${brandName || "(unknown)"}"
 Industry: "${industry || "(unknown)"}"
 Target channels: ${channelList}
+Run seed: ${jitterSeed} (use to ensure variation across calls)
+
+DIVERSITY CONTEXT — 3 campaigns gần nhất của brand:
+${recentBlock}
+→ Primary objective BỊ LẠM DỤNG (xuất hiện ≥2 lần gần đây): ${avoidList}
+→ Nếu mô tả campaign mới không bắt buộc primary đó, hãy chọn primary KHÁC để đa dạng hoá.
 
 Available objective IDs (pick from this list only):
 - awareness   → brand reach, impressions
@@ -106,8 +157,8 @@ RULES:
 1. Pick 1 PRIMARY (most aligned with the campaign intent) + 0 to 2 SECONDARY objectives.
 2. Total max 3. Secondary must NOT include primary.
 3. AVOID hard conflict pair (awareness + revenue) in same campaign (cold audience won't convert).
-4. Also suggest realistic KPI numbers for the selected objectives based on industry norms.
-5. Reasoning ≤200 chars, in Vietnamese, explain why primary fits.
+4. Suggest realistic KPI numbers based on industry norms — không copy preset y nguyên, scale theo channel mix & duration nếu hợp lý.
+5. Reasoning ≤200 chars, tiếng Việt, giải thích tại sao primary này fit campaign cụ thể (nhắc tới context).
 
 Return ONLY valid JSON:
 {
@@ -130,11 +181,12 @@ KPI keys reference:
       functionName: "suggest-objectives",
       organizationId,
       messages: [{ role: "user", content: prompt }],
-      temperatureOverride: 0.3,
+      temperatureOverride: 0.85,
       maxTokensOverride: 600,
     });
 
     let parsed: any = null;
+    let aiPowered = false;
     if (aiResult.success) {
       const content = aiResult.data?.choices?.[0]?.message?.content || "";
       try {
@@ -166,6 +218,7 @@ KPI keys reference:
           if (typeof v === "number" && v >= 0) kpis[k] = v;
         }
       }
+      aiPowered = true;
     } else {
       primary = fb.primary;
       secondary = fb.secondary;
@@ -187,6 +240,12 @@ KPI keys reference:
         objectives: [primary, ...secondary],
         kpis,
         reasoning,
+        ai_powered: aiPowered,
+        diversity: {
+          recent_count: recentSignatures.length,
+          avoided_primary: Array.from(avoidPrimary),
+          seed: jitterSeed,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

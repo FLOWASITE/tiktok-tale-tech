@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // ─── Heuristic helpers ───
-// Budget allocation per primary objective (content/ads/kol summing 100)
+// Budget allocation per primary objective (base table — jittered per run)
 const BUDGET_BY_OBJ: Record<string, { content: number; ads: number; kol: number }> = {
   awareness:  { content: 40, ads: 35, kol: 25 },
   engagement: { content: 55, ads: 25, kol: 20 },
@@ -19,6 +19,24 @@ const BUDGET_BY_OBJ: Record<string, { content: number; ads: number; kol: number 
   retention:  { content: 75, ads: 15, kol: 10 },
   community:  { content: 65, ads: 15, kol: 20 },
 };
+
+function jitterBudget(
+  base: { content: number; ads: number; kol: number },
+  seed: number,
+): { content: number; ads: number; kol: number } {
+  // Seeded RNG — small ±6 swing then renormalize to sum 100
+  let s = seed | 0;
+  const rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const c = Math.max(15, Math.min(80, base.content + (rng() - 0.5) * 12));
+  const a = Math.max(10, Math.min(70, base.ads + (rng() - 0.5) * 12));
+  const k = Math.max(5,  Math.min(40, base.kol + (rng() - 0.5) * 10));
+  const sum = c + a + k;
+  return {
+    content: Math.round((c / sum) * 100),
+    ads:     Math.round((a / sum) * 100),
+    kol:     Math.max(0, 100 - Math.round((c / sum) * 100) - Math.round((a / sum) * 100)),
+  };
+}
 
 // Channels-per-day baseline → posts target ≈ duration * avgFreq * channels
 function estimatePostsTarget(durationDays: number, channelCount: number): number {
@@ -37,6 +55,34 @@ function evenSplit(keys: string[]): Record<string, number> {
   keys.forEach((k, i) => { out[k] = base + (i === 0 ? rem : 0); });
   return out;
 }
+
+async function fetchRecentKeyMessages(
+  supabase: any,
+  brandTemplateId?: string,
+  organizationId?: string,
+): Promise<string[]> {
+  try {
+    let q = supabase
+      .from("agent_goals")
+      .select("strategy, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (brandTemplateId) q = q.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) q = q.eq("organization_id", organizationId);
+    else return [];
+    const { data } = await q;
+    if (!Array.isArray(data)) return [];
+    const out: string[] = [];
+    for (const row of data as any[]) {
+      const km = row?.strategy?.key_messages;
+      if (Array.isArray(km)) {
+        for (const m of km) if (typeof m === "string" && m.trim()) out.push(m.trim().slice(0, 80));
+      }
+    }
+    return out.slice(0, 8);
+  } catch { return []; }
+}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
