@@ -397,6 +397,7 @@ function ListView({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
+                      {isEditable && renderSuggest?.(piece)}
                       {statusBadge(piece.status)}
                     </div>
                     {piece.key_message && (
