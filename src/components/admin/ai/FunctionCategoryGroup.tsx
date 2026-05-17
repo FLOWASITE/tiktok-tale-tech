@@ -273,6 +273,7 @@ export function FunctionCategoryGroup({
                       : undefined
                   }
                   compact
+                  highlightTerms={highlightTerms}
                 />
               );
             })}
