@@ -981,6 +981,54 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
               </div>
 
+              {/* ─── Master Auto-Pilot ─── */}
+              <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-3 space-y-2">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">🪄 Để AI lo hết</p>
+                    <p className="text-[10px] text-muted-foreground">AI tự chọn Mục tiêu → Kênh → Chiến lược. Bạn chỉ review & xác nhận.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={runAutoPilot}
+                    disabled={autoPilotRunning || (!name.trim() && !description.trim())}
+                    className="text-xs h-8 gap-1 shrink-0"
+                  >
+                    {autoPilotRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    {autoPilotRunning ? 'Đang chạy...' : 'AI tự chạy'}
+                  </Button>
+                </div>
+                {autoPilotRunning && (
+                  <div className="space-y-1 pt-1 border-t border-primary/15">
+                    {([
+                      { key: 'objectives', label: 'Phân tích mục tiêu' },
+                      { key: 'channels', label: 'Chọn kênh phù hợp' },
+                      { key: 'strategy', label: 'Lên chiến lược nội dung' },
+                    ] as const).map(({ key, label }) => {
+                      const stages = ['objectives', 'channels', 'strategy', 'done'];
+                      const currentIdx = stages.indexOf(autoPilotStage);
+                      const myIdx = stages.indexOf(key);
+                      const done = currentIdx > myIdx;
+                      const active = currentIdx === myIdx;
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-[10px]">
+                          {done ? <Check className="w-3 h-3 text-primary" /> :
+                           active ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> :
+                           <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />}
+                          <span className={cn(done ? "text-muted-foreground" : active ? "text-primary font-medium" : "text-muted-foreground/60")}>
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+
               {/* Auto-suggest toggle */}
               <TooltipProvider delayDuration={200}>
               <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
