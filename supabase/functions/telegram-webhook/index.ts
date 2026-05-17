@@ -3992,9 +3992,9 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
   try {
     const sys = `Bạn trích xuất tham số campaign marketing từ mô tả tiếng Việt/Anh. Trả về JSON đúng schema. Nếu user không nói rõ, giữ default hợp lý.`;
     const channelHint = availableChannels.length > 0
-      ? `Các kênh đang có connection: ${availableChannels.join(", ")}. Ưu tiên chọn từ danh sách này.`
-      : `Chỉ chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
-    const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- channels: array tên kênh (lowercase)\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
+      ? `Các kênh đang có connection: ${availableChannels.join(", ")}.`
+      : `Có thể chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
+    const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- objectives: array 1-3 mục tiêu, primary đầu tiên (chọn từ: ${VALID_OBJECTIVES.join(", ")})\n- channels: array tên kênh gợi ý (lowercase) — chỉ làm hint\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -4029,6 +4029,12 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
     const duration = Math.min(90, Math.max(1, Number(parsed.duration_days) || 14));
     const cadence: "weekly" | "daily" = parsed.cadence === "daily" ? "daily" : "weekly";
     const perWeek = Math.min(7, Math.max(1, Number(parsed.per_week) || 3));
+    const objectives: Objective[] = Array.isArray(parsed.objectives)
+      ? parsed.objectives
+          .map((o: unknown) => String(o).toLowerCase())
+          .filter((o: string): o is Objective => (VALID_OBJECTIVES as readonly string[]).includes(o))
+          .slice(0, 3)
+      : [];
 
     return {
       channels: channels.length > 0 ? channels : fallback.channels,
@@ -4036,6 +4042,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
       cadence,
       per_week: perWeek,
       suggested_name: String(parsed.suggested_name || prompt).slice(0, 80),
+      objectives: objectives.length > 0 ? objectives : fallback.objectives,
       reasoning: parsed.reasoning ? String(parsed.reasoning).slice(0, 200) : undefined,
     };
   } catch (e) {
