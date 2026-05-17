@@ -569,6 +569,12 @@ Deno.serve(async (req) => {
         });
       }
 
+      // P2: Telegram lifecycle push (best-effort, dedup'd via telegram_notifications)
+      try {
+        const { notifyGoalLifecycle } = await import("../_shared/telegram-notifier.ts");
+        await notifyGoalLifecycle(supabase, goal, "started", { title: goal.name });
+      } catch (_) { /* ignore */ }
+
       // Async mode (default): dispatch in background, return 202 immediately
       const bgTask = (async () => {
         try {
@@ -587,6 +593,14 @@ Deno.serve(async (req) => {
             organization_id: goal.organization_id,
           });
           console.log(`[trigger_from_goal] bg: done goal=${goal.id} plan=${strategyResult?.plan_id} pipelines=${strategyResult?.pipelines_created}`);
+          // P2: notify strategy ready
+          try {
+            const { notifyGoalLifecycle } = await import("../_shared/telegram-notifier.ts");
+            await notifyGoalLifecycle(supabase, goal, "strategy_ready", {
+              title: goal.name,
+              pipelinesCreated: Number(strategyResult?.pipelines_created || 0),
+            });
+          } catch (_) { /* ignore */ }
         } catch (bgErr) {
           console.error(`[trigger_from_goal] bg error for goal ${goal.id}:`, bgErr);
           // Surface failure on the goal so UI/bot can show it
@@ -597,6 +611,14 @@ Deno.serve(async (req) => {
               status: "failed",
               input_summary: `trigger_from_goal ${goal.id}`,
               output_summary: String((bgErr as Error)?.message || bgErr).slice(0, 500),
+            });
+          } catch (_) { /* ignore */ }
+          // P2: notify failed
+          try {
+            const { notifyGoalLifecycle } = await import("../_shared/telegram-notifier.ts");
+            await notifyGoalLifecycle(supabase, goal, "failed", {
+              title: goal.name,
+              errorMessage: String((bgErr as Error)?.message || bgErr),
             });
           } catch (_) { /* ignore */ }
         }
