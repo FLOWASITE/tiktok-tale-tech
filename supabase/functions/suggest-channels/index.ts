@@ -122,8 +122,11 @@ function scoreChannels(opts: {
   objectives: string[];
   industryClass: string;
   available: Set<ChannelId>;
+  postsPerWeek?: number;
+  avoidIds?: Set<ChannelId>;
+  jitterSeed?: number;
 }): SuggestedChannel[] {
-  const { objectives, industryClass, available } = opts;
+  const { objectives, industryClass, available, postsPerWeek = 0, avoidIds, jitterSeed = 0 } = opts;
   const objs = objectives.length > 0 ? objectives : ["awareness"];
   const weights = [1.0, 0.6, 0.4];
   const scores = new Map<ChannelId, number>();
@@ -140,14 +143,41 @@ function scoreChannels(opts: {
 
   applyIndustryModifier(scores, industryClass);
 
+  // Diversity: penalize channels heavily used in recent campaigns (~−18 each)
+  if (avoidIds && avoidIds.size > 0) {
+    for (const id of avoidIds) {
+      if (scores.has(id)) scores.set(id, Math.max(0, scores.get(id)! - 18));
+    }
+  }
+
+  // Deterministic jitter (±6) seeded per run → break ties differently each call
+  let seed = jitterSeed | 0;
+  const rng = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  for (const id of Array.from(scores.keys())) {
+    scores.set(id, scores.get(id)! + (rng() - 0.5) * 12);
+  }
+
   let entries = Array.from(scores.entries());
   if (available.size > 0) entries = entries.filter(([id]) => available.has(id));
   entries.sort((a, b) => b[1] - a[1]);
 
-  return entries
-    .filter(([, s]) => s > 30)
-    .slice(0, 5)
-    .map(([id]) => ({ id, frequency: DEFAULT_FREQ[id], reason: REASONS[id] }));
+  const picked = entries.filter(([, s]) => s > 25).slice(0, 5);
+  const total = picked.reduce((s, [, v]) => s + v, 0) || 1;
+
+  return picked.map(([id, val]) => {
+    let freq: Freq;
+    if (postsPerWeek > 0) {
+      const share = val / total;
+      const channelPerWeek = Math.max(0.5, share * postsPerWeek);
+      freq = pickFreqLabel(channelPerWeek, id);
+    } else {
+      freq = DEFAULT_FREQ[id];
+    }
+    return { id, frequency: freq, reason: REASONS[id] };
+  });
 }
 
 // Top hint channels per objective for LLM context
