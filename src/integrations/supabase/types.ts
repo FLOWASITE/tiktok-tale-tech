@@ -11436,6 +11436,30 @@ export type Database = {
           },
         ]
       }
+      telegram_notifications: {
+        Row: {
+          chat_id: number
+          event: string
+          goal_id: string
+          payload: Json | null
+          sent_at: string
+        }
+        Insert: {
+          chat_id: number
+          event: string
+          goal_id: string
+          payload?: Json | null
+          sent_at?: string
+        }
+        Update: {
+          chat_id?: number
+          event?: string
+          goal_id?: string
+          payload?: Json | null
+          sent_at?: string
+        }
+        Relationships: []
+      }
       telegram_pending_links: {
         Row: {
           created_at: string
