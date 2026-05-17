@@ -2003,12 +2003,16 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </p>
                   {suggestChannels.isPending && (
                     <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích kênh phù hợp…
+                      <Loader2 className="w-3 h-3 animate-spin" /> 🧠 AI đang phân tích kênh phù hợp cho campaign này…
                     </div>
                   )}
                   {aiChannelReasoning && !suggestChannels.isPending && (
                     <p className="text-[10px] text-muted-foreground italic mt-1.5">
-                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiChannelReasoning}
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />
+                      {aiChannelPowered && (
+                        <span className="not-italic inline-flex items-center gap-0.5 px-1 py-px mr-1 rounded bg-primary/10 text-primary text-[9px] font-medium align-middle">✨ AI</span>
+                      )}
+                      {aiChannelReasoning}
                     </p>
                   )}
                 </div>
