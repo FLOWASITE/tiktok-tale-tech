@@ -1,89 +1,71 @@
-## Phát triển Search trong Function Configuration
+# AI Auto-Pilot cho GoalWizard
 
-Nâng cấp ô tìm kiếm tại `Admin → AI Management → Function Configuration` từ match chuỗi đơn giản (name/description/category) lên **smart search + advanced filters + highlight**.
+## Hiện trạng
+GoalWizard có 4 step: **Mục tiêu → Chiến lược → Kênh → Xác nhận**. Đã có AI suggest cho 2/4:
+- ✅ `suggest-objectives` (Step 0) — autoMode toggle có sẵn
+- ❌ Step 1 Chiến lược (budget %, key messages, CTA, pillar allocation, posts target) — toàn bộ user nhập tay
+- ✅ `suggest-channels` (Step 2) — autoChannelMode có sẵn
+- ✅ `suggest-piece-topics` (Step Topic) — đã có nhưng chỉ trigger sau khi tạo plan, không phải trong wizard
 
-### 1. Smart matching (fuzzy + diacritics + multi-field)
+## Mục tiêu
+Thêm **một nút "🪄 AI tự chạy toàn bộ"** ở đầu wizard + **AI auto-suggest cho Step Chiến lược** để user chỉ cần nhập tên + mô tả ngắn, AI tự fill 4 step rồi user review.
 
-Tạo `src/lib/functionConfigSearch.ts` — tái sử dụng `normalizeVi` từ `src/lib/industrySearch.ts`, mở rộng cho AIFunction:
+## Việc cần làm
 
-- **Trường tham gia matching** (mỗi trường có trọng số riêng):
-  - `name` (vd `generate-script`) — weight 100
-  - `description` (mô tả tiếng Việt) — weight 60
-  - `category` slug + label hiển thị — weight 40
-  - `currentModel` (vd `google/gemini-2.5-flash`) — weight 50
-  - `modelOverride` (model admin đã set) — weight 50
-  - `provider` suy ra từ model (lovable / openrouter / 9router / dashscope) — weight 30
-  - `tags` (knowledge-graph, …) — weight 40
-- **Scoring**: exact = 100, prefix = 60, substring = 40, token-level = 12, Levenshtein ≤2 cho token ≥4 ký tự = 6 (giống industrySearch).
-- **Diacritics-insensitive** cho mọi trường: "kich ban" → match "generate-script" (mô tả "Tạo kịch bản…"), "ai gateway" → match được, v.v.
-- Trả về `{ item, score, matchedFields, matchSpans }` để dùng cho highlight.
+### 1. Edge function mới: `suggest-strategy`
+- Input: `brand_template_id`, `objectives[]`, `target_channels[]`, `campaign_duration_days`, `description`
+- Output:
+  ```ts
+  {
+    key_messages: string[],       // 3-5 thông điệp
+    primary_cta: string,
+    budget_allocation: { content, ads, kol },  // % cộng 100
+    pillar_allocation: Record<string, number>, // tên pillar -> %
+    total_posts_target: number,
+    reasoning: string
+  }
+  ```
+- Logic: dùng Lovable Gateway (`google/gemini-3-flash-preview`), prompt dựa trên brand voice + industry memory + objectives. Đăng ký vào `ai_function_configs` (category=`agent`).
+- Pattern theo `suggest-channels` (vừa refactor sang heuristic không cần AI). Cân nhắc: phần `key_messages`/`primary_cta` cần AI, phần `budget_allocation`/`pillar_allocation`/`total_posts_target` có thể tính heuristic theo objective + duration (giống `suggest-channels`). → Hybrid: heuristic cho số, AI cho text.
 
-### 2. Advanced query operators
+### 2. Hook mới: `useSuggestStrategy.ts` (React Query mutation, pattern giống `useSuggestChannels`).
 
-Parser nhẹ cho cú pháp `key:value` trước khi fuzzy match:
+### 3. UI Step 1 (Chiến lược) — thêm Auto mode
+- Toggle "🪄 AI tự chọn chiến lược" ở đầu Step 1 (giống pattern Step 0/2).
+- Khi bật:
+  - Gọi `suggestStrategy` với context từ Step 0+2.
+  - Fill: `keyMessages`, `primaryCta`, `budgetAllocation`, `pillarAllocation`, `totalPostsTarget`.
+  - Hiển thị reasoning badge + cho phép user edit thủ công (giữ origin AI marker giống Step 0).
+- Loading skeleton + retry button khi error.
 
-```
-model:gpt-5            → lọc theo model id (contains)
-provider:openrouter    → lọc theo provider
-tag:knowledge-graph    → lọc theo tag
-status:override        → có modelOverride
-status:default         → không override
-status:disabled        → isEnabled=false
-category:seo           → lọc category slug
-```
+### 4. Master "AI tự chạy toàn bộ" button (đầu wizard, Step 0)
+- 1 button lớn `<Sparkles/> Để AI lo hết` ở header dialog.
+- Khi click:
+  1. Bật `autoMode` (objectives) → chờ kết quả → tự next.
+  2. Bật `autoChannelMode` (channels) → chờ → tự next.
+  3. Bật auto strategy → chờ → tự next.
+  4. Dừng ở Step "Xác nhận" cho user review trước khi save+generate.
+- Progress overlay: "Đang chọn mục tiêu... Đang chọn kênh... Đang lên chiến lược..." với 3 bullet checkmark.
+- User vẫn có thể bấm Back để chỉnh từng bước.
 
-Các token còn lại (không có `:`) gộp lại làm free-text query đưa vào smart matcher. Hỗ trợ nhiều operator cùng lúc, AND logic.
+### 5. Topic auto-pick (đã có, chỉ link lại)
+- `suggest-piece-topics` đã chạy tự động trong `agent-pipeline` sau khi plan được duyệt.
+- Đảm bảo khi `approval_mode = full_auto`, topics được generate ngay không chờ user → check flow hiện tại trong `agent-pipeline` (chỉ verify, không sửa nếu đã đúng).
 
-### 3. Filter chips mới (ngoài Type filter cũ)
+## File ảnh hưởng
+- **Tạo mới**:
+  - `supabase/functions/suggest-strategy/index.ts`
+  - `src/hooks/agents/useSuggestStrategy.ts`
+- **Sửa**:
+  - `src/components/agents/GoalWizard.tsx` — thêm autoStrategyMode state, render auto toggle Step 1, thêm master "AI tự chạy" button + orchestration logic
+  - `supabase/config.toml` — đăng ký `suggest-strategy` (verify_jwt=true, dùng auth user)
+- **Migration**: insert row vào `ai_function_configs` cho function mới (category=`agent`).
 
-Thêm 1 dòng filter phụ ngay dưới ô search:
+## Không đụng vào
+- `agent-pipeline`, `generate-campaign-strategy` (đã chạy tốt sau khi user duyệt plan).
+- `suggest-piece-topics` (Topic) — đã wire sẵn.
+- Industry/Brand cascade.
 
-- **Status pills**: `Override` / `Default` / `Disabled` (toggle, multi-select OR trong cùng nhóm)
-- **Provider pills**: `Lovable` / `OpenRouter` / `9Router` / `DashScope` (multi-select)
-- **Category multi-select**: dropdown `Categories ▾` (popover + checkbox list từ `useCategoryConfig`); badge số đếm khi đã chọn
-- Nút **Clear filters** xuất hiện khi có filter active
-
-State được mã hoá vào URL search params (`?q=&status=override&provider=openrouter&cat=seo,content`) để share/bookmark.
-
-### 4. Highlight + sort theo score
-
-- `filteredFunctions` sort theo `score DESC` khi có query (giữ thứ tự category cũ khi rỗng).
-- `FunctionCard` nhận thêm prop `highlightSpans?: { field, ranges }[]` để bọc `<mark>` quanh ký tự match trong `name` + `description`. Style `<mark>`: `bg-primary/15 text-primary rounded-sm px-0.5` (đúng Soft Luxury tokens).
-- Khi query rỗng → không highlight, không sort lại.
-
-### 5. UX nâng cao (responsive)
-
-- Ô search full-width trên mobile (`< 640px`), max-w-sm trên desktop.
-- Filter chips wrap nhiều dòng, scroll-x ngang trên mobile nếu cần (`overflow-x-auto`, `snap-x`).
-- Debounce input 150ms (`useDeferredValue`) để không lag khi 100+ functions.
-- Empty state riêng khi search không có kết quả: gợi ý "Thử bỏ filter X" + nút Clear.
-- Hiển thị badge `N kết quả` cạnh số `total functions` ở header khi query active.
-
-### 6. Files thay đổi
-
-```
-NEW   src/lib/functionConfigSearch.ts        ← parser + scorer + highlight spans
-EDIT  src/components/admin/ai/AIFunctionConfig.tsx
-        - thay block filter useMemo (lines 90-114)
-        - thêm state: statusFilter[], providerFilter[], categoryFilter[]
-        - thêm Filter chips row + Clear button
-        - đổi search placeholder: "Tìm: tên, model, tag, status:override..."
-EDIT  src/components/admin/ai/FunctionCard.tsx
-        - nhận highlightSpans, render <mark> trong name/description
-EDIT  src/components/admin/ai/FunctionCategoryGroup.tsx
-        - pass highlightSpans xuống FunctionCard
-```
-
-Không đụng edge functions, không đụng DB, không thay đổi data model — thuần frontend UX.
-
-### 7. Verify
-
-- Search "kich ban" → ra `generate-script`, `generate-carousel`, … có description chứa "kịch bản".
-- Search "gemini" → tất cả function dùng model Gemini, sort theo độ khớp.
-- `model:gpt-5 status:override` → chỉ function override sang GPT-5.
-- `provider:openrouter tag:knowledge-graph` → giao của 2 điều kiện.
-- Toggle Status chip "Disabled" → đếm khớp `stats.disabled`.
-- Responsive 707px viewport: search + chips không vỡ layout.
-- Highlight: gõ "script" → chữ "script" trong tên function được tô.
-
-Sau khi anh duyệt, em bắt tay vào implement.
+## Risk & Trade-offs
+- Master button làm 3 API call tuần tự → ~6-10s tổng. Cần loading UX rõ ràng.
+- AI strategy có thể đề xuất pillar không khớp brand → giữ edit thủ công + reasoning hiển thị để user verify.

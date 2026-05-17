@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSuggestObjectives } from '@/hooks/agents/useSuggestObjectives';
 import { useSuggestChannels } from '@/hooks/agents/useSuggestChannels';
+import { useSuggestStrategy } from '@/hooks/agents/useSuggestStrategy';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
@@ -281,6 +282,22 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [aiChannelReasoning, setAiChannelReasoning] = useState<string>('');
   const suggestChannels = useSuggestChannels();
 
+  // Step 1 Auto strategy
+  const [autoStrategyMode, setAutoStrategyMode] = useState(false);
+  const [aiStrategyKeys, setAiStrategyKeys] = useState<{
+    keyMessages: Set<string>;
+    cta: boolean;
+    budget: boolean;
+    pillars: boolean;
+    posts: boolean;
+  }>({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+  const [aiStrategyReasoning, setAiStrategyReasoning] = useState('');
+  const suggestStrategy = useSuggestStrategy();
+
+  // Master auto-pilot
+  const [autoPilotRunning, setAutoPilotRunning] = useState(false);
+  const [autoPilotStage, setAutoPilotStage] = useState<'idle' | 'objectives' | 'channels' | 'strategy' | 'done'>('idle');
+
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [approvalMode, setApprovalMode] = useState('approve_each');
@@ -409,6 +426,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
     setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
     setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
+    setAutoMode(false); setAutoChannelMode(false); setAutoStrategyMode(false);
+    setAiObjectiveIds(new Set()); setAiKpiKeys(new Set()); setAiChannelIds(new Set());
+    setAiReasoning(''); setAiChannelReasoning(''); setAiStrategyReasoning('');
+    setAiStrategyKeys({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+    setAutoPilotRunning(false); setAutoPilotStage('idle');
   };
 
   const addKeyMessage = () => {
@@ -461,6 +483,162 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     } else {
       setSelectedChannels([...selectedChannels, ch]);
       setFrequency({ ...frequency, [ch]: 'weekly' });
+    }
+  };
+
+  // ─── Auto-strategy runner ───
+  const runAutoStrategy = async (overrides?: { objectives?: string[]; channels?: string[] }) => {
+    const useObjs = overrides?.objectives ?? objectives;
+    const useChs = overrides?.channels ?? selectedChannels;
+    if (useObjs.length === 0) {
+      toast.error('Cần có mục tiêu trước khi gợi ý chiến lược');
+      return false;
+    }
+    try {
+      const result = await suggestStrategy.mutateAsync({
+        title: name,
+        description,
+        objectives: useObjs,
+        target_channels: useChs,
+        campaign_duration_days: effectiveDuration,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        organization_id: currentOrganization?.id,
+      });
+      const filledMsgs = new Set<string>();
+      setKeyMessages(prev => {
+        const merged = [...prev];
+        result.key_messages.forEach(m => {
+          if (!merged.includes(m) && merged.length < 5) {
+            merged.push(m);
+            filledMsgs.add(m);
+          }
+        });
+        return merged;
+      });
+      let ctaFilled = false;
+      if (!primaryCta.trim() && result.primary_cta) {
+        setPrimaryCta(result.primary_cta);
+        ctaFilled = true;
+      }
+      let budgetFilled = false;
+      if (totalBudget === 0 || (budgetAllocation.content === 50 && budgetAllocation.ads === 30 && budgetAllocation.kol === 20)) {
+        setBudgetAllocation(result.budget_allocation);
+        budgetFilled = true;
+      }
+      let pillarsFilled = false;
+      if (Object.keys(result.pillar_allocation).length > 0 && Object.keys(pillarAllocation).length === 0) {
+        setPillarAllocation(result.pillar_allocation);
+        pillarsFilled = true;
+      }
+      let postsFilled = false;
+      if (totalPostsTarget === '' || totalPostsTarget === 0) {
+        setTotalPostsTarget(result.total_posts_target);
+        postsFilled = true;
+      }
+      setAiStrategyKeys({
+        keyMessages: filledMsgs,
+        cta: ctaFilled,
+        budget: budgetFilled,
+        pillars: pillarsFilled,
+        posts: postsFilled,
+      });
+      setAiStrategyReasoning(result.reasoning || '');
+      toast.success('AI đã gợi ý chiến lược', { description: result.reasoning });
+      return true;
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+      else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+      else toast.error('AI gợi ý chiến lược thất bại', { description: msg });
+      return false;
+    }
+  };
+
+  const clearAutoStrategy = () => {
+    setKeyMessages(prev => prev.filter(m => !aiStrategyKeys.keyMessages.has(m)));
+    if (aiStrategyKeys.cta) setPrimaryCta('');
+    if (aiStrategyKeys.budget) setBudgetAllocation({ content: 50, ads: 30, kol: 20 });
+    if (aiStrategyKeys.pillars) setPillarAllocation({});
+    if (aiStrategyKeys.posts) setTotalPostsTarget('');
+    setAiStrategyKeys({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+    setAiStrategyReasoning('');
+  };
+
+  // ─── Master Auto-Pilot ───
+  const runAutoPilot = async () => {
+    if (!name.trim() && !description.trim()) {
+      toast.error('Cần có tên hoặc mô tả chiến dịch trước');
+      return;
+    }
+    setAutoPilotRunning(true);
+    try {
+      // 1. Objectives
+      setAutoPilotStage('objectives');
+      setAutoMode(true);
+      const objResult = await suggestObjectives.mutateAsync({
+        title: name,
+        description,
+        channels: selectedChannels,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        brand_name: currentBrand?.brand_name,
+        industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
+        organization_id: currentOrganization?.id,
+      });
+      const aiIds = objResult.objectives.slice(0, 3);
+      setObjectives(aiIds);
+      setAiObjectiveIds(new Set(aiIds));
+      setKpiTargets(prev => {
+        const next = { ...prev };
+        const filled: string[] = [];
+        Object.entries(objResult.kpis).forEach(([k, v]) => {
+          if (next[k] === undefined || next[k] === 0) {
+            next[k] = v as number;
+            filled.push(k);
+          }
+        });
+        setAiKpiKeys(new Set(filled));
+        return next;
+      });
+      setAiReasoning(objResult.reasoning || '');
+
+      // 2. Channels
+      setAutoPilotStage('channels');
+      setAutoChannelMode(true);
+      const chResult = await suggestChannels.mutateAsync({
+        title: name,
+        description,
+        objectives: aiIds,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        brand_name: currentBrand?.brand_name,
+        industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
+        organization_id: currentOrganization?.id,
+      });
+      const chIds = chResult.channels.map(c => c.id);
+      setSelectedChannels(prev => Array.from(new Set([...prev, ...chIds])));
+      setFrequency(prev => {
+        const next = { ...prev };
+        chResult.channels.forEach(c => { if (!next[c.id]) next[c.id] = c.frequency; });
+        return next;
+      });
+      setAiChannelIds(new Set(chIds));
+      setAiChannelReasoning(chResult.reasoning || '');
+
+      // 3. Strategy (dùng kết quả vừa lấy)
+      setAutoPilotStage('strategy');
+      setAutoStrategyMode(true);
+      await runAutoStrategy({ objectives: aiIds, channels: chIds });
+
+      // 4. Done → nhảy thẳng tới Step Xác nhận
+      setAutoPilotStage('done');
+      setStep(confirmStep);
+      toast.success('🪄 AI đã hoàn tất! Review và xác nhận chiến dịch.');
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+      else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+      else toast.error('Auto-pilot thất bại', { description: msg });
+    } finally {
+      setAutoPilotRunning(false);
     }
   };
 
@@ -808,6 +986,54 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
               </div>
 
+              {/* ─── Master Auto-Pilot ─── */}
+              <div className="rounded-lg border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 p-3 space-y-2">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">🪄 Để AI lo hết</p>
+                    <p className="text-[10px] text-muted-foreground">AI tự chọn Mục tiêu → Kênh → Chiến lược. Bạn chỉ review & xác nhận.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={runAutoPilot}
+                    disabled={autoPilotRunning || (!name.trim() && !description.trim())}
+                    className="text-xs h-8 gap-1 shrink-0"
+                  >
+                    {autoPilotRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    {autoPilotRunning ? 'Đang chạy...' : 'AI tự chạy'}
+                  </Button>
+                </div>
+                {autoPilotRunning && (
+                  <div className="space-y-1 pt-1 border-t border-primary/15">
+                    {([
+                      { key: 'objectives', label: 'Phân tích mục tiêu' },
+                      { key: 'channels', label: 'Chọn kênh phù hợp' },
+                      { key: 'strategy', label: 'Lên chiến lược nội dung' },
+                    ] as const).map(({ key, label }) => {
+                      const stages = ['objectives', 'channels', 'strategy', 'done'];
+                      const currentIdx = stages.indexOf(autoPilotStage);
+                      const myIdx = stages.indexOf(key);
+                      const done = currentIdx > myIdx;
+                      const active = currentIdx === myIdx;
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-[10px]">
+                          {done ? <Check className="w-3 h-3 text-primary" /> :
+                           active ? <Loader2 className="w-3 h-3 animate-spin text-primary" /> :
+                           <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />}
+                          <span className={cn(done ? "text-muted-foreground" : active ? "text-primary font-medium" : "text-muted-foreground/60")}>
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+
               {/* Auto-suggest toggle */}
               <TooltipProvider delayDuration={200}>
               <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
@@ -1041,6 +1267,45 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
               <p className="text-[10px] text-muted-foreground -mt-2">
                 Thêm thông tin để AI lên kế hoạch chính xác hơn. Bỏ trống = AI tự quyết.
               </p>
+
+              {/* Auto-suggest strategy toggle */}
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="auto-strat" className="text-xs font-medium cursor-pointer">
+                      Để AI chọn chiến lược giúp tôi
+                    </Label>
+                    <Switch
+                      id="auto-strat"
+                      checked={autoStrategyMode}
+                      disabled={suggestStrategy.isPending || objectives.length === 0}
+                      onCheckedChange={async (checked) => {
+                        setAutoStrategyMode(checked);
+                        if (!checked) {
+                          clearAutoStrategy();
+                          return;
+                        }
+                        const ok = await runAutoStrategy();
+                        if (!ok) setAutoStrategyMode(false);
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    AI sẽ gợi ý thông điệp, CTA, phân bổ ngân sách & pillar dựa trên mục tiêu + brand. Bạn có thể chỉnh tay.
+                  </p>
+                  {suggestStrategy.isPending && (
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang lên chiến lược…
+                    </div>
+                  )}
+                  {aiStrategyReasoning && !suggestStrategy.isPending && (
+                    <p className="text-[10px] text-muted-foreground italic mt-1.5">
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiStrategyReasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
 
               {/* Duration & Posts Target */}
               <div className="space-y-3">
