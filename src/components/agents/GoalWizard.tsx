@@ -616,6 +616,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setPillarAllocation({});
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
+    setPeriodType('custom'); setPeriodLabel(null); setParentGoalId(null);
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel(defaultAutonomyLevel || 'full_auto'); setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel || 'full_auto'] || 'full_auto');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
