@@ -481,7 +481,161 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }
   };
 
-  const canNext = () => {
+  // ─── Auto-strategy runner ───
+  const runAutoStrategy = async (overrides?: { objectives?: string[]; channels?: string[] }) => {
+    const useObjs = overrides?.objectives ?? objectives;
+    const useChs = overrides?.channels ?? selectedChannels;
+    if (useObjs.length === 0) {
+      toast.error('Cần có mục tiêu trước khi gợi ý chiến lược');
+      return false;
+    }
+    try {
+      const result = await suggestStrategy.mutateAsync({
+        title: name,
+        description,
+        objectives: useObjs,
+        target_channels: useChs,
+        campaign_duration_days: effectiveDuration,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        organization_id: currentOrganization?.id,
+      });
+      const filledMsgs = new Set<string>();
+      setKeyMessages(prev => {
+        const merged = [...prev];
+        result.key_messages.forEach(m => {
+          if (!merged.includes(m) && merged.length < 5) {
+            merged.push(m);
+            filledMsgs.add(m);
+          }
+        });
+        return merged;
+      });
+      let ctaFilled = false;
+      if (!primaryCta.trim() && result.primary_cta) {
+        setPrimaryCta(result.primary_cta);
+        ctaFilled = true;
+      }
+      let budgetFilled = false;
+      if (totalBudget === 0 || (budgetAllocation.content === 50 && budgetAllocation.ads === 30 && budgetAllocation.kol === 20)) {
+        setBudgetAllocation(result.budget_allocation);
+        budgetFilled = true;
+      }
+      let pillarsFilled = false;
+      if (Object.keys(result.pillar_allocation).length > 0 && Object.keys(pillarAllocation).length === 0) {
+        setPillarAllocation(result.pillar_allocation);
+        pillarsFilled = true;
+      }
+      let postsFilled = false;
+      if (totalPostsTarget === '' || totalPostsTarget === 0) {
+        setTotalPostsTarget(result.total_posts_target);
+        postsFilled = true;
+      }
+      setAiStrategyKeys({
+        keyMessages: filledMsgs,
+        cta: ctaFilled,
+        budget: budgetFilled,
+        pillars: pillarsFilled,
+        posts: postsFilled,
+      });
+      setAiStrategyReasoning(result.reasoning || '');
+      toast.success('AI đã gợi ý chiến lược', { description: result.reasoning });
+      return true;
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+      else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+      else toast.error('AI gợi ý chiến lược thất bại', { description: msg });
+      return false;
+    }
+  };
+
+  const clearAutoStrategy = () => {
+    setKeyMessages(prev => prev.filter(m => !aiStrategyKeys.keyMessages.has(m)));
+    if (aiStrategyKeys.cta) setPrimaryCta('');
+    if (aiStrategyKeys.budget) setBudgetAllocation({ content: 50, ads: 30, kol: 20 });
+    if (aiStrategyKeys.pillars) setPillarAllocation({});
+    if (aiStrategyKeys.posts) setTotalPostsTarget('');
+    setAiStrategyKeys({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+    setAiStrategyReasoning('');
+  };
+
+  // ─── Master Auto-Pilot ───
+  const runAutoPilot = async () => {
+    if (!name.trim() && !description.trim()) {
+      toast.error('Cần có tên hoặc mô tả chiến dịch trước');
+      return;
+    }
+    setAutoPilotRunning(true);
+    try {
+      // 1. Objectives
+      setAutoPilotStage('objectives');
+      setAutoMode(true);
+      const objResult = await suggestObjectives.mutateAsync({
+        title: name,
+        description,
+        channels: selectedChannels,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        brand_name: currentBrand?.brand_name,
+        industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
+        organization_id: currentOrganization?.id,
+      });
+      const aiIds = objResult.objectives.slice(0, 3);
+      setObjectives(aiIds);
+      setAiObjectiveIds(new Set(aiIds));
+      setKpiTargets(prev => {
+        const next = { ...prev };
+        const filled: string[] = [];
+        Object.entries(objResult.kpis).forEach(([k, v]) => {
+          if (next[k] === undefined || next[k] === 0) {
+            next[k] = v as number;
+            filled.push(k);
+          }
+        });
+        setAiKpiKeys(new Set(filled));
+        return next;
+      });
+      setAiReasoning(objResult.reasoning || '');
+
+      // 2. Channels
+      setAutoPilotStage('channels');
+      setAutoChannelMode(true);
+      const chResult = await suggestChannels.mutateAsync({
+        title: name,
+        description,
+        objectives: aiIds,
+        brand_template_id: brandTemplateId || currentBrand?.id,
+        brand_name: currentBrand?.brand_name,
+        industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
+        organization_id: currentOrganization?.id,
+      });
+      const chIds = chResult.channels.map(c => c.id);
+      setSelectedChannels(prev => Array.from(new Set([...prev, ...chIds])));
+      setFrequency(prev => {
+        const next = { ...prev };
+        chResult.channels.forEach(c => { if (!next[c.id]) next[c.id] = c.frequency; });
+        return next;
+      });
+      setAiChannelIds(new Set(chIds));
+      setAiChannelReasoning(chResult.reasoning || '');
+
+      // 3. Strategy (dùng kết quả vừa lấy)
+      setAutoPilotStage('strategy');
+      setAutoStrategyMode(true);
+      await runAutoStrategy({ objectives: aiIds, channels: chIds });
+
+      // 4. Done → nhảy thẳng tới Step Xác nhận
+      setAutoPilotStage('done');
+      setStep(confirmStep);
+      toast.success('🪄 AI đã hoàn tất! Review và xác nhận chiến dịch.');
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+      else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+      else toast.error('Auto-pilot thất bại', { description: msg });
+    } finally {
+      setAutoPilotRunning(false);
+    }
+  };
     switch (step) {
       case 0: return name.trim().length > 0 && objectives.length > 0;
       case 1: return true; // Strategy step optional
