@@ -15,7 +15,7 @@ import {
   Check, Sparkles, ShieldCheck, Zap, Bot, X, Plus, MessageSquare,
   Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
   PieChart, TrendingUp, Settings2, FileText, Images, Video,
-  Loader2, CheckCircle2, AlertCircle, ArrowRight, Save, Brain
+  Loader2, CheckCircle2, AlertCircle, ArrowRight, Save, Brain, Star
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -242,8 +242,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 0: Mục tiêu
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedObjective, setSelectedObjective] = useState<string | null>(null);
+  // Multi-objective: max 3, objectives[0] = primary
+  const [objectives, setObjectives] = useState<string[]>([]);
   const [kpiTargets, setKpiTargets] = useState<Record<string, number>>({});
+  // Derived helper — kept as a local "selectedObjective" alias so legacy references work
+  const selectedObjective = objectives[0] ?? null;
+  const secondaryObjectives = objectives.slice(1);
+  const hasObjectiveConflict = objectives.includes('awareness') && objectives.includes('revenue');
 
   // Step 1: Chiến lược
   const [totalBudget, setTotalBudget] = useState<number>(0);
@@ -346,6 +351,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setCampaignDurationDays(initialData.campaign_duration_days || 14);
       setCampaignStartDate(initialData.campaign_start_date || new Date().toISOString().split('T')[0]);
       setApprovalMode(initialData.approval_mode || 'approve_plan');
+      // Rehydrate objectives from clarification_context (multi or legacy single)
+      const ctx = (initialData as any).clarification_context || {};
+      if (Array.isArray(ctx.objectives) && ctx.objectives.length > 0) {
+        setObjectives(ctx.objectives.slice(0, 3));
+      } else if (typeof ctx.objective === 'string' && ctx.objective) {
+        setObjectives([ctx.objective]);
+      }
       setStep(0);
     } else if (open && !initialData) {
       resetForm();
@@ -368,7 +380,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const resetForm = () => {
     setStep(0);
     setName(''); setDescription('');
-    setSelectedObjective(null); setKpiTargets({});
+    setObjectives([]); setKpiTargets({});
     setTotalBudget(0); setBudgetAllocation({ content: 50, ads: 30, kol: 20 });
     setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
     setPillarAllocation({});
@@ -438,7 +450,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
   const canNext = () => {
     switch (step) {
-      case 0: return name.trim().length > 0 && !!selectedObjective;
+      case 0: return name.trim().length > 0 && objectives.length > 0;
       case 1: return true; // Strategy step optional
       case 2: return selectedChannels.length > 0;
       default: return true;
@@ -447,7 +459,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
   const handleConfirmStep = async () => {
     // Client-side smart skip: if strategic context already complete → bypass AI clarify
-    const hasObjective = !!selectedObjective;
+    const hasObjective = objectives.length > 0;
     const hasMessagesOrCta = keyMessages.length > 0 || !!primaryCta.trim();
     const hasPillars = Object.keys(pillarAllocation).length > 0;
     const hasGoodTitle = name.trim().length > 15;
@@ -468,6 +480,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           brand_name: currentBrand?.brand_name || undefined,
           // Strategic context from earlier wizard steps
           objective: selectedObj?.label,
+          objectives: objectives.map(id => OBJECTIVES.find(o => o.id === id)?.label || id),
+          primary_objective: selectedObj?.label,
+          objective_ids: objectives,
           key_messages: keyMessages,
           primary_cta: primaryCta.trim() || undefined,
           pillars: Object.keys(pillarAllocation),
@@ -496,7 +511,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const finalSubmit = async (context: Record<string, string> | null) => {
     const baseContext = context || clarificationContext || {};
     const briefContext: Record<string, any> = { ...baseContext };
-    if (selectedObjective) briefContext.objective = selectedObjective;
+    if (objectives.length > 0) {
+      briefContext.objectives = objectives;                              // ['awareness','engagement']
+      briefContext.primary_objective = objectives[0];                    // 'awareness'
+      briefContext.secondary_objectives = secondaryObjectives;           // ['engagement']
+      briefContext.objective = objectives[0];                            // backward-compat
+      briefContext.objective_weights = { primary: 0.7, secondary: 0.3 };
+    }
     if (Object.keys(kpiTargets).length > 0) briefContext.kpi_targets = kpiTargets;
     if (totalBudget > 0) briefContext.total_budget = totalBudget;
     briefContext.budget_allocation = budgetAllocation;
@@ -771,32 +792,70 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
               </div>
 
-              {/* Objective Cards */}
+              {/* Objective Cards — multi-select max 3, [0] = primary */}
               <div className="space-y-2">
-                <Label className="text-xs">Mục tiêu chính của chiến dịch *</Label>
-                <p className="text-[10px] text-muted-foreground">Chọn 1 mục tiêu — AI sẽ tối ưu nội dung theo hướng này.</p>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Mục tiêu chiến dịch * <span className="text-muted-foreground font-normal">({objectives.length}/3)</span></Label>
+                  {objectives.length > 1 && (
+                    <span className="text-[9px] text-muted-foreground">Click mục tiêu đã chọn để đặt làm Chính</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Chọn tối đa 3 mục tiêu. Mục tiêu <span className="font-medium text-foreground">Chính</span> nhận 70% trọng số nội dung, phụ 30%.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
                   {OBJECTIVES.map(obj => {
                     const Icon = obj.icon;
-                    const selected = selectedObjective === obj.id;
+                    const idx = objectives.indexOf(obj.id);
+                    const isSelected = idx >= 0;
+                    const isPrimary = idx === 0;
                     return (
                       <button
                         key={obj.id}
-                        onClick={() => { setSelectedObjective(obj.id); setKpiTargets({}); }}
+                        onClick={() => {
+                          setObjectives(prev => {
+                            const i = prev.indexOf(obj.id);
+                            if (i === 0) return prev.filter(x => x !== obj.id);      // primary click → remove
+                            if (i > 0) return [obj.id, ...prev.filter(x => x !== obj.id)]; // secondary → promote
+                            if (prev.length >= 3) { toast.warning('Tối đa 3 mục tiêu / chiến dịch'); return prev; }
+                            return [...prev, obj.id];                                 // add new
+                          });
+                          setKpiTargets({});
+                        }}
                         className={cn(
-                          "flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
-                          selected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"
+                          "relative flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
+                          isPrimary ? "border-primary bg-primary/10 ring-1 ring-primary/30" :
+                          isSelected ? "border-primary/50 bg-primary/5" :
+                          "border-border hover:border-primary/30"
                         )}
                       >
                         <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", obj.color)} />
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium leading-tight">{obj.label}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <p className="text-xs font-medium leading-tight">{obj.label}</p>
+                            {isPrimary && (
+                              <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded bg-primary text-primary-foreground">
+                                <Star className="w-2 h-2 fill-current" />Chính
+                              </span>
+                            )}
+                            {isSelected && !isPrimary && (
+                              <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">Phụ</span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{obj.description}</p>
                         </div>
                       </button>
                     );
                   })}
                 </div>
+                {hasObjectiveConflict && (
+                  <div className="flex items-start gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-tight">
+                      <span className="font-medium">Awareness + Revenue</span> thường khó đạt cùng campaign (cold audience ít convert ngay). Cân nhắc tách 2 chiến dịch riêng.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* KPI Targets — show when objective selected */}
