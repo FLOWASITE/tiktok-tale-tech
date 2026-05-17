@@ -1,107 +1,103 @@
-## Vấn đề hiện tại của Content Schedule Studio
+## Vấn đề Step 0 (Brief campaign + AI mode)
 
-1. **Quá dày, chữ quá nhỏ** — text-[9px] đến text-[11px] khắp nơi, control h-5 (20px) → khó đọc, khó bấm, không đạt accessibility tap-target (44px khuyến nghị).
-2. **List row 1 dòng nhồi 6 control** (date · time · channel · pillar · title · actions) → ở viewport 707px bị tràn/cắt: 56+64+96+60+title+2×20 = ~330px fixed, title chỉ còn ~340px nhưng padding+gap ăn thêm → title truncate sớm.
-3. **Calendar view grid-cols-7 cố định** ở 707px → mỗi ô ~95px, chip text-[8px] vẫn truncate; trên mobile thực (≤640px) cực tệ.
-4. **Màu pillar dùng raw Tailwind** (`bg-blue-500/10`, `text-violet-700`) — vi phạm design token rule (Soft Luxury neutral gray).
-5. **Stats strip nghèo info** — chỉ "X bài · Y kênh · Z pillar" dạng text trần, không có visual distribution; cảnh báo overload chỉ là badge số.
-6. **Header bar** — 3 icon-only button cạnh nhau (refresh/export/view toggle) không nhãn → khó hiểu intent.
-7. **Actions opacity-0 → group-hover** không hoạt động trên touch (mobile 707px chính xác là touch range).
-8. **Filter row** không cho biết đang filter gì (chỉ thấy Select); không hiển thị số kết quả sau filter.
-9. **Empty/loading state** quá tối giản, không thông tin tiến trình.
-10. **Không có drag-drop calendar** như spec gốc; chip click chỉ chuyển sang list view.
+1. **Thiếu ô Mô tả** — code có state `description` được dùng cho auto-pilot và AI gợi ý mục tiêu (`!name.trim() && !description.trim()` mới disable), nhưng UI **không có input nào để nhập** → nút Auto-pilot luôn chỉ dựa vào tên, AI suggestion nghèo context.
+2. **Tên chiến dịch quá khiêm tốn** — Label `text-xs` + Input `text-sm` cao 40px, đứng một mình với placeholder ngắn → không có cảm giác đây là "brief" quan trọng nhất của cả wizard.
+3. **Hai card AI giống hệt nhau** xếp chồng:
+   - "🪄 Để AI lo hết" (border-primary gradient).
+   - "Để AI chọn mục tiêu giúp tôi" (border-dashed primary, gradient).
+   Cùng dùng primary gradient + icon Sparkles, người dùng khó phân biệt khác biệt giữa "AI làm hết" vs "AI chỉ gợi ý mục tiêu".
+4. **Vi phạm core rule**:
+   - Emoji 🪄 (core: dùng SVG icon không dùng emoji).
+   - Gradient `from-primary/10 to-primary/5` đậm + `border-primary/30` (core: Soft Luxury, neutral gray accents).
+5. **Hierarchy lộn xộn** — brief input nhỏ ở trên, AI cards to ở giữa, rồi xuống objectives. Mắt user không biết "tôi đang ở bước nào của bước 0".
+6. **Không có hint chất lượng brief** — user gõ "Ra mắt sản phẩm" 3 chữ rồi bấm AI → kết quả tệ. Cần micro-coaching.
+7. **Char count / state** — không cho thấy độ dài, không có nút "Xoá", không autoFocus.
+8. **AI reasoning** in italic dưới toggle khá lạc lõng, không thuộc card nào rõ rệt.
 
-## Mục tiêu refactor (frontend-only, không đụng backend/data shape)
+## Mục tiêu
 
-Áp dụng **Soft Luxury**: neutral gray, generous spacing, typography hierarchy rõ; readable trên 707px.
+Bước 0 phải trông như một **"Brief sáng tạo"** rõ ràng: thông tin → cách AI hỗ trợ → kết quả gợi ý. Frontend-only, không đổi logic state hay edge function.
 
-### A. Density & typography
-- Bỏ text-[9/10/11px] → chuẩn về `text-xs` (12px) cho data dày, `text-sm` (14px) cho title, `text-[11px]` chỉ cho meta phụ.
-- Control height: từ h-5 → h-7 (28px) cho inline; h-8 cho primary action.
-- Padding row từ py-1 → py-2; gap 1.5 → gap-2.
+### A. Brief card (gộp tên + mô tả)
+- Card lớn padding rộng (p-4 sm:p-5), border mảnh, không gradient.
+- **Tên chiến dịch** — Input `h-11 text-base font-medium`, autoFocus, placeholder mạnh hơn ("VD: Ra mắt serum vitamin C tháng 4").
+- **Mô tả ngắn** (Textarea, optional, 2-4 dòng) — mới thêm, bind vào `description` state hiện có. Placeholder gợi: "Mục tiêu chính, đối tượng, điểm khác biệt, ưu đãi…".
+- Counter ký tự nhỏ (`{name.length}/80` cho tên, `{description.length}/400` cho mô tả).
+- Hint dòng dưới (text-[11px] muted): "💡 Brief càng rõ → AI gợi ý càng đúng. Thử 2-3 câu ngắn." → dùng `Lightbulb` icon, **bỏ emoji**.
+- Helper inline khi cả 2 đều trống: badge mờ "Cần brief để AI hoạt động".
 
-### B. List row layout (responsive)
-Đổi từ flex 1-dòng → **2-dòng card mỏng**:
+### B. Gộp 2 AI card thành 1 "AI mode picker" (segmented radio-card)
 ```
-Row:
-  [pillar dot] Title (truncate)            [⋯ menu]
-  Thu 12/3 · 19:30 · Facebook · educate
+┌─ Cách bạn muốn AI hỗ trợ ─────────────────┐
+│ ◉ Trợ lý gợi ý từng bước  (mặc định)       │
+│   AI gợi ý mục tiêu/kênh, bạn quyết định.  │
+│                                            │
+│ ○ AI tự chạy toàn bộ                       │
+│   AI chọn mục tiêu + kênh + chiến lược.    │
+│   Bạn chỉ review ở bước cuối.              │
+│                                            │
+│ [Khi chọn "Tự chạy"] [Bắt đầu AI tự chạy →]│
+│ [Khi chọn "Trợ lý"] Toggle: Tự chọn mục tiêu│
+└────────────────────────────────────────────┘
 ```
-- Title dòng trên, rõ ràng, full width trừ menu button.
-- Meta dòng dưới (date · time · channel · pillar) dưới dạng text inline, click vào meta → popover edit (1 popover gom date+time+channel+pillar thay vì 4 control luôn-hiện).
-- Edit title: click title → inline edit.
-- Actions (✨ rewrite, 🗑 delete, ⧉ duplicate): gộp vào DropdownMenu `⋯` (luôn hiện, không hover-only) → touch-friendly.
-- Overload day → border-l-2 màu warning thay vì bg.
+- 2 row radio-card style (border, hover bg-accent/40, selected: border-foreground/30 bg-accent/50 — neutral, không primary).
+- Icon trái: `Sparkles` (AI gợi ý) vs `Wand2` (auto-pilot).
+- Nút "AI tự chạy" chỉ hiện khi chọn option 2; disable + tooltip khi brief trống.
+- Toggle "Để AI chọn mục tiêu giúp tôi" thuộc option 1, slide-in khi option 1 active (giảm clutter khi user chọn full auto).
+- AI reasoning hiển thị **inside** option 1's expanded area (không float lơ lửng).
 
-### C. Stats strip nâng cấp
-- 3 mini card ngang đều nhau (Total · Channels · Pillars).
-- Mỗi card có **mini stacked-bar 6px** thể hiện distribution (%) — màu neutral gray với accent.
-- Cảnh báo overload thành dòng riêng dưới khi có vấn đề: "⚠ 2 ngày có >3 bài: 12/3, 18/3" (clickable → filter ngày đó).
+### C. Progress khi auto-pilot chạy
+- Inline trong cùng card (không thay đổi logic), nhưng style lại checklist: dot 14px + label rõ, không lẫn với option khác.
+- Disable cả picker khi đang chạy.
 
-### D. Header gọn
-- Title "Lịch nội dung" + badge count giữ nguyên kích thước hợp lý (text-sm).
-- View toggle (List/Calendar) chuyển sang segmented control rõ ràng có nhãn ngắn ("Danh sách" | "Lịch") trên ≥640px, icon-only khi <640px.
-- Refresh/Export gộp vào 1 DropdownMenu "Hành động" với label, tránh icon-soup.
+### D. Token & polish
+- Bỏ `from-primary/10 to-primary/5`, `border-primary/30` → dùng `border-border`, `bg-accent/30` cho card phụ; chỉ accent foreground/primary trên element được chọn hoặc nút primary action.
+- Bỏ emoji 🪄 → `Wand2`. Bỏ emoji 💡 → `Lightbulb`.
+- Section spacing `space-y-5` thay vì `space-y-4` để thoáng hơn.
+- Title section nhỏ trên brief card: `Brief chiến dịch` (text-[10px] uppercase tracking-wide muted) để báo hiệu đây là bước 1/4.
 
-### E. Filter row
-- Hiển thị "X / Y bài" số kết quả sau filter (vs total).
-- Filter chips active hiển thị inline (e.g. badge "Kênh: Facebook ✕") thay vì chỉ Select.
-- Nút "+ Thêm bài" tách thành primary action riêng (variant outline, không lẫn filter).
-
-### F. Calendar view
-- Trên ≤640px: tự động fallback về **list grouped theo ngày** (không grid 7 cột).
-- Trên >640px: giữ grid 7 cột nhưng tăng min-h ô từ 60→80px, chip text từ [8px]→[11px], hiện tối đa 3 chip thay vì 2.
-- Header thứ: "T2..CN" → "Th 2 ... CN" với border-b mảnh.
-- Ngày ngoài range: bg neutral muted, không opacity-50 (đỡ trông "hỏng").
-- Chip ngày: pillar dot + channel icon + title; click → popover edit nhanh tại chỗ (không chuyển view).
-
-### G. Empty & loading state
-- Loading: skeleton 5 row giả lập layout thật + thanh tiến trình text "AI đang phân bổ 24 bài qua 4 kênh…".
-- Empty: icon lớn hơn + 2 CTA (Tạo bằng AI / Thêm thủ công).
-- Error: hiển thị error message rõ + nút "Thử lại".
-
-### H. Token & theme compliance
-- Bỏ tất cả `bg-blue-500/10`, `text-violet-700`… → dùng tokens:
-  - Pillar color = pillar **dot 8px** với HSL token mới (`--pillar-educate`, `--pillar-inspire`, `--pillar-sell`, `--pillar-entertain`) khai báo trong `index.css`.
-  - Pillar badge dùng `bg-muted text-muted-foreground` + dot bên trái.
-- Border, hover dùng `bg-accent/50`, `border-border`.
+### E. Accessibility / state
+- `autoFocus` ô Tên khi vào step 0.
+- `aria-describedby` nối hint với input.
+- Nút Auto-pilot disable kèm tooltip "Cần ít nhất tên hoặc mô tả".
 
 ## File thay đổi
 
-**Edit**
-- `src/components/agents/ContentScheduleStudio.tsx` — refactor toàn bộ JSX theo A–G; tách render row thành sub-component nội bộ `<ScheduleRow>`; tách `<DayCell>` cho calendar; thêm hook `useMediaQuery('(min-width: 640px)')` để switch list/grid fallback.
-- `src/index.css` — thêm 4 CSS variable `--pillar-*` (HSL neutral với hue nhẹ, không bão hòa) + util class `.pillar-dot`.
-- `src/components/agents/GoalWizard.tsx` — chỉ chỉnh wrapper khoảng cách Step 4 nếu cần (max-h container, nền section) để studio mới có chỗ thở.
+**Edit (chỉ JSX + import icon)**
+- `src/components/agents/GoalWizard.tsx`:
+  - Replace block `step === 0` đoạn brief + 2 AI card (lines ~1066–1204) với layout mới: BriefCard + AIModePicker.
+  - Thêm Textarea import (nếu chưa) + `Wand2`, `Lightbulb` từ `lucide-react`.
+  - Thêm 1 state local `aiMode: 'assist' | 'auto'` (mặc định `'assist'`) để segmented control điều khiển hiển thị. Toggle `autoMode` + nút `runAutoPilot` giữ nguyên logic.
 
 **Không đổi**
-- Backend `generate-campaign-strategy`, hooks `usePreviewSchedule` / `useRewritePiece`, `scheduleExport.ts`, data shape `SchedulePiece`.
+- Objective cards section (giữ nguyên bên dưới).
+- Toàn bộ state khác, handlers, edge functions, validation `canProceed`.
+- Stepper trên cùng wizard.
 
 ## Out of scope
-- Drag-drop calendar (vẫn defer như spec gốc).
-- AI rewrite bulk.
-- Đổi luồng wiring trong GoalWizard.
+- Không đổi flow auto-pilot.
+- Không AI generate tên gợi ý (có thể làm sau bằng nút "Gợi ý tên" → 1 mutation mới).
+- Không refactor các step 1/2/3.
 
-## UX sau refactor (707px viewport)
+## UX trước/sau (707px)
 ```
-┌───────────────────────────────────────────────┐
-│ 📅 Lịch nội dung  [24 bài]   [Danh sách▾] [⋯]│
-├───────────────────────────────────────────────┤
-│ ┌──────┬──────┬──────┐                       │
-│ │24 bài│4 kênh│3 pllr│                       │
-│ │▇▇▇▇▇▇│▇▇▇░░│▇▇░░░│                        │
-│ └──────┴──────┴──────┘                       │
-│ ⚠ 2 ngày có >3 bài: 12/3, 18/3                │
-├───────────────────────────────────────────────┤
-│ Filter: [Mọi kênh▾][Mọi pillar▾][Mọi loại▾]  │
-│ Hiện 24 / 24 bài            [+ Thêm bài]      │
-├───────────────────────────────────────────────┤
-│ Tuần 1 (1/3 – 7/3)                    6 bài  │
-│ ┌─────────────────────────────────────────┐  │
-│ │● Cách chăm da sau lăn kim         [⋯]   │  │
-│ │  Th 2 1/3 · 19:30 · Facebook · educate  │  │
-│ ├─────────────────────────────────────────┤  │
-│ │● 5 lầm tưởng về botox            [⋯]   │  │
-│ │  Th 4 3/3 · 20:00 · Instagram · inspire │  │
-│ └─────────────────────────────────────────┘  │
-└───────────────────────────────────────────────┘
+TRƯỚC                                 SAU
+─────                                 ────
+[Label] Tên chiến dịch *               BRIEF CHIẾN DỊCH
+[Input  sm  ]                          ┌───────────────────────────┐
+                                       │ Tên chiến dịch *          │
+┌─🪄 Để AI lo hết ──────[AI tự chạy]─┐  │ [Input lớn   ]    0/80   │
+│ AI tự chọn …                       │  │ Mô tả ngắn (tuỳ chọn)    │
+└────────────────────────────────────┘  │ [Textarea 3 dòng] 0/400  │
+                                       │ 💡 Brief rõ → AI tốt hơn │
+┌─ Để AI chọn mục tiêu ──── [toggle]─┐  └───────────────────────────┘
+│ AI sẽ phân tích…                   │
+│ Đang phân tích…                    │  CÁCH AI HỖ TRỢ
+│ AI reasoning…                      │  ┌───────────────────────────┐
+└────────────────────────────────────┘  │ ◉ Trợ lý gợi ý từng bước │
+                                       │   [Toggle: AI chọn mục tiêu]
+                                       │   AI reasoning inline      │
+                                       │ ○ AI tự chạy toàn bộ      │
+                                       │   [Bắt đầu AI tự chạy →]  │
+                                       └───────────────────────────┘
 ```
