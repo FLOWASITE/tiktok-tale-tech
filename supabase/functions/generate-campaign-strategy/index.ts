@@ -335,6 +335,7 @@ Deno.serve(async (req) => {
                       content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
                       format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
                       scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+                      recommended_time: { type: "string", description: "HH:mm 24h, golden hour for the target_channel" },
                       key_message: { type: "string" },
                       estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                       pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
