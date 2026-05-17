@@ -285,7 +285,8 @@ async function generateCarouselImages(
   platform: string,
   carouselTopic: string,
   pipelineId: string | null,
-): Promise<{ success: number; failed: number; taskId?: string; seamless_score?: number | null }> {
+  fireAndForget: boolean = false,
+): Promise<{ success: number; failed: number; taskId?: string; seamless_score?: number | null; deferred?: boolean }> {
   const brandColors = await extractBrandColorsFromTemplate(supabase, {
     brandTemplateId: brandTemplateId || null,
     brandGuideline: brief.brand_guideline || null,
