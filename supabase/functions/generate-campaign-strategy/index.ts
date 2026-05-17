@@ -137,6 +137,10 @@ RULES:
 6. Schedule pieces with 2-3 day gaps minimum
    - Avoid weekends for B2B content
    - Tuesday-Thursday are best for LinkedIn
+   - ALSO assign each piece a "recommended_time" (HH:mm 24h) at the platform's golden hour:
+     facebook 19:30, instagram 20:00, linkedin 09:00, threads 12:00, twitter 09:30,
+     bluesky 11:00, pinterest 21:00, tiktok 19:00, telegram 20:30, zalo 11:30,
+     email 09:30, website/blogger/wordpress/shopify/wix/medium 09:30, google_maps 10:00.
 ${pillarAllocation ? '\n7. PILLAR ALLOCATION is MANDATORY — distribute pieces according to the specified percentages above.\n   Every piece must be assigned to a pillar.\n' : ''}
 7${pillarAllocation ? '' : ''}. ALL pieces must be directly related to: "${params.title}"
    Do NOT suggest unrelated trending topics.
