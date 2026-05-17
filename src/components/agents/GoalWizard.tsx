@@ -409,6 +409,56 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     return ctx;
   };
 
+  // Map primary objective ID → topic-ai contentGoal
+  const mapObjectiveToContentGoal = (objId?: string): string => {
+    if (!objId) return 'education';
+    const id = objId.toLowerCase();
+    if (id.includes('aware') || id.includes('nhận')) return 'awareness';
+    if (id.includes('engage') || id.includes('tương')) return 'engagement';
+    if (id.includes('lead') || id.includes('traffic') || id.includes('thu')) return 'lead-gen';
+    if (id.includes('revenue') || id.includes('doanh') || id.includes('conver') || id.includes('chuyển')) return 'sales';
+    if (id.includes('retention') || id.includes('giữ')) return 'community';
+    return 'education';
+  };
+
+  // Pre-fetch curated topic pool from topic-ai (best-effort, fail-silent)
+  const fetchTopicPool = async (): Promise<Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }>> => {
+    try {
+      const primaryObjId = objectives[0];
+      const contentGoal = mapObjectiveToContentGoal(primaryObjId);
+      const categoryHint = name.trim().slice(0, 180);
+      const { data, error } = await supabase.functions.invoke('topic-ai', {
+        body: {
+          action: 'suggest',
+          brandTemplateId: brandTemplateId || undefined,
+          organizationId: currentOrganization?.id,
+          contentGoal,
+          industry: currentBrand?.industry || undefined,
+          format: 'all',
+          categoryHint,
+          forceRefresh: false,
+        },
+      });
+      if (error) throw error;
+      const raw: any[] = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      const pool = raw
+        .map((s) => ({
+          title: typeof s.topic === 'string' ? s.topic : (typeof s.title === 'string' ? s.title : ''),
+          hook: typeof s.hook === 'string' ? s.hook : undefined,
+          key_message: typeof s.keyMessage === 'string' ? s.keyMessage : (typeof s.key_message === 'string' ? s.key_message : undefined),
+          pillar: typeof s.pillar === 'string' ? s.pillar : undefined,
+          category: typeof s.category === 'string' ? s.category : undefined,
+          scores: s.scores && typeof s.scores === 'object' ? s.scores : undefined,
+        }))
+        .filter((t) => t.title && t.title.length > 5);
+      console.log(`[GoalWizard] Topic pool fetched: ${pool.length} topics`);
+      return pool;
+    } catch (e) {
+      console.warn('[GoalWizard] Topic pool fetch failed, falling back to AI-free strategy:', e);
+      return [];
+    }
+  };
+
   const triggerSchedulePreview = async () => {
     if (!currentOrganization?.id || selectedChannels.length === 0 || !name.trim()) return;
     setScheduleError(null);
@@ -420,6 +470,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
       perChannelTargets[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
     });
+
+    // Phase 1: curate topic pool via topic-ai (best-effort)
+    setTopicPoolPhase('topics');
+    const pool = await fetchTopicPool();
+    setTopicPoolUsed(pool);
+
+    // Phase 2: generate schedule with pool injected
+    setTopicPoolPhase('schedule');
     const res = await previewSchedule.run({
       campaign_title: name.trim(),
       campaign_description: description.trim() || undefined,
@@ -431,7 +489,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       organization_id: currentOrganization.id,
       target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
       per_channel_targets: Object.keys(perChannelTargets).length > 0 ? perChannelTargets : undefined,
+      topic_pool: pool.length > 0 ? pool : undefined,
     });
+    setTopicPoolPhase('idle');
     if (res?.plan) {
       setEditableSchedule(res.plan);
       setScheduleAutoTriggered(true);
