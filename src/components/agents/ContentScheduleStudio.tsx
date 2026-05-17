@@ -4,8 +4,9 @@ import { vi } from 'date-fns/locale';
 import {
   CalendarDays, Sparkles, Download, Trash2, Plus, RefreshCw, AlertTriangle,
   Copy, FileSpreadsheet, FileText, Loader2, List as ListIcon, Grid3x3, X,
-  MoreHorizontal, CopyPlus,
+  MoreHorizontal, CopyPlus, Layers, Video, Info,
 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
