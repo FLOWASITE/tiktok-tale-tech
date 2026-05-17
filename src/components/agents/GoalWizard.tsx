@@ -2280,8 +2280,55 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                 )}
 
+                {/* Name issue takes precedence over generic clarification */}
+                {showClarification && nameIssue && (
+                  <div className="space-y-2.5 rounded-lg border border-amber-300/60 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium leading-tight">
+                          {nameIssue.issue === 'irrelevant' ? 'Tên chiến dịch có vẻ lệch khỏi mô tả'
+                            : nameIssue.issue === 'gibberish' ? 'Tên chiến dịch chưa rõ nghĩa'
+                            : 'Tên chiến dịch hơi chung chung'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{nameIssue.reason}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">AI gợi ý</p>
+                      <div className="flex flex-col gap-1">
+                        {nameIssue.suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setName(s);
+                              setNameIssue(null);
+                              setTimeout(() => finalSubmit(null), 100);
+                            }}
+                            className="text-left text-[11px] px-2.5 py-1.5 rounded-md border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            <CheckCircle2 className="inline w-3 h-3 mr-1 text-primary" />
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/40 dark:border-amber-900/30">
+                      <Button size="sm" variant="ghost" onClick={() => { setNameIssue(null); }} className="h-7 text-[10px] text-muted-foreground px-2">
+                        Quay lại sửa tay
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setNameIssue(null); finalSubmit(null); }} className="h-7 text-[10px] px-2">
+                        Giữ tên hiện tại
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Clarification — inline below summary, doesn't replace it */}
-                {showClarification && (
+                {showClarification && !nameIssue && (
                   <ClarificationStep
                     questions={clarificationQuestions || []}
                     understanding={clarificationUnderstanding || undefined}
