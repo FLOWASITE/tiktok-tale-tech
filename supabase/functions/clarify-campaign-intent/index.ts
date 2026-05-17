@@ -6,6 +6,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Mirror of src/lib/campaignNameQuality.ts — keep in sync
+const BLACKLIST = [
+  "test","testing","asdf","qwerty","qwer","abcd","abc",
+  "untitled","no name","noname","demo",
+  "new campaign","campaign 1","campaign 2","campaign 3",
+  "chiến dịch mới","chiến dịch 1","chiến dịch 2","chiến dịch 3",
+  "chien dich","tên chiến dịch","ten chien dich",
+];
+const GENERIC_TOKENS = new Set([
+  "chiến","dịch","campaign","marketing","quảng","cáo","ads",
+  "content","nội","dung","post","bài","viết","plan","kế","hoạch",
+  "the","a","an","of","for","with","and","cho","và","của",
+]);
+function analyzeName(name: string): { status: "ok" | "generic" | "gibberish"; reason?: string } {
+  const raw = (name || "").trim();
+  if (!raw) return { status: "ok" };
+  const lower = raw.toLowerCase();
+  if (BLACKLIST.some(b => lower === b || lower.startsWith(b + " ") || lower.endsWith(" " + b))) {
+    return { status: "gibberish", reason: "placeholder/sample name" };
+  }
+  if (/(.)\1{3,}/.test(lower)) return { status: "gibberish", reason: "repeated character run" };
+  const tokens = lower.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && new Set(tokens).size === 1) return { status: "gibberish", reason: "single repeated token" };
+  const letters = raw.match(/\p{L}/gu) || [];
+  const ratio = letters.length / raw.length;
+  if (raw.length >= 6 && ratio < 0.45) return { status: "gibberish", reason: "too few letters" };
+  if (letters.length < 4) return { status: "gibberish", reason: "too short / no letters" };
+  if (raw.length >= 6) {
+    const lo = letters.join("").toLowerCase();
+    const vowels = (lo.match(/[aeiouáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/g) || []).length;
+    const vr = vowels / lo.length;
+    if (vr < 0.15 || vr > 0.85) return { status: "gibberish", reason: "unnatural vowel pattern" };
+  }
+  const meaningful = tokens.filter(t => {
+    const c = t.replace(/[^\p{L}\p{N}]/gu, "");
+    return c.length >= 2 && !GENERIC_TOKENS.has(c);
+  });
+  if (meaningful.length === 0) return { status: "generic", reason: "only generic words" };
+  if (raw.length < 8 && meaningful.length < 2) return { status: "generic", reason: "too short, missing specifics" };
+  return { status: "ok" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
