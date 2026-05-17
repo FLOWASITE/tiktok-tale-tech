@@ -522,12 +522,12 @@ Deno.serve(async (req) => {
       throw new Error("AI did not return structured plan data");
     }
 
-    let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
     try {
       planData = JSON.parse(toolCall.function.arguments);
     } catch {
       throw new Error("Failed to parse AI strategy output");
     }
+    } // ── end if(!hasPrePlan) branch ──
 
     // Add default statuses, ensure content_type, and pipeline_id to each piece
     const pieces = planData.plan.map((piece: any, idx: number) => ({
