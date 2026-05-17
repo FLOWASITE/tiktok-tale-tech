@@ -1,0 +1,1 @@
+UPDATE public.campaign_content_plans SET status='approved' WHERE id='feff6077-f696-4f5f-8bd6-eef1600db7cd';

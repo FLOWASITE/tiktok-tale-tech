@@ -12676,6 +12676,14 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_pipeline_stage: {
+        Args: {
+          p_expected_stage?: string
+          p_pipeline_id: string
+          p_stale_seconds?: number
+        }
+        Returns: string
+      }
       cleanup_expired_cache: { Args: never; Returns: number }
       cleanup_expired_facebook_oauth_sessions: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
@@ -12998,6 +13006,10 @@ export type Database = {
       recover_stuck_generation_tasks: { Args: never; Returns: number }
       refresh_cluster_status: { Args: { _cluster_id: string }; Returns: string }
       refresh_compliance_rules_mv: { Args: never; Returns: undefined }
+      release_pipeline_claim: {
+        Args: { p_pipeline_id: string; p_token: string }
+        Returns: undefined
+      }
       search_brand_memory: {
         Args: {
           match_brand_template_id: string
