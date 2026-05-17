@@ -274,6 +274,7 @@ function TimelineView({
                       >
                         <ChannelIcon channel={piece.target_channel} size="sm" />
                         <p className="text-sm font-medium flex-1 truncate">{piece.title}</p>
+                        {isEditable && renderSuggest?.(piece)}
                         {role && (
                           <Badge variant="outline" className={cn('text-[9px] h-4 shrink-0', role.color)}>
                             {role.emoji} {role.label}
