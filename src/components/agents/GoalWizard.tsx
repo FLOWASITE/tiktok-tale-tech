@@ -744,18 +744,19 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   };
 
   const handleConfirmStep = async () => {
-    // Client-side smart skip: if strategic context already complete → bypass AI clarify
+    // Client-side smart skip: if strategic context already complete AND name is OK → bypass AI clarify
     const hasObjective = objectives.length > 0;
     const hasMessagesOrCta = keyMessages.length > 0 || !!primaryCta.trim();
     const hasPillars = Object.keys(pillarAllocation).length > 0;
     const hasGoodTitle = name.trim().length > 15;
     const hasDescription = description.trim().length > 20;
-    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasGoodTitle || hasDescription)) {
+    const nameOk = nameQuality.status === 'ok';
+    if (nameOk && hasObjective && (hasMessagesOrCta || hasPillars) && (hasGoodTitle || hasDescription)) {
       finalSubmit(null);
       return;
     }
 
-    setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null);
+    setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null); setNameIssue(null);
     try {
       const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
         body: {
@@ -778,7 +779,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         },
       });
       if (error) throw error;
-      if (data?.ready) {
+      // Name issue takes priority — show suggestion UI before normal clarification
+      if (data?.name_issue && Array.isArray(data?.suggested_names) && data.suggested_names.length > 0) {
+        setNameIssue({
+          issue: data.name_issue,
+          reason: data.name_issue_reason || 'Tên chiến dịch có thể chưa phản ánh đúng nội dung.',
+          suggestions: data.suggested_names.slice(0, 3),
+        });
+      } else if (data?.ready) {
         setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
         setTimeout(() => finalSubmit(null), 1200);
       } else if (data?.questions?.length > 0) {
