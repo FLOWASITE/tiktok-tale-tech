@@ -1753,10 +1753,27 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 </div>
               </div>
 
+              {/* Period scope (Tháng/Quý/Năm/Tự chọn) + parent campaign */}
+              <PeriodScopePicker
+                value={periodType}
+                onChange={(type, range) => {
+                  setPeriodType(type);
+                  setPeriodLabel(range.label);
+                  if (type !== 'custom') {
+                    setCampaignStartDate(range.startDate);
+                    setCampaignDurationDays(range.durationDays);
+                    setCustomDuration('');
+                  }
+                }}
+                parentGoalId={parentGoalId}
+                onParentChange={setParentGoalId}
+                parentOptions={parentGoalOptions}
+              />
+
               {/* Duration & Posts Target */}
               <div className="space-y-3">
                 <Label className="text-xs">Thời lượng chiến dịch</Label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className={cn("grid grid-cols-3 gap-1.5", periodType !== 'custom' && 'opacity-50 pointer-events-none')}>
                   {DURATION_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
@@ -1771,7 +1788,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     </button>
                   ))}
                 </div>
-                {campaignDurationDays === 0 && (
+                {campaignDurationDays === 0 && periodType === 'custom' && (
                   <div className="flex items-center gap-2">
                     <Input type="number" value={customDuration} onChange={e => setCustomDuration(e.target.value)} placeholder="Số ngày" className="text-sm w-24 h-8" min={3} max={365} />
                     <span className="text-xs text-muted-foreground">ngày</span>
@@ -1780,7 +1797,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Bắt đầu:</Label>
-                    <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-full" />
+                    <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-full" disabled={periodType !== 'custom'} />
                   </div>
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Số bài:</Label>
@@ -1795,7 +1812,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     />
                   </div>
                 </div>
-                <p className="text-[9px] text-muted-foreground">Nhập số bài viết mong muốn để AI phân bổ lịch đăng phù hợp. Bỏ trống = AI tự tính.</p>
+                <p className="text-[9px] text-muted-foreground">
+                  {periodType === 'custom'
+                    ? 'Nhập số bài viết mong muốn để AI phân bổ lịch đăng phù hợp. Bỏ trống = AI tự tính.'
+                    : 'Ngày bắt đầu & số ngày tự động theo phạm vi đã chọn.'}
+                </p>
               </div>
 
               {/* Budget */}
