@@ -2467,6 +2467,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             </>
           )}
         </div>
+        </div></div>
       </DialogContent>
     </Dialog>
   );
