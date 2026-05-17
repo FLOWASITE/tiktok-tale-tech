@@ -838,6 +838,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         approval_mode: submitData.approval_mode,
         brand_template_id: submitData.brand_template_id,
         clarification_context: submitData.clarification_context,
+        pre_generated_plan:
+          editableSchedule && editableSchedule.length > 0 && !scheduleStale
+            ? editableSchedule
+            : undefined,
       });
       
       setGenerationResult({ ...result, goal_name: name.trim() });
