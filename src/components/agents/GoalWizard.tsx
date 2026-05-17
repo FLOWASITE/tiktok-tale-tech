@@ -510,6 +510,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setAiReasoning(''); setAiChannelReasoning(''); setAiStrategyReasoning('');
     setAiStrategyKeys({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
     setAutoPilotRunning(false); setAutoPilotStage('idle');
+    setEditableSchedule(null); setScheduleError(null); setScheduleAutoTriggered(false); setScheduleStale(false);
   };
 
   const addKeyMessage = () => {
