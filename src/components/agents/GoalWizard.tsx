@@ -30,17 +30,27 @@ import { ClarificationStep } from './ClarificationStep';
 
 // ─── Constants ───
 
-const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel }[] = [
-  { id: 'blog', label: 'Blog', channelKey: 'website' },
-  { id: 'facebook', label: 'Facebook', channelKey: 'facebook' },
-  { id: 'instagram', label: 'Instagram', channelKey: 'instagram' },
-  { id: 'tiktok', label: 'TikTok', channelKey: 'tiktok' },
-  { id: 'zalo', label: 'Zalo OA', channelKey: 'zalo_oa' },
-  { id: 'linkedin', label: 'LinkedIn', channelKey: 'linkedin' },
-  { id: 'twitter', label: 'X (Twitter)', channelKey: 'twitter' },
-  { id: 'email', label: 'Email', channelKey: 'email' },
-  { id: 'threads', label: 'Threads', channelKey: 'threads' },
-  { id: 'pinterest', label: 'Pinterest', channelKey: 'website' },
+const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel; group: 'longform' | 'social' }[] = [
+  // 🌐 Website & Long-form
+  { id: 'website',   label: 'Website',      channelKey: 'website',   group: 'longform' },
+  { id: 'blogger',   label: 'Blogger',      channelKey: 'blogger',   group: 'longform' },
+  { id: 'wordpress', label: 'WordPress',    channelKey: 'wordpress', group: 'longform' },
+  { id: 'shopify',   label: 'Shopify Blog', channelKey: 'shopify',   group: 'longform' },
+  { id: 'wix',       label: 'Wix Blog',     channelKey: 'wix',       group: 'longform' },
+  { id: 'medium',    label: 'Medium',       channelKey: 'medium',    group: 'longform' },
+  { id: 'email',     label: 'Email',        channelKey: 'email',     group: 'longform' },
+  // 💬 Mạng xã hội
+  { id: 'facebook',    label: 'Facebook',    channelKey: 'facebook',    group: 'social' },
+  { id: 'instagram',   label: 'Instagram',   channelKey: 'instagram',   group: 'social' },
+  { id: 'linkedin',    label: 'LinkedIn',    channelKey: 'linkedin',    group: 'social' },
+  { id: 'twitter',     label: 'X (Twitter)', channelKey: 'twitter',     group: 'social' },
+  { id: 'threads',     label: 'Threads',     channelKey: 'threads',     group: 'social' },
+  { id: 'bluesky',     label: 'Bluesky',     channelKey: 'bluesky',     group: 'social' },
+  { id: 'pinterest',   label: 'Pinterest',   channelKey: 'pinterest',   group: 'social' },
+  { id: 'telegram',    label: 'Telegram',    channelKey: 'telegram',    group: 'social' },
+  { id: 'zalo',        label: 'Zalo OA',     channelKey: 'zalo_oa',     group: 'social' },
+  { id: 'google_maps', label: 'Google Maps', channelKey: 'google_maps', group: 'social' },
+  // ❌ TikTok / YouTube không nằm trong AI Campaign — chỉ post từ Video Studio
 ];
 
 const FREQUENCY_OPTIONS = [
@@ -1009,21 +1019,31 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
               <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
-              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
-                {AVAILABLE_CHANNELS.map(ch => {
-                  const selected = selectedChannels.includes(ch.id);
-                  return (
-                    <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
-                      "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
-                      selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    )}>
-                      <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
-                      <span className="text-xs font-medium">{ch.label}</span>
-                      {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
-                    </button>
-                  );
-                })}
-              </div>
+              {(['longform', 'social'] as const).map(group => {
+                const items = AVAILABLE_CHANNELS.filter(c => c.group === group);
+                return (
+                  <div key={group} className="space-y-1.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                      {group === 'longform' ? '🌐 Website & Long-form' : '💬 Mạng xã hội'}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {items.map(ch => {
+                        const selected = selectedChannels.includes(ch.id);
+                        return (
+                          <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
+                            "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
+                            selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                          )}>
+                            <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
+                            <span className="text-xs font-medium">{ch.label}</span>
+                            {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -1067,8 +1087,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
                     {/* Content type breakdown */}
                     {(() => {
-                      const visualChannelIds = ['instagram', 'tiktok', 'facebook', 'pinterest'];
-                      const videoChannelIds = ['tiktok', 'youtube', 'instagram'];
+                      const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
+                      const videoChannelIds: string[] = []; // TikTok/YouTube đi qua Video Studio, không thuộc AI Campaign
                       const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
                       const weeks = Math.ceil(effectiveDuration / 7);
 
@@ -1076,9 +1096,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                         .filter(ch => visualChannelIds.includes(ch))
                         .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
 
-                      const estVideos = selectedChannels
-                        .filter(ch => videoChannelIds.includes(ch))
-                        .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+                const estVideos = 0;
 
                       const breakdownItems = [
                         { icon: FileText, label: 'Nội dung đa kênh', count: estimatedPosts },
