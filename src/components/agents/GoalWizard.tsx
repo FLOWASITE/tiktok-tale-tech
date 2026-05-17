@@ -37,6 +37,7 @@ import { ClarificationStep } from './ClarificationStep';
 import ContentScheduleStudio from './ContentScheduleStudio';
 import { usePreviewSchedule } from '@/hooks/agents/usePreviewSchedule';
 import type { SchedulePiece } from '@/lib/scheduleExport';
+import { analyzeCampaignName, type NameQualityResult } from '@/lib/campaignNameQuality';
 
 // ─── Constants ───
 
@@ -332,6 +333,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
 
+  // Campaign name quality
+  const nameQuality: NameQualityResult = useMemo(() => analyzeCampaignName(name), [name]);
+  const [nameIssue, setNameIssue] = useState<{
+    issue: 'vague' | 'irrelevant' | 'gibberish';
+    reason: string;
+    suggestions: string[];
+  } | null>(null);
+  const [suggestingNames, setSuggestingNames] = useState(false);
+
   // Generating state
   const [generatingStatus, setGeneratingStatus] = useState<GeneratingStatus>('idle');
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
@@ -357,7 +367,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
   const isEditing = !!initialData;
   const confirmStep = STEPS.length - 1;
-  const showClarification = step === confirmStep && generatingStatus === 'idle' && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const showClarification = step === confirmStep && generatingStatus === 'idle' && (clarifying || clarificationQuestions || clarificationUnderstanding || nameIssue);
   const isGenerating = generatingStatus !== 'idle';
   const pillarEntries = Object.entries(pillarAllocation);
   const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
@@ -506,7 +516,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
     setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
-    setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
+    setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null); setNameIssue(null);
     setAutoMode(false); setAutoChannelMode(false); setAutoStrategyMode(false);
     setAiObjectiveIds(new Set()); setAiKpiKeys(new Set()); setAiChannelIds(new Set());
     setAiReasoning(''); setAiChannelReasoning(''); setAiStrategyReasoning('');
@@ -652,6 +662,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       toast.error('Cần có tên hoặc mô tả chiến dịch trước');
       return;
     }
+    if (nameQuality.status === 'gibberish') {
+      toast.error('Tên chiến dịch không rõ nghĩa', {
+        description: nameQuality.reason || 'Đặt tên cụ thể hơn (sản phẩm, đối tượng, thời điểm) để AI hiểu đúng.',
+      });
+      return;
+    }
     setAutoPilotRunning(true);
     try {
       // 1. Objectives
@@ -734,18 +750,19 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   };
 
   const handleConfirmStep = async () => {
-    // Client-side smart skip: if strategic context already complete → bypass AI clarify
+    // Client-side smart skip: if strategic context already complete AND name is OK → bypass AI clarify
     const hasObjective = objectives.length > 0;
     const hasMessagesOrCta = keyMessages.length > 0 || !!primaryCta.trim();
     const hasPillars = Object.keys(pillarAllocation).length > 0;
     const hasGoodTitle = name.trim().length > 15;
     const hasDescription = description.trim().length > 20;
-    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasGoodTitle || hasDescription)) {
+    const nameOk = nameQuality.status === 'ok';
+    if (nameOk && hasObjective && (hasMessagesOrCta || hasPillars) && (hasGoodTitle || hasDescription)) {
       finalSubmit(null);
       return;
     }
 
-    setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null);
+    setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null); setNameIssue(null);
     try {
       const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
         body: {
@@ -768,7 +785,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         },
       });
       if (error) throw error;
-      if (data?.ready) {
+      // Name issue takes priority — show suggestion UI before normal clarification
+      if (data?.name_issue && Array.isArray(data?.suggested_names) && data.suggested_names.length > 0) {
+        setNameIssue({
+          issue: data.name_issue,
+          reason: data.name_issue_reason || 'Tên chiến dịch có thể chưa phản ánh đúng nội dung.',
+          suggestions: data.suggested_names.slice(0, 3),
+        });
+      } else if (data?.ready) {
         setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
         setTimeout(() => finalSubmit(null), 1200);
       } else if (data?.questions?.length > 0) {
@@ -781,6 +805,42 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       finalSubmit(null);
     } finally {
       setClarifying(false);
+    }
+  };
+
+  // On-demand: ask AI for 3 suggested names from current brief, used by the inline alert
+  const fetchNameSuggestions = async () => {
+    if (suggestingNames) return;
+    setSuggestingNames(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
+        body: {
+          title: name.trim() || 'untitled',
+          description: description.trim() || undefined,
+          industry: currentBrand?.industry || undefined,
+          channels: selectedChannels,
+          brand_name: currentBrand?.brand_name || undefined,
+          objectives: objectives.map(id => OBJECTIVES.find(o => o.id === id)?.label || id),
+          primary_objective: selectedObj?.label,
+          key_messages: keyMessages,
+          primary_cta: primaryCta.trim() || undefined,
+          pillars: Object.keys(pillarAllocation),
+        },
+      });
+      if (error) throw error;
+      if (Array.isArray(data?.suggested_names) && data.suggested_names.length > 0) {
+        setNameIssue({
+          issue: data.name_issue || 'vague',
+          reason: data.name_issue_reason || nameQuality.reason || 'Đặt tên cụ thể hơn để AI hiểu đúng.',
+          suggestions: data.suggested_names.slice(0, 3),
+        });
+      } else {
+        toast.info('AI chưa có gợi ý tốt hơn', { description: 'Hãy bổ sung mô tả ngắn để AI hiểu hơn.' });
+      }
+    } catch (e: any) {
+      toast.error('Không lấy được gợi ý', { description: String(e?.message || e) });
+    } finally {
+      setSuggestingNames(false);
     }
   };
 
@@ -1092,6 +1152,59 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     className="h-11 text-base font-medium"
                   />
                 </div>
+
+                {/* ─── Name quality inline alert ─── */}
+                {name.trim().length >= 3 && nameQuality.status !== 'ok' && (
+                  <div className={cn(
+                    "rounded-md border px-2.5 py-2 space-y-1.5",
+                    nameQuality.status === 'gibberish'
+                      ? "border-destructive/30 bg-destructive/5"
+                      : "border-amber-500/30 bg-amber-500/5"
+                  )}>
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className={cn(
+                        "w-3.5 h-3.5 mt-0.5 shrink-0",
+                        nameQuality.status === 'gibberish' ? "text-destructive" : "text-amber-600 dark:text-amber-400"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] leading-snug">
+                          <span className="font-medium">
+                            {nameQuality.status === 'gibberish' ? 'Tên chưa rõ nghĩa.' : 'Tên hơi chung chung.'}
+                          </span>{' '}
+                          <span className="text-muted-foreground">
+                            {nameQuality.reason || 'Nên thêm sản phẩm, đối tượng hoặc thời điểm để AI hiểu đúng.'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    {nameIssue?.suggestions?.length ? (
+                      <div className="flex flex-wrap gap-1 pl-5">
+                        {nameIssue.suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => { setName(s); setNameIssue(null); }}
+                            className="text-[10px] px-2 py-1 rounded-full border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pl-5">
+                        <button
+                          type="button"
+                          onClick={fetchNameSuggestions}
+                          disabled={suggestingNames || (!name.trim() && !description.trim())}
+                          className="text-[10px] inline-flex items-center gap-1 text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                        >
+                          {suggestingNames ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                          {suggestingNames ? 'AI đang gợi ý…' : 'Đề xuất tên với AI'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -2167,8 +2280,55 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                 )}
 
+                {/* Name issue takes precedence over generic clarification */}
+                {showClarification && nameIssue && (
+                  <div className="space-y-2.5 rounded-lg border border-amber-300/60 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/10 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium leading-tight">
+                          {nameIssue.issue === 'irrelevant' ? 'Tên chiến dịch có vẻ lệch khỏi mô tả'
+                            : nameIssue.issue === 'gibberish' ? 'Tên chiến dịch chưa rõ nghĩa'
+                            : 'Tên chiến dịch hơi chung chung'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{nameIssue.reason}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">AI gợi ý</p>
+                      <div className="flex flex-col gap-1">
+                        {nameIssue.suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setName(s);
+                              setNameIssue(null);
+                              setTimeout(() => finalSubmit(null), 100);
+                            }}
+                            className="text-left text-[11px] px-2.5 py-1.5 rounded-md border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            <CheckCircle2 className="inline w-3 h-3 mr-1 text-primary" />
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-amber-200/40 dark:border-amber-900/30">
+                      <Button size="sm" variant="ghost" onClick={() => { setNameIssue(null); }} className="h-7 text-[10px] text-muted-foreground px-2">
+                        Quay lại sửa tay
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setNameIssue(null); finalSubmit(null); }} className="h-7 text-[10px] px-2">
+                        Giữ tên hiện tại
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Clarification — inline below summary, doesn't replace it */}
-                {showClarification && (
+                {showClarification && !nameIssue && (
                   <ClarificationStep
                     questions={clarificationQuestions || []}
                     understanding={clarificationUnderstanding || undefined}
@@ -2255,7 +2415,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
+              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); setNameIssue(null); }} disabled={step === 0} className="text-xs gap-1">
                 <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
               </Button>
               {step < confirmStep ? (

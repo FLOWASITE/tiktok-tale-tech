@@ -6,6 +6,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Mirror of src/lib/campaignNameQuality.ts — keep in sync
+const BLACKLIST = [
+  "test","testing","asdf","qwerty","qwer","abcd","abc",
+  "untitled","no name","noname","demo",
+  "new campaign","campaign 1","campaign 2","campaign 3",
+  "chiến dịch mới","chiến dịch 1","chiến dịch 2","chiến dịch 3",
+  "chien dich","tên chiến dịch","ten chien dich",
+];
+const GENERIC_TOKENS = new Set([
+  "chiến","dịch","campaign","marketing","quảng","cáo","ads",
+  "content","nội","dung","post","bài","viết","plan","kế","hoạch",
+  "the","a","an","of","for","with","and","cho","và","của",
+]);
+function analyzeName(name: string): { status: "ok" | "generic" | "gibberish"; reason?: string } {
+  const raw = (name || "").trim();
+  if (!raw) return { status: "ok" };
+  const lower = raw.toLowerCase();
+  if (BLACKLIST.some(b => lower === b || lower.startsWith(b + " ") || lower.endsWith(" " + b))) {
+    return { status: "gibberish", reason: "placeholder/sample name" };
+  }
+  if (/(.)\1{3,}/.test(lower)) return { status: "gibberish", reason: "repeated character run" };
+  const tokens = lower.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && new Set(tokens).size === 1) return { status: "gibberish", reason: "single repeated token" };
+  const letters = raw.match(/\p{L}/gu) || [];
+  const ratio = letters.length / raw.length;
+  if (raw.length >= 6 && ratio < 0.45) return { status: "gibberish", reason: "too few letters" };
+  if (letters.length < 4) return { status: "gibberish", reason: "too short / no letters" };
+  if (raw.length >= 6) {
+    const lo = letters.join("").toLowerCase();
+    const vowels = (lo.match(/[aeiouáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/g) || []).length;
+    const vr = vowels / lo.length;
+    if (vr < 0.15 || vr > 0.85) return { status: "gibberish", reason: "unnatural vowel pattern" };
+  }
+  const meaningful = tokens.filter(t => {
+    const c = t.replace(/[^\p{L}\p{N}]/gu, "");
+    return c.length >= 2 && !GENERIC_TOKENS.has(c);
+  });
+  if (meaningful.length === 0) return { status: "generic", reason: "only generic words" };
+  if (raw.length < 8 && meaningful.length < 2) return { status: "generic", reason: "too short, missing specifics" };
+  return { status: "ok" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,6 +100,9 @@ Deno.serve(async (req) => {
 
     const channelList = (Array.isArray(channels) ? channels : []).join(", ") || "chưa chọn";
 
+    // ─── Heuristic name-quality check (mirror of src/lib/campaignNameQuality.ts) ───
+    const nameQuality = analyzeName(title);
+
     // Expanded 7-criteria completeness
     const hasDetailedTitle = (title?.length || 0) > 15;
     const hasDescription = (description?.length || 0) > 20;
@@ -68,8 +113,8 @@ Deno.serve(async (req) => {
     const hasPillars = pillars.length > 0;
     const completenessScore = [hasDetailedTitle, hasDescription, hasChannels, hasBrand, hasObjective, hasMessagesOrCta, hasPillars].filter(Boolean).length;
 
-    // Server-side fast-path: enough context → skip AI call
-    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasDetailedTitle || hasDescription)) {
+    // Server-side fast-path: enough context AND name has meaning → skip AI call
+    if (nameQuality.status === "ok" && hasObjective && (hasMessagesOrCta || hasPillars) && (hasDetailedTitle || hasDescription)) {
       return new Response(
         JSON.stringify({
           ready: true,
@@ -104,28 +149,39 @@ Strategic context already provided in earlier wizard steps:
 ${strategicContext}
 
 Brief completeness: ${completenessScore}/7 criteria met.
+Heuristic name quality: ${nameQuality.status}${nameQuality.reason ? ` (${nameQuality.reason})` : ""}.
 
-Evaluate if you have enough information to create high-quality, targeted content.
+## TASK 1 — Evaluate the campaign title
+Decide if the title is one of:
+- "ok": meaningful AND clearly related to description/brand/objective.
+- "vague": real words but too generic, missing product/audience/timing/angle (e.g. "Chiến dịch marketing", "Bài viết tháng 4").
+- "irrelevant": title talks about something different from description/brand/industry/objective (e.g. title "Khuyến mãi mùa hè" but description is "Webinar B2B AI").
+- "gibberish": random characters, placeholder, or repeated tokens (e.g. "asdf asdf", "test 123", "aaaaaa").
+
+If title is NOT "ok", you MUST suggest exactly 3 alternative names in the SAME LANGUAGE as the description/brand/industry (fallback: same language as title). Each suggestion must be 4–12 words, specific (mention product, audience, timing, or angle), and tied to the description/objective.
+
+## TASK 2 — Decide if you have enough info to create high-quality content
 The user has already gone through 3 wizard steps — DO NOT ask things they already specified above.
 
-IMPORTANT RULES:
-- If completeness >= 5 → respond ready: true.
-- If objective + (key messages OR pillars) are set → respond ready: true (audience can be inferred from industry + objective).
-- Only ask when the title is vague (<15 chars) AND description is missing AND no objective/messages/pillars.
-- Maximum 2 questions (not 3).
-- Each question must have exactly 3 suggested answers.
-- NEVER ask about: objective, audience, CTA, key messages, pillars, channels, duration — those are already collected.
-- Only ask about: missing topic specificity, missing brand differentiator, missing tone preference IF those are truly absent.
+RULES:
+- If completeness >= 5 AND title is "ok" → ready: true.
+- If objective + (key messages OR pillars) are set AND title is "ok" → ready: true.
+- Only ask when title is "ok" but topic specificity, brand differentiator, or tone preference is truly missing.
+- Maximum 2 questions. Each with exactly 3 suggestions.
+- NEVER ask about: objective, audience, CTA, key messages, pillars, channels, duration — already collected.
 
-If ready, respond with ONLY this JSON:
-{ "ready": true, "understanding": "1-sentence summary in same language as campaign title" }
+## Output JSON shape (return ONLY valid JSON, no markdown)
 
-If you genuinely need more info, respond with ONLY this JSON:
-{ "ready": false, "questions": [
-  { "question": "question text", "why": "reason", "suggestions": ["option1", "option2", "option3"] }
-]}
+If title is NOT "ok":
+{ "ready": false, "name_issue": "vague" | "irrelevant" | "gibberish", "name_issue_reason": "1 short sentence in same language as title", "suggested_names": ["...", "...", "..."] }
 
-Respond in the SAME LANGUAGE as the campaign title. Return ONLY valid JSON, no markdown.`;
+If title is "ok" AND you have enough info:
+{ "ready": true, "name_quality": "ok", "understanding": "1-sentence summary in same language as title" }
+
+If title is "ok" but you need clarification:
+{ "ready": false, "name_quality": "ok", "questions": [ { "question": "...", "why": "...", "suggestions": ["a","b","c"] } ] }
+
+Respond in the SAME LANGUAGE as the campaign title/description.`;
 
     const aiResult = await callAI({
       functionName: "clarify-campaign-intent",
@@ -162,6 +218,14 @@ Respond in the SAME LANGUAGE as the campaign title. Return ONLY valid JSON, no m
       parsed.questions = parsed.questions.slice(0, 2);
     }
     parsed.completeness_score = completenessScore;
+    parsed.heuristic_name_quality = nameQuality.status;
+
+    // Cap suggestions to 3, sanitize
+    if (parsed?.suggested_names && Array.isArray(parsed.suggested_names)) {
+      parsed.suggested_names = parsed.suggested_names
+        .filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+        .slice(0, 3);
+    }
 
     return new Response(
       JSON.stringify(parsed),

@@ -1,45 +1,97 @@
-## Vấn đề
-Ở Step "Xác nhận" (GoalWizard → ContentScheduleStudio), mỗi bài chỉ hiển thị: tiêu đề · ngày · giờ · kênh · pillar. **Loại nội dung (Post / Carousel / Video) bị ẩn trong popover**, nên user nhìn lịch không biết bài nào là Post, bài nào là Carousel, bài nào là Video.
+# Xử lý tên Campaign vô nghĩa hoặc lệch chủ đề
 
-## Giải pháp
-Thêm **chip Loại nội dung** hiển thị trực tiếp trên mỗi `ScheduleRow`, đồng bộ với 3 type đã định nghĩa trong `CONTENT_TYPES` (Post / Carousel / Video).
+## Vấn đề hiện tại
+
+Trong `GoalWizard.tsx` + `clarify-campaign-intent`, fast-path "ready: true" được kích hoạt chỉ cần có objective + (key_messages|pillars) + (title>15 ký tự HOẶC description>20 ký tự). Nó **không kiểm tra ngữ nghĩa** của tên:
+
+- Tên kiểu `"asdf asdf asdf asdf"`, `"test campaign 123"`, `"aaaaaaaaaaaaaaaa"` → vẫn pass vì >15 ký tự.
+- Tên `"Khuyến mãi mùa hè"` nhưng description nói về `"Webinar B2B AI"` → AI vẫn chạy với tên lệch, output bị nhiễu.
+- Kết quả: AI sinh content lệch hướng, user phải sửa lại từ đầu.
 
 ## Phạm vi
-Chỉ sửa `src/components/agents/ContentScheduleStudio.tsx`. Không đụng logic, không đụng API, không đụng `GoalWizard.tsx`.
 
-## Chi tiết implement
+Chỉ frontend UX + edge function `clarify-campaign-intent`. Không đụng schema, không đụng pipeline generation.
 
-### 1. Thêm `ContentTypeChip` (component nhỏ trong file)
-Một chip nhỏ dùng lại data từ `CONTENT_TYPES`:
-- Icon (FileText / Layers / Video) + label rất ngắn (Post / Carousel / Video)
-- Style: viền mảnh, `bg-muted/50`, `text-[10px]`, `h-5`, `rounded-full`, padding ngang 1.5
-- Màu icon theo loại để dễ phân biệt khi liếc:
-  - Post → `text-slate-600` (neutral)
-  - Carousel → `text-amber-600`
-  - Video → `text-violet-600`
-- Có `title` (tooltip native) ghi description đầy đủ của loại
+## Giải pháp
 
-### 2. Gắn chip vào `ScheduleRow` (line 327-358)
-Chèn chip ngay **bên cạnh tiêu đề** (cùng dòng với title, align top, shrink-0) để dù title 2 dòng vẫn thấy loại ngay. Cấu trúc:
+### 1. Client-side heuristic (rẻ, chạy trước khi gọi AI)
+
+Trong `GoalWizard.tsx`, thêm hàm `analyzeCampaignName(name, description, brand, objectives)`:
+
+**Phát hiện tên vô nghĩa (gibberish):**
+- Lặp ký tự ≥4 lần liên tiếp (`aaaa`, `xxxx`)
+- Tỷ lệ ký tự non-alpha >40% (loại số/symbol thuần)
+- Toàn bộ là 1 từ lặp lại (`test test test`)
+- Match blacklist: `test`, `asdf`, `qwerty`, `untitled`, `campaign 1/2/3`, `new campaign`, `chiến dịch mới`
+- Không chứa ký tự có nghĩa tiếng Việt/Anh (regex Unicode letters <5)
+
+**Phát hiện tên quá generic:**
+- Chỉ chứa từ chung chung: `"chiến dịch"`, `"campaign"`, `"marketing"`, `"quảng cáo"` mà không có danh từ riêng/sản phẩm/thời gian
+- Độ dài <8 ký tự sau khi trim stopwords
+
+→ Trả về `{ status: 'gibberish' | 'generic' | 'ok', reason }`.
+
+### 2. Server-side semantic check (AI, chỉ khi heuristic chưa chắc)
+
+Mở rộng `clarify-campaign-intent/index.ts`:
+
+- Thêm field `name_quality` vào prompt: yêu cầu AI đánh giá tên có ý nghĩa không, có liên quan tới description/brand/industry/objective không.
+- Nếu AI thấy lệch → trả về schema mới:
+  ```json
+  {
+    "ready": false,
+    "name_issue": "irrelevant" | "vague" | "gibberish",
+    "name_issue_reason": "Tên 'Khuyến mãi mùa hè' không khớp với mô tả về webinar B2B AI",
+    "suggested_names": ["Webinar AI cho doanh nghiệp B2B Q2", "Hội thảo AI dành cho leader B2B", "Bứt phá B2B với AI – Webinar tháng 6"]
+  }
+  ```
+- Sửa fast-path (line 72): chỉ skip AI khi heuristic `status === 'ok'`. Nếu không, **bắt buộc** chạy AI để gợi ý tên.
+
+### 3. UX mới: CampaignNameQualityAlert
+
+Component nhỏ trong `GoalWizard.tsx` (chèn dưới Input tên, trước Description):
+
+- Khi `analyzeCampaignName()` trả `gibberish`/`generic`: hiển thị banner amber inline ngay khi user blur input:
+  > "Tên chiến dịch chưa rõ nghĩa. AI sẽ khó hiểu mục tiêu — nên đặt cụ thể hơn (sản phẩm, đối tượng, thời điểm)."
+  - Nút **"Đề xuất tên với AI"** → gọi `clarify-campaign-intent` với flag `mode: 'suggest_name_only'` → hiện 3 chip tên gợi ý, click để áp dụng.
+
+- Khi response từ `handleConfirmStep()` có `name_issue`: thay vì hiện `ClarificationStep` thông thường, hiện `NameSuggestionStep` (variant mới):
+  - Tiêu đề: "Tên hiện tại có vẻ lệch khỏi mô tả"
+  - Lý do AI đưa ra (`name_issue_reason`)
+  - 3 chip `suggested_names` để chọn 1-click → setName + finalSubmit ngay
+  - Nút secondary "Giữ tên hiện tại, vẫn chạy" → finalSubmit với name cũ
+  - Nút ghost "Quay lại sửa tay"
+
+### 4. Validate cứng ở `canNext()`
+
+Step 0 hiện chỉ check `name.trim().length > 0`. Đổi thành: vẫn cho qua, nhưng nếu `gibberish` thì disable nút "AI tự chạy toàn bộ" trong action zone và hiện tooltip "Đặt tên rõ hơn để AI hiểu đúng".
+
+## Files sẽ chỉnh
 
 ```text
-[●pillar]  [Tiêu đề bài viết dài có thể 2 dòng...]   [📄 Post]
-           Thu 12/6 · 09:00 · 📘 Facebook · awareness
+src/components/agents/GoalWizard.tsx
+  + analyzeCampaignName() helper (~30 dòng)
+  + CampaignNameQualityAlert component (~40 dòng)
+  + NameSuggestionStep component (~50 dòng) – tái sử dụng style của ClarificationStep
+  ~ handleConfirmStep(): xử lý response name_issue trước khi xử lý questions
+  ~ canNext()/auto-mode button: disable khi gibberish
+  ~ fast-path local (line 743): thêm điều kiện !isGibberish
+
+supabase/functions/clarify-campaign-intent/index.ts
+  ~ prompt: thêm 2 nhiệm vụ (đánh giá name_quality, gợi ý 3 tên nếu cần)
+  ~ schema response: thêm name_issue, name_issue_reason, suggested_names
+  ~ fast-path (line 72): vẫn giữ, nhưng chỉ pass khi title đủ ngữ nghĩa (>=2 từ có nghĩa, không match blacklist server-side)
+  + helper isLikelyGibberish() đồng bộ với client
 ```
 
-Khi đang ở mode edit title (`isEditing`), chip vẫn render bên phải input để vị trí ổn định.
+## Không làm
 
-### 3. Chip có thể bấm để đổi nhanh loại (bonus, low-risk)
-Wrap chip trong `<Select>` ngầm (giống pattern Loại trong popover) để user click chip → đổi loại ngay mà không cần mở popover. Nếu phức tạp hóa layout → fallback: chip read-only, vẫn phải mở popover để đổi (giữ behavior cũ).
+- Không thay đổi pipeline `agent-pipeline`, `generate-campaign-strategy`, `generate-multichannel`.
+- Không bắt buộc user phải đổi tên — luôn có lối "Giữ tên hiện tại" để không cản trở workflow.
+- Không lưu lịch sử tên bị reject (out of scope).
 
-→ **Mặc định: chip read-only** (đơn giản, ít rủi ro layout). User vẫn đổi loại qua popover như cũ. Có thể nâng cấp sau.
+## Edge cases
 
-### 4. Empty/legacy values
-Nếu `p.content_type` không nằm trong `CONTENT_TYPES` (data cũ) → fallback hiển thị chip "Post" (giống default khi `addPiece` ở line 178).
-
-## Kiểm tra sau khi sửa
-- Mỗi row trong lịch hiển thị rõ chip loại nội dung ở góc phải.
-- 3 loại có icon + màu khác nhau, phân biệt được khi scan nhanh.
-- Hover chip thấy mô tả đầy đủ (native title).
-- Layout không vỡ trên viewport mobile 707px (user đang ở 707x662) — chip `shrink-0`, title `min-w-0 line-clamp-2`.
-- Popover Loại + tooltip (i) vẫn hoạt động như cũ.
+- Tên hợp lệ nhưng ngôn ngữ hiếm (vd: tiếng Thái) → heuristic dựa trên Unicode letter category, không hard-code charset Latin/Vietnamese.
+- User đang ở chế độ "AI tự chạy toàn bộ" (auto mode): vẫn chạy heuristic trước; nếu gibberish → auto-pilot dừng và bật `NameSuggestionStep` thay vì gọi pipeline.
+- Response AI fail/timeout → fallback im lặng, không block user (giữ behavior hiện tại của catch block line 779).
