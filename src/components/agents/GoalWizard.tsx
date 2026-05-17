@@ -9,6 +9,9 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSuggestObjectives } from '@/hooks/agents/useSuggestObjectives';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
