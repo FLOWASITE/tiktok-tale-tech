@@ -95,7 +95,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{fn.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1"><HighlightText text={fn.description} terms={highlightTerms || []} /></p>
           </div>
           
           <Button
