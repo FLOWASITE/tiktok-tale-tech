@@ -1652,6 +1652,77 @@ async function commitGenerateDraft(args: {
   }
 }
 
+// =====================================================
+// P1: /generate approval-mode picker callback
+// gen:mode:auto:<id> | gen:mode:plan:<id> | gen:cancel:<id>
+// =====================================================
+async function handleGenerateModeCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  pruneGenerateDrafts();
+
+  const mCancel = /^gen:cancel:([a-z0-9]+)$/i.exec(data);
+  const mMode = /^gen:mode:(auto|plan):([a-z0-9]+)$/i.exec(data);
+
+  if (!mCancel && !mMode) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
+    return;
+  }
+
+  const draftId = (mCancel ? mCancel[1] : mMode![2]).toLowerCase();
+  const draft = generateDrafts.get(draftId);
+  if (!draft) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "❌ Draft đã hết hạn. Gõ /generate lại.", true);
+    if (messageId) {
+      try {
+        await rawEditMessageText(botConfig.botToken, chatId, messageId,
+          "❌ Phiên /generate đã hết hạn (>10 phút). Gõ /generate lại.");
+      } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  // Verify owner — chỉ user gõ /generate được tap
+  if (draft.telegramUserId && fromTgId !== draft.telegramUserId) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Chỉ người gõ /generate mới chọn được mode.", true);
+    return;
+  }
+
+  if (mCancel) {
+    generateDrafts.delete(draftId);
+    await rawAnswerCallback(botConfig.botToken, cbId, "Đã hủy.");
+    if (messageId) {
+      try {
+        await rawEditMessageText(botConfig.botToken, chatId, messageId,
+          `🗑️ Đã hủy /generate "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"`);
+      } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  const mode: ApprovalMode = mMode![1] === "auto" ? "auto" : "approve_plan";
+  await rawAnswerCallback(botConfig.botToken, cbId,
+    mode === "auto" ? "✅ Auto-approve" : "📝 Review plan first");
+
+  // Edit picker message to show progress
+  if (messageId) {
+    try {
+      await rawEditMessageText(botConfig.botToken, chatId, messageId,
+        `✅ Mode: ${mode === "auto" ? "Auto-approve" : "Review plan first"}\nĐang khởi chạy goal "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"…`);
+    } catch { /* ignore */ }
+  }
+
+  await commitGenerateDraft({ supabase, botConfig, draft, mode });
+}
+
 
 // =====================================================
 // handleGenerateSingle — tạo NHANH 1 bài cho 1 kênh,
