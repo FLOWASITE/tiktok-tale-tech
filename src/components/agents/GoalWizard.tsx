@@ -301,27 +301,6 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const suggestChannels = useSuggestChannels();
   const [aiChannelPowered, setAiChannelPowered] = useState(false);
 
-  // Fetch connected channels for current brand → pass as available_connections
-  const { connections: brandConnections } = useSocialConnections({
-    brandTemplateId: brandTemplateId || currentBrand?.id,
-    organizationId: currentOrganization?.id,
-  });
-  const availableConnections = useMemo(() => {
-    if (!brandConnections) return [];
-    return Array.from(new Set(
-      brandConnections
-        .filter((c) => c.is_active)
-        .map((c) => {
-          // Map platform → channel id used by suggest-channels
-          const p = c.platform;
-          if (p === 'google_business') return 'google_maps';
-          if (p === 'wordpress_com') return 'wordpress';
-          return p;
-        })
-    ));
-  }, [brandConnections]);
-
-
   // Step 1 Auto strategy
   const [autoStrategyMode, setAutoStrategyMode] = useState(false);
   const [aiStrategyKeys, setAiStrategyKeys] = useState<{
