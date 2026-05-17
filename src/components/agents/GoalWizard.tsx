@@ -2415,7 +2415,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
+              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); setNameIssue(null); }} disabled={step === 0} className="text-xs gap-1">
                 <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
               </Button>
               {step < confirmStep ? (
