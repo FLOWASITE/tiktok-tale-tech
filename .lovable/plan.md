@@ -1,81 +1,114 @@
-# Vì sao kênh & tần suất giống nhau giữa các lần tạo Campaign
 
-## Chẩn đoán (root cause)
+# Plan: Campaign Period & Hierarchy cho GoalWizard
 
-Toàn bộ logic gợi ý kênh nằm ở `supabase/functions/suggest-channels/index.ts`. Có **5 điểm cứng** khiến output gần như giống hệt nhau giữa các lần chạy với cùng brand + objective:
+Thêm cơ chế "Campaign theo khoảng thời gian" (Tháng/Quý/Năm/Tuỳ chỉnh) song song với "Campaign cụ thể user đặt tên", theo pattern Salesforce Parent-Child mà ta đã research.
 
-### 1. Bảng điểm `OBJECTIVE_SCORES` cố định (line 31-40)
-Mỗi objective map sang 1 bảng điểm tĩnh. Với cùng `objectives[0]` (ví dụ `awareness`) thì top channels luôn là `facebook=90, instagram=85, threads=70…` — không thay đổi giữa các lần.
+## 1. Mục tiêu
 
-### 2. `DEFAULT_FREQ` 1-1 per channel (line 42-48)
-- `facebook → 3/week`, `instagram → 3/week`, `twitter → daily`, `website → weekly`...
-- **Fallback** (`scoreChannels`) trả thẳng `DEFAULT_FREQ[id]` ⇒ 100% trùng nhau khi AI fail/timeout.
-- Telegram có timeout 12s ⇒ rất hay rơi vào fallback.
+- User chọn nhanh **scope thời gian** (tháng này / quý này / năm / tuỳ chỉnh) thay vì phải gõ số ngày.
+- Cho phép gom nhiều campaign con dưới **1 parent campaign theo period** (vd: "Q1 2026 Brand Push" chứa "Tết Launch", "Valentine Push", "Spring Sale").
+- Auto-fill `campaign_start_date` + `campaign_duration_days` từ period chọn.
+- Hiển thị campaign con dưới parent ở Campaign Dashboard (roll-up đơn giản, không cần KPI roll-up ở v1).
 
-### 3. "RULE-BASED HINTS" block trong prompt (line 125-135, 268-269)
-Prompt **bơm top-6 channel scores trực tiếp vào LLM**. LLM (temp 0.6) bị anchor cực mạnh, hầu như luôn pick từ top hints. Trong khi mục tiêu thiết kế là "AI free pick".
+## 2. Schema changes
 
-### 4. Không có random/diversity signal
-Prompt không truyền: `run_id`, `random_seed`, `previously_picked_channels`, `last_campaign_channels`. Cùng input ⇒ cùng output. Một số provider còn cache theo prompt hash ⇒ identical response.
+Thêm 3 cột vào `agent_goals` (đây là bảng campaign chính của Agent system):
 
-### 5. Frequency band quá hẹp (line 274-278)
-Chỉ 4 giá trị `daily | 3/week | 2/week | weekly` + rule "long-form max weekly, messaging max 2/week". Sau khi LLM tuân thủ rule, không gian còn 1-2 lựa chọn / channel ⇒ trùng là tất yếu.
+| Column | Type | Default | Mô tả |
+|---|---|---|---|
+| `period_type` | text | `'custom'` | enum: `'month' | 'quarter' | 'year' | 'custom'` |
+| `period_label` | text | null | vd: `"Tháng 11/2026"`, `"Q4 2026"`, `"2026"` |
+| `parent_goal_id` | uuid | null | FK → `agent_goals(id)`, ON DELETE SET NULL |
 
-### Bonus
-- `available_connections` thường chỉ 4-6 kênh active ⇒ candidate pool nhỏ, kết quả gần bão hòa.
-- `getSeasonHint()` chỉ đổi theo quý.
-- Validation `validateLLMResult` reject mọi frequency lạ ⇒ ép về 4 band cứng.
+- CHECK constraint cho `period_type` (4 giá trị).
+- Index `idx_agent_goals_parent` trên `(parent_goal_id)`.
+- Self-FK: parent phải cùng `organization_id` (validate trigger, không CHECK vì cross-row).
+- Không touch `industry_*` tables. RLS giữ nguyên (org-scoped).
 
----
+## 3. GoalWizard UI changes
 
-## Plan giảm trùng (3 lớp)
+**Vị trí**: Step 2 (Khung thời gian) hiện tại, ngay phía trên block "Số ngày" và "Ngày bắt đầu".
 
-### P1 — Khử anchor cố định (impact lớn, ít rủi ro)
-**File:** `supabase/functions/suggest-channels/index.ts`
+Component mới: `<PeriodScopePicker />`
 
-1. **Bỏ hint block khỏi prompt LLM** (hoặc downgrade sang "context" thay vì "scores")
-   - Thay `buildHintBlock` bằng mô tả định tính: "Facebook mạnh reach VN, LinkedIn mạnh B2B…" — không kèm số điểm.
-   - Giữ `OBJECTIVE_SCORES` chỉ cho fallback path.
+```
+┌─ Phạm vi chiến dịch ─────────────────────────┐
+│ ○ Tháng này (1/12 → 31/12)                   │
+│ ○ Quý này   (Q4: 1/10 → 31/12)               │
+│ ● Tự chọn (mặc định, giữ logic cũ)           │
+└──────────────────────────────────────────────┘
 
-2. **Inject diversity context vào prompt**
-   - Query 3 campaign gần nhất của brand: `SELECT channels, frequency FROM agent_goals WHERE brand_template_id=? ORDER BY created_at DESC LIMIT 3`.
-   - Thêm section: "RECENT CAMPAIGNS đã dùng: [list] — ưu tiên đa dạng hoá, đề xuất ít nhất 1 kênh khác biệt."
+[Nếu Tháng/Quý chọn]
+  → auto set campaignStartDate = đầu kỳ
+  → auto set campaignDurationDays = số ngày còn lại của kỳ
+  → khoá 2 input dưới (disabled + hint "Tự động theo Tháng/Quý")
 
-3. **Tăng temperature 0.6 → 0.85** + thêm `seed` random vào prompt (timestamp + goal title hash) để force variation.
+[Optional] Gắn vào campaign cha:
+  <Select> Không có / [danh sách parent goals cùng period_type khác 'custom']
+```
 
-### P2 — Frequency thông minh hơn
-1. **Mở rộng frequency band**: thêm `4/week`, `2/day` (cho social ngắn), `bi-weekly` (cho long-form ít cập nhật).
-2. **Tính frequency theo `target_post_count` thực**, không dựa preset:
-   - `freq_per_channel = round(channel_share × target_post_count / weeks)`
-   - Map số → label band gần nhất.
-3. **Fallback không dùng `DEFAULT_FREQ`** — derive từ `postsPerWeekTarget` × channel share weight.
+- Khi user click "Tháng này" → tính `startOfMonth(now)`, duration = `daysInMonth - dayOfMonth + 1`.
+- Khi click "Quý này" → tính quarter hiện tại.
+- "Tự chọn" giữ nguyên 100% logic hiện có (backward compat).
+- `period_label` auto generate: `"Tháng 11/2026"` / `"Q4 2026"` / null khi custom.
 
-### P3 — UI/UX surface variation
-1. Trong GoalWizard hiển thị badge "AI-suggested" vs "Rule-based fallback" để user biết khi nào output là deterministic.
-2. Nút **"Tạo lại gợi ý"** force `bypass_cache=true` + random seed mới.
-3. Hiển thị `reasoning` để user thấy logic khác nhau giữa các lần (nếu reasoning trùng ⇒ rõ ràng do cache/fallback).
+## 4. Type & Hook changes
 
-### P4 — Quan sát (optional)
-- Log `ai_powered` + `model_used` + first-3-channel-ids vào `ai_metrics` để đo tỉ lệ fallback và mức độ trùng lặp thực tế. Nếu fallback >30% ⇒ AI provider không ổn định, cần fix timeout hoặc fallback model.
+**`src/types/agent.ts`** — extend `AgentGoal`:
+```ts
+period_type: 'month' | 'quarter' | 'year' | 'custom';
+period_label: string | null;
+parent_goal_id: string | null;
+```
 
----
+**`src/hooks/useAgentGoals.ts`** — thêm 3 field vào `createGoal` mutation input + payload insert. Không đổi RLS query.
 
-## Files dự kiến edit (khi triển khai)
-- `supabase/functions/suggest-channels/index.ts` — core fix (P1, P2)
-- `supabase/functions/telegram-webhook/index.ts` — pass `previous_channels` + tăng timeout 12s → 18s
-- `src/components/agents/GoalWizard*.tsx` — UI "Tạo lại gợi ý" + badge nguồn
-- (Optional) migration thêm cột `ai_metrics.channel_pick_signature`
+Thêm helper hook `useParentCampaignOptions()` → query `agent_goals` cùng org, `period_type IN ('month','quarter','year')`, sort `campaign_start_date DESC`.
 
-## Out of scope
-- Train custom model
-- A/B test framework cho channel mix
-- Real-time performance feedback loop (đợi có publish data)
+## 5. Campaign Dashboard hiển thị hierarchy
 
----
+`CampaignDashboard.tsx` (đã tồn tại):
+- Nếu campaign có `parent_goal_id`, render indent + icon "↳" dưới parent.
+- Parent row hiển thị badge `period_label` (vd "Q4 2026") + count `n campaign con`.
+- Filter mới: "Theo Period" (group by `period_label`).
 
-## TL;DR cho user
-Hiện có 2 thủ phạm chính:
-1. **`DEFAULT_FREQ` cứng + fallback path** — mỗi khi AI chậm/lỗi (Telegram 12s timeout rất hay dính), bot trả về preset y hệt.
-2. **Prompt LLM bị "mớm" sẵn bảng điểm objective** ⇒ AI bám theo top channels của objective, gần như deterministic.
+V1 không cần roll-up KPI — chỉ visual grouping. Roll-up budget/metrics để v2.
 
-Fix nhanh nhất: bỏ hint scores khỏi prompt + bơm "recent campaigns to avoid" + tăng temperature + tính frequency từ post_count thật thay vì lookup table.
+## 6. Edge function impact
+
+Check `suggest-strategy`, `suggest-objectives`, `generate-campaign-strategy`:
+- Pass thêm `period_type` + `period_label` vào prompt context → AI có thể tạo strategy phù hợp ("đây là campaign Quý → suggest mục tiêu dài hạn hơn vs Tháng → tactical").
+- Không bắt buộc cho MVP; chỉ thêm field vào payload, prompt update là nice-to-have.
+
+## 7. Migration order
+
+1. Migration SQL (3 cột + index + CHECK).
+2. Update `src/types/agent.ts` + `useAgentGoals.ts`.
+3. Build `PeriodScopePicker` component.
+4. Wire vào `GoalWizard.tsx` Step 2 (giữ "Tự chọn" mặc định = behavior cũ).
+5. Update `CampaignDashboard.tsx` cho hierarchy display.
+6. (Optional) Pass period vào edge functions.
+
+## 8. Backward compatibility
+
+- Toàn bộ goal cũ → `period_type = 'custom'`, `parent_goal_id = null` → UI render y hệt như trước.
+- Không breaking changes ở edge functions (field mới đều optional/nullable).
+
+## 9. Out of scope (v2)
+
+- KPI roll-up từ child → parent.
+- Auto-suggest parent dựa AI ("Campaign này có vẻ thuộc Q4 Brand Push?").
+- Multi-level (parent của parent) — v1 chỉ 1 cấp.
+- Cron auto-create "Tháng tới" parent campaign.
+
+## Files sẽ chạm
+
+- `supabase/migrations/<new>.sql` (mới)
+- `src/types/agent.ts`
+- `src/hooks/useAgentGoals.ts`
+- `src/components/agents/PeriodScopePicker.tsx` (mới)
+- `src/components/agents/GoalWizard.tsx` (Step 2 block)
+- `src/components/agents/CampaignDashboard.tsx` (hierarchy render)
+- (optional) `supabase/functions/suggest-strategy/index.ts`, `suggest-objectives/index.ts`
+
+Bấm **Implement plan** để bắt đầu.
