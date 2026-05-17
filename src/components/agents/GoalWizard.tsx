@@ -2264,11 +2264,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       )}
                     </div>
 
-                    {previewSchedule.loading && (
+                    {(previewSchedule.loading || topicPoolPhase !== 'idle') && (
                       <div className="p-3 space-y-2">
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                          <span>AI đang sinh ~{estimatedPosts} bài cho {selectedChannels.length} kênh…</span>
+                          <span>
+                            {topicPoolPhase === 'topics'
+                              ? '🧠 Topic AI đang chọn chủ đề chất lượng…'
+                              : `📅 Đang sắp ~${estimatedPosts} bài cho ${selectedChannels.length} kênh${topicPoolUsed.length > 0 ? ` (từ pool ${topicPoolUsed.length} chủ đề)` : ' (không có pool — AI tự sinh)'}…`}
+                          </span>
                         </div>
                         {[...Array(5)].map((_, i) => (
                           <div key={i} className="h-7 rounded bg-muted/40 animate-pulse" />
