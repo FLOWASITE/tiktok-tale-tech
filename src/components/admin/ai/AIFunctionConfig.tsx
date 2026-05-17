@@ -98,32 +98,57 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     return map;
   }, [functions]);
 
-  // Filter functions
+  // Parse query to extract free-text terms (for <mark> highlight)
+  const parsedQuery = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
+  const highlightTerms = useMemo(
+    () => (parsedQuery.freeTokens.length ? parsedQuery.freeTokens : []),
+    [parsedQuery],
+  );
+
+  // Pre-filter by type tab (legacy behavior), then run smart search + chip filters
   const filteredFunctions = useMemo(() => {
-    let result = [...AI_FUNCTIONS] as AIFunction[];
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(fn => 
-        fn.name.toLowerCase().includes(query) ||
-        fn.description.toLowerCase().includes(query) ||
-        fn.category.toLowerCase().includes(query)
-      );
-    }
-    
+    let pool = [...AI_FUNCTIONS] as AIFunction[];
+
     if (typeFilter !== 'all') {
-      // Check if it's a tag filter (knowledge-graph)
       if (typeFilter === 'knowledge-graph') {
-        result = result.filter(fn => fn.tags?.includes('knowledge-graph'));
+        pool = pool.filter(fn => fn.tags?.includes('knowledge-graph'));
       } else if (typeFilter === 'image') {
-        result = result.filter(fn => fn.type === 'image' || fn.type === 'image-direct');
+        pool = pool.filter(fn => fn.type === 'image' || fn.type === 'image-direct');
       } else {
-        result = result.filter(fn => fn.type === typeFilter);
+        pool = pool.filter(fn => fn.type === typeFilter);
       }
     }
-    
-    return result;
-  }, [searchQuery, typeFilter]);
+
+    const scored = smartSearchFunctions(pool, {
+      query: deferredQuery,
+      configsMap,
+      statusFilter,
+      providerFilter,
+      categoryFilter,
+      getModelInfo: getEnhancedModelInfo,
+    });
+
+    return scored.map(s => s.item);
+  }, [deferredQuery, typeFilter, statusFilter, providerFilter, categoryFilter, configsMap]);
+
+  const hasActiveFilters =
+    !!deferredQuery.trim() ||
+    typeFilter !== 'all' ||
+    statusFilter.length > 0 ||
+    providerFilter.length > 0 ||
+    categoryFilter.length > 0;
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setStatusFilter([]);
+    setProviderFilter([]);
+    setCategoryFilter([]);
+  };
+
+  const toggleInArray = <T,>(arr: T[], value: T, setter: (v: T[]) => void) => {
+    setter(arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value]);
+  };
 
   // Count Knowledge Graph functions
   const kgCount = useMemo(() => countByTag(AI_FUNCTIONS as unknown as { tags?: AIFunctionTag[] }[], 'knowledge-graph'), []);
