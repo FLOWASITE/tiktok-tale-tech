@@ -1,97 +1,106 @@
-# Xử lý tên Campaign vô nghĩa hoặc lệch chủ đề
+# Đồng bộ số bài ở bước Xác nhận
 
-## Vấn đề hiện tại
+## Vấn đề
 
-Trong `GoalWizard.tsx` + `clarify-campaign-intent`, fast-path "ready: true" được kích hoạt chỉ cần có objective + (key_messages|pillars) + (title>15 ký tự HOẶC description>20 ký tự). Nó **không kiểm tra ngữ nghĩa** của tên:
+Ở Step 4 (Xác nhận) trong `GoalWizard.tsx` có 2 con số "bài viết" lệch nhau:
 
-- Tên kiểu `"asdf asdf asdf asdf"`, `"test campaign 123"`, `"aaaaaaaaaaaaaaaa"` → vẫn pass vì >15 ký tự.
-- Tên `"Khuyến mãi mùa hè"` nhưng description nói về `"Webinar B2B AI"` → AI vẫn chạy với tên lệch, output bị nhiễu.
-- Kết quả: AI sinh content lệch hướng, user phải sửa lại từ đầu.
+1. **Hero metric "Bài viết"** (line 1960) = `estimatedPosts` — tính ở frontend: `Σ kênh round(duration × freqPerWeek/7)`. Ví dụ: 30 ngày × 5 kênh × daily → ~150 bài.
+2. **Badge "Lịch nội dung chi tiết — N bài"** (line 2145) = `editableSchedule.length` — đến từ edge function `generate-campaign-strategy`, hàm này dùng `calculatePieceCount(durationDays)` **bỏ qua kênh + tần suất** → 30 ngày chỉ trả 8–12 bài.
+
+Cùng campaign → frontend nói 150 bài, AI sinh 10 bài. User thấy mâu thuẫn ngay trong cùng 1 màn hình.
 
 ## Phạm vi
 
-Chỉ frontend UX + edge function `clarify-campaign-intent`. Không đụng schema, không đụng pipeline generation.
+- Backend: `supabase/functions/generate-campaign-strategy/index.ts` — nhận target từ FE và bám sát.
+- Frontend: `src/components/agents/GoalWizard.tsx` — gửi target và hiển thị nhất quán.
+
+Không đụng pipeline, không đổi schema.
 
 ## Giải pháp
 
-### 1. Client-side heuristic (rẻ, chạy trước khi gọi AI)
+### 1. Backend: honor target count từ frontend
 
-Trong `GoalWizard.tsx`, thêm hàm `analyzeCampaignName(name, description, brand, objectives)`:
+Trong `generate-campaign-strategy/index.ts`:
 
-**Phát hiện tên vô nghĩa (gibberish):**
-- Lặp ký tự ≥4 lần liên tiếp (`aaaa`, `xxxx`)
-- Tỷ lệ ký tự non-alpha >40% (loại số/symbol thuần)
-- Toàn bộ là 1 từ lặp lại (`test test test`)
-- Match blacklist: `test`, `asdf`, `qwerty`, `untitled`, `campaign 1/2/3`, `new campaign`, `chiến dịch mới`
-- Không chứa ký tự có nghĩa tiếng Việt/Anh (regex Unicode letters <5)
-
-**Phát hiện tên quá generic:**
-- Chỉ chứa từ chung chung: `"chiến dịch"`, `"campaign"`, `"marketing"`, `"quảng cáo"` mà không có danh từ riêng/sản phẩm/thời gian
-- Độ dài <8 ký tự sau khi trim stopwords
-
-→ Trả về `{ status: 'gibberish' | 'generic' | 'ok', reason }`.
-
-### 2. Server-side semantic check (AI, chỉ khi heuristic chưa chắc)
-
-Mở rộng `clarify-campaign-intent/index.ts`:
-
-- Thêm field `name_quality` vào prompt: yêu cầu AI đánh giá tên có ý nghĩa không, có liên quan tới description/brand/industry/objective không.
-- Nếu AI thấy lệch → trả về schema mới:
-  ```json
-  {
-    "ready": false,
-    "name_issue": "irrelevant" | "vague" | "gibberish",
-    "name_issue_reason": "Tên 'Khuyến mãi mùa hè' không khớp với mô tả về webinar B2B AI",
-    "suggested_names": ["Webinar AI cho doanh nghiệp B2B Q2", "Hội thảo AI dành cho leader B2B", "Bứt phá B2B với AI – Webinar tháng 6"]
-  }
+- Nhận thêm payload:
+  ```ts
+  target_post_count?: number;          // tổng số bài FE đã ước tính
+  per_channel_targets?: Record<string, number>; // { facebook: 30, instagram: 12, ... }
   ```
-- Sửa fast-path (line 72): chỉ skip AI khi heuristic `status === 'ok'`. Nếu không, **bắt buộc** chạy AI để gợi ý tên.
+- Sửa `calculatePieceCount(durationDays)`:
+  - Nếu có `target_post_count` hợp lệ (1–200): `{ min: max(1, n-2), max: min(200, n+2) }`.
+  - Nếu không có: giữ logic cũ.
+- Cập nhật `buildStrategyPrompt`:
+  - Khi có `per_channel_targets`, chèn block:
+    ```
+    CHANNEL DISTRIBUTION (MUST match these counts ±1):
+    - facebook: 30 pieces
+    - instagram: 12 pieces
+    ...
+    Total pieces: {target_post_count}
+    ```
+  - Thêm yêu cầu rõ ràng: "Sinh đúng {target_post_count} pieces, không ít hơn 90%, không quá 110%".
+- Hard cap an toàn: nếu `target_post_count > 200` → clamp = 200 + flag warning trong response (`plan_warning: "Đã cắt còn 200 bài, ..."`).
 
-### 3. UX mới: CampaignNameQualityAlert
+### 2. Frontend: gửi target + hiển thị 1 nguồn sự thật
 
-Component nhỏ trong `GoalWizard.tsx` (chèn dưới Input tên, trước Description):
+Trong `GoalWizard.tsx`:
 
-- Khi `analyzeCampaignName()` trả `gibberish`/`generic`: hiển thị banner amber inline ngay khi user blur input:
-  > "Tên chiến dịch chưa rõ nghĩa. AI sẽ khó hiểu mục tiêu — nên đặt cụ thể hơn (sản phẩm, đối tượng, thời điểm)."
-  - Nút **"Đề xuất tên với AI"** → gọi `clarify-campaign-intent` với flag `mode: 'suggest_name_only'` → hiện 3 chip tên gợi ý, click để áp dụng.
+**(a) Gửi target khi gọi preview** — `triggerSchedulePreview` (quanh line 414):
+```ts
+const perChannelTargets = Object.fromEntries(
+  selectedChannels.map(ch => [ch, getChannelPosts(ch)])
+);
+await previewSchedule.run({
+  ...,
+  target_post_count: estimatedPosts,
+  per_channel_targets: perChannelTargets,
+});
+```
+→ Cập nhật type trong `src/hooks/agents/usePreviewSchedule.ts` (`PreviewRequest`).
 
-- Khi response từ `handleConfirmStep()` có `name_issue`: thay vì hiện `ClarificationStep` thông thường, hiện `NameSuggestionStep` (variant mới):
-  - Tiêu đề: "Tên hiện tại có vẻ lệch khỏi mô tả"
-  - Lý do AI đưa ra (`name_issue_reason`)
-  - 3 chip `suggested_names` để chọn 1-click → setName + finalSubmit ngay
-  - Nút secondary "Giữ tên hiện tại, vẫn chạy" → finalSubmit với name cũ
-  - Nút ghost "Quay lại sửa tay"
+**(b) Hero metric "Bài viết" hiển thị actual khi có schedule**:
+- Tạo `actualPosts = editableSchedule?.length ?? null`.
+- Hero card:
+  - Khi `actualPosts != null && !scheduleStale`: hiện `actualPosts`, label "Bài viết".
+  - Khi đang loading hoặc chưa có: hiện `estimatedPosts`, label "Bài viết (ước tính)" + dot pulse nhỏ.
+  - Khi `scheduleStale`: hiện `estimatedPosts` + tooltip "Số ước tính – bấm Sinh lại để cập nhật".
 
-### 4. Validate cứng ở `canNext()`
+**(c) Đồng bộ các số phái sinh**:
+- `postsPerWeek` (line 1923): dùng `actualPosts ?? estimatedPosts`.
+- Content Pillars `~ X bài` (line 2104): dùng `actualPosts ?? estimatedPosts`.
+- Loading message (line 2172): "AI đang sinh ~{estimatedPosts} bài…" giữ nguyên (đó là ước tính trước khi có response).
 
-Step 0 hiện chỉ check `name.trim().length > 0`. Đổi thành: vẫn cho qua, nhưng nếu `gibberish` thì disable nút "AI tự chạy toàn bộ" trong action zone và hiện tooltip "Đặt tên rõ hơn để AI hiểu đúng".
+**(d) Warning khi lệch >20%**:
+- Nếu có cả 2 số và `|actual - estimated| / estimated > 0.2` → banner amber nhỏ dưới hero strip:
+  > "AI sinh {actual} bài (bạn ước tính {estimated}). [Sinh lại với ràng buộc chặt hơn]" — nút gọi lại `triggerSchedulePreview` với cùng target.
+
+### 3. Edge cases
+
+- `estimatedPosts = 0` (chưa chọn kênh): không gửi target, edge function dùng default cũ.
+- AI ignore target (sinh lệch >30%): vẫn render những gì AI trả về, banner cảnh báo để user biết.
+- `scheduleStale = true` sau khi user đổi kênh/tần suất: hero quay lại estimatedPosts cho tới khi sinh lại.
 
 ## Files sẽ chỉnh
 
 ```text
-src/components/agents/GoalWizard.tsx
-  + analyzeCampaignName() helper (~30 dòng)
-  + CampaignNameQualityAlert component (~40 dòng)
-  + NameSuggestionStep component (~50 dòng) – tái sử dụng style của ClarificationStep
-  ~ handleConfirmStep(): xử lý response name_issue trước khi xử lý questions
-  ~ canNext()/auto-mode button: disable khi gibberish
-  ~ fast-path local (line 743): thêm điều kiện !isGibberish
+supabase/functions/generate-campaign-strategy/index.ts
+  ~ calculatePieceCount() — accept target
+  ~ buildStrategyPrompt() — thêm CHANNEL DISTRIBUTION block khi có per_channel_targets
+  ~ handler — đọc target_post_count, per_channel_targets từ body; clamp 200; trả plan_warning
 
-supabase/functions/clarify-campaign-intent/index.ts
-  ~ prompt: thêm 2 nhiệm vụ (đánh giá name_quality, gợi ý 3 tên nếu cần)
-  ~ schema response: thêm name_issue, name_issue_reason, suggested_names
-  ~ fast-path (line 72): vẫn giữ, nhưng chỉ pass khi title đủ ngữ nghĩa (>=2 từ có nghĩa, không match blacklist server-side)
-  + helper isLikelyGibberish() đồng bộ với client
+src/hooks/agents/usePreviewSchedule.ts
+  ~ PreviewRequest type — thêm target_post_count, per_channel_targets
+
+src/components/agents/GoalWizard.tsx
+  ~ triggerSchedulePreview() — truyền target_post_count + per_channel_targets
+  ~ Hero metric "Bài viết" — dùng actualPosts với fallback estimatedPosts + label dynamic
+  ~ postsPerWeek + Content Pillars — dùng actualPosts ?? estimatedPosts
+  + Banner cảnh báo lệch >20% (chỉ render khi có cả 2 số)
 ```
 
 ## Không làm
 
-- Không thay đổi pipeline `agent-pipeline`, `generate-campaign-strategy`, `generate-multichannel`.
-- Không bắt buộc user phải đổi tên — luôn có lối "Giữ tên hiện tại" để không cản trở workflow.
-- Không lưu lịch sử tên bị reject (out of scope).
-
-## Edge cases
-
-- Tên hợp lệ nhưng ngôn ngữ hiếm (vd: tiếng Thái) → heuristic dựa trên Unicode letter category, không hard-code charset Latin/Vietnamese.
-- User đang ở chế độ "AI tự chạy toàn bộ" (auto mode): vẫn chạy heuristic trước; nếu gibberish → auto-pilot dừng và bật `NameSuggestionStep` thay vì gọi pipeline.
-- Response AI fail/timeout → fallback im lặng, không block user (giữ behavior hiện tại của catch block line 779).
+- Không buộc AI sinh đúng tuyệt đối từng bài (giữ ±10% tolerance).
+- Không đổi `total_pieces` schema trong `campaign_content_plans`.
+- Không đổi UI ngoài Step 4 Xác nhận.

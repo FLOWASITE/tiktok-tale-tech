@@ -411,6 +411,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (!currentOrganization?.id || selectedChannels.length === 0 || !name.trim()) return;
     setScheduleError(null);
     setScheduleStale(false);
+    // Build per-channel targets from current frequency settings
+    const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+    const perChannelTargets: Record<string, number> = {};
+    selectedChannels.forEach(ch => {
+      const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+      perChannelTargets[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
+    });
     const res = await previewSchedule.run({
       campaign_title: name.trim(),
       campaign_description: description.trim() || undefined,
@@ -420,6 +427,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       brand_template_id: brandTemplateId || undefined,
       clarification_context: buildPreviewClarification(),
       organization_id: currentOrganization.id,
+      target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+      per_channel_targets: Object.keys(perChannelTargets).length > 0 ? perChannelTargets : undefined,
     });
     if (res?.plan) {
       setEditableSchedule(res.plan);
@@ -1920,7 +1929,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 return sum + Math.max(1, Math.round(effectiveDuration * perDay));
               }, 0);
             const approvalLabel = APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label;
-            const postsPerWeek = effectiveDuration > 0 ? Math.round((estimatedPosts / effectiveDuration) * 7) : 0;
+            // Số bài viết "thật" — ưu tiên độ dài lịch AI đã sinh (khi không stale), fallback ước tính
+            const actualPosts = (!scheduleStale && editableSchedule && editableSchedule.length > 0)
+              ? editableSchedule.length
+              : null;
+            const displayPosts = actualPosts ?? estimatedPosts;
+            const isEstimate = actualPosts == null;
+            const postsPerWeek = effectiveDuration > 0 ? Math.round((displayPosts / effectiveDuration) * 7) : 0;
+            const postsMismatch = actualPosts != null && estimatedPosts > 0
+              && Math.abs(actualPosts - estimatedPosts) / estimatedPosts > 0.2;
             const weeks = Math.floor(effectiveDuration / 7);
             const remDays = effectiveDuration % 7;
             const durationLabel = weeks > 0 ? `${weeks} tuần${remDays > 0 ? ` ${remDays} ngày` : ''}` : `${effectiveDuration} ngày`;
@@ -1956,9 +1973,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
                 {/* Hero metric strip */}
                 <div className="flex items-stretch gap-1.5 flex-wrap">
-                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
-                    <p className="text-base font-bold text-primary tabular-nums leading-none">{estimatedPosts}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết</p>
+                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10" title={isEstimate ? 'Ước tính theo kênh × tần suất × thời gian' : 'Số bài thực tế trong lịch chi tiết'}>
+                    <p className="text-base font-bold text-primary tabular-nums leading-none">{displayPosts}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết{isEstimate ? ' (ước tính)' : ''}</p>
                   </div>
                   <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-base font-bold text-primary tabular-nums leading-none">{selectedChannels.length}</p>
@@ -1988,7 +2005,26 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   )}
                 </div>
 
-                {/* Timeline mini-bar */}
+                {/* Cảnh báo lệch giữa ước tính và lịch AI */}
+                {postsMismatch && (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      AI sinh <strong>{actualPosts}</strong> bài, bạn ước tính <strong>{estimatedPosts}</strong>. Có thể sinh lại để bám sát hơn.
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] gap-1 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                      onClick={() => void triggerSchedulePreview()}
+                      disabled={previewSchedule.loading}
+                    >
+                      <RefreshCw className={cn('w-3 h-3', previewSchedule.loading && 'animate-spin')} />
+                      Sinh lại
+                    </Button>
+                  </div>
+                )}
+
                 <div className="rounded-md border bg-card px-2.5 py-2">
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
                     <span className="font-medium text-foreground tabular-nums">{fmtDate(campaignStartDate)}</span>
@@ -2101,7 +2137,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                               <div className="h-full bg-primary/70" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="w-8 text-right text-[10px] font-medium tabular-nums">{pct}%</span>
-                            <span className="w-12 text-right text-[10px] text-muted-foreground tabular-nums">~{Math.round(estimatedPosts * pct / 100)} bài</span>
+                            <span className="w-12 text-right text-[10px] text-muted-foreground tabular-nums">~{Math.round(displayPosts * pct / 100)} bài</span>
                           </div>
                         ))}
                       </div>

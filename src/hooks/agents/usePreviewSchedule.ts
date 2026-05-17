@@ -11,6 +11,8 @@ type PreviewRequest = {
   brand_template_id?: string;
   clarification_context?: Record<string, any>;
   organization_id: string;
+  target_post_count?: number;
+  per_channel_targets?: Record<string, number>;
 };
 
 type PreviewResult = {
@@ -19,6 +21,8 @@ type PreviewResult = {
   content_mix?: Record<string, number>;
   campaign_start_date?: string;
   campaign_end_date?: string;
+  target_post_count?: number | null;
+  plan_warning?: string | null;
 };
 
 export function usePreviewSchedule() {
@@ -41,6 +45,8 @@ export function usePreviewSchedule() {
         content_mix: data.content_mix,
         campaign_start_date: data.campaign_start_date,
         campaign_end_date: data.campaign_end_date,
+        target_post_count: data.target_post_count ?? null,
+        plan_warning: data.plan_warning ?? null,
       };
     } catch (e: any) {
       const msg = e?.message || 'Không sinh được lịch';
