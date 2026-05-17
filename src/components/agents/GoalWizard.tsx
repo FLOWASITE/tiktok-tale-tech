@@ -2005,7 +2005,26 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   )}
                 </div>
 
-                {/* Timeline mini-bar */}
+                {/* Cảnh báo lệch giữa ước tính và lịch AI */}
+                {postsMismatch && (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      AI sinh <strong>{actualPosts}</strong> bài, bạn ước tính <strong>{estimatedPosts}</strong>. Có thể sinh lại để bám sát hơn.
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] gap-1 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                      onClick={() => void triggerSchedulePreview()}
+                      disabled={previewSchedule.loading}
+                    >
+                      <RefreshCw className={cn('w-3 h-3', previewSchedule.loading && 'animate-spin')} />
+                      Sinh lại
+                    </Button>
+                  </div>
+                )}
+
                 <div className="rounded-md border bg-card px-2.5 py-2">
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
                     <span className="font-medium text-foreground tabular-nums">{fmtDate(campaignStartDate)}</span>
