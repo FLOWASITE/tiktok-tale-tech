@@ -426,6 +426,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
     setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
     setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
+    setAutoMode(false); setAutoChannelMode(false); setAutoStrategyMode(false);
+    setAiObjectiveIds(new Set()); setAiKpiKeys(new Set()); setAiChannelIds(new Set());
+    setAiReasoning(''); setAiChannelReasoning(''); setAiStrategyReasoning('');
+    setAiStrategyKeys({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+    setAutoPilotRunning(false); setAutoPilotStage('idle');
   };
 
   const addKeyMessage = () => {
