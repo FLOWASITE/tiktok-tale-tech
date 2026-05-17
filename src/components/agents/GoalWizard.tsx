@@ -282,6 +282,22 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [aiChannelReasoning, setAiChannelReasoning] = useState<string>('');
   const suggestChannels = useSuggestChannels();
 
+  // Step 1 Auto strategy
+  const [autoStrategyMode, setAutoStrategyMode] = useState(false);
+  const [aiStrategyKeys, setAiStrategyKeys] = useState<{
+    keyMessages: Set<string>;
+    cta: boolean;
+    budget: boolean;
+    pillars: boolean;
+    posts: boolean;
+  }>({ keyMessages: new Set(), cta: false, budget: false, pillars: false, posts: false });
+  const [aiStrategyReasoning, setAiStrategyReasoning] = useState('');
+  const suggestStrategy = useSuggestStrategy();
+
+  // Master auto-pilot
+  const [autoPilotRunning, setAutoPilotRunning] = useState(false);
+  const [autoPilotStage, setAutoPilotStage] = useState<'idle' | 'objectives' | 'channels' | 'strategy' | 'done'>('idle');
+
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [approvalMode, setApprovalMode] = useState('approve_each');
