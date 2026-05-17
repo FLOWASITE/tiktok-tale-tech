@@ -48,6 +48,7 @@ const CHANNEL_LIST = ['facebook', 'instagram', 'tiktok', 'linkedin', 'email', 'z
 interface CampaignPlanReviewProps {
   plan: CampaignContentPlan;
   goalName: string;
+  brandTemplateId?: string | null;
   onClose?: () => void;
 }
 
