@@ -1,106 +1,103 @@
-# Đồng bộ số bài ở bước Xác nhận
+## Tích hợp topic-ai vào tạo Campaign
 
-## Vấn đề
+### Mục tiêu
 
-Ở Step 4 (Xác nhận) trong `GoalWizard.tsx` có 2 con số "bài viết" lệch nhau:
+Khi user tạo AI Campaign, mỗi piece phải có chủ đề chất lượng cao từ pipeline **topic-ai** (scoring, trending, cluster, Topic Bank) — không còn để strategy AI tự bịa title.
 
-1. **Hero metric "Bài viết"** (line 1960) = `estimatedPosts` — tính ở frontend: `Σ kênh round(duration × freqPerWeek/7)`. Ví dụ: 30 ngày × 5 kênh × daily → ~150 bài.
-2. **Badge "Lịch nội dung chi tiết — N bài"** (line 2145) = `editableSchedule.length` — đến từ edge function `generate-campaign-strategy`, hàm này dùng `calculatePieceCount(durationDays)` **bỏ qua kênh + tần suất** → 30 ngày chỉ trả 8–12 bài.
-
-Cùng campaign → frontend nói 150 bài, AI sinh 10 bài. User thấy mâu thuẫn ngay trong cùng 1 màn hình.
-
-## Phạm vi
-
-- Backend: `supabase/functions/generate-campaign-strategy/index.ts` — nhận target từ FE và bám sát.
-- Frontend: `src/components/agents/GoalWizard.tsx` — gửi target và hiển thị nhất quán.
-
-Không đụng pipeline, không đổi schema.
-
-## Giải pháp
-
-### 1. Backend: honor target count từ frontend
-
-Trong `generate-campaign-strategy/index.ts`:
-
-- Nhận thêm payload:
-  ```ts
-  target_post_count?: number;          // tổng số bài FE đã ước tính
-  per_channel_targets?: Record<string, number>; // { facebook: 30, instagram: 12, ... }
-  ```
-- Sửa `calculatePieceCount(durationDays)`:
-  - Nếu có `target_post_count` hợp lệ (1–200): `{ min: max(1, n-2), max: min(200, n+2) }`.
-  - Nếu không có: giữ logic cũ.
-- Cập nhật `buildStrategyPrompt`:
-  - Khi có `per_channel_targets`, chèn block:
-    ```
-    CHANNEL DISTRIBUTION (MUST match these counts ±1):
-    - facebook: 30 pieces
-    - instagram: 12 pieces
-    ...
-    Total pieces: {target_post_count}
-    ```
-  - Thêm yêu cầu rõ ràng: "Sinh đúng {target_post_count} pieces, không ít hơn 90%, không quá 110%".
-- Hard cap an toàn: nếu `target_post_count > 200` → clamp = 200 + flag warning trong response (`plan_warning: "Đã cắt còn 200 bài, ..."`).
-
-### 2. Frontend: gửi target + hiển thị 1 nguồn sự thật
-
-Trong `GoalWizard.tsx`:
-
-**(a) Gửi target khi gọi preview** — `triggerSchedulePreview` (quanh line 414):
-```ts
-const perChannelTargets = Object.fromEntries(
-  selectedChannels.map(ch => [ch, getChannelPosts(ch)])
-);
-await previewSchedule.run({
-  ...,
-  target_post_count: estimatedPosts,
-  per_channel_targets: perChannelTargets,
-});
-```
-→ Cập nhật type trong `src/hooks/agents/usePreviewSchedule.ts` (`PreviewRequest`).
-
-**(b) Hero metric "Bài viết" hiển thị actual khi có schedule**:
-- Tạo `actualPosts = editableSchedule?.length ?? null`.
-- Hero card:
-  - Khi `actualPosts != null && !scheduleStale`: hiện `actualPosts`, label "Bài viết".
-  - Khi đang loading hoặc chưa có: hiện `estimatedPosts`, label "Bài viết (ước tính)" + dot pulse nhỏ.
-  - Khi `scheduleStale`: hiện `estimatedPosts` + tooltip "Số ước tính – bấm Sinh lại để cập nhật".
-
-**(c) Đồng bộ các số phái sinh**:
-- `postsPerWeek` (line 1923): dùng `actualPosts ?? estimatedPosts`.
-- Content Pillars `~ X bài` (line 2104): dùng `actualPosts ?? estimatedPosts`.
-- Loading message (line 2172): "AI đang sinh ~{estimatedPosts} bài…" giữ nguyên (đó là ước tính trước khi có response).
-
-**(d) Warning khi lệch >20%**:
-- Nếu có cả 2 số và `|actual - estimated| / estimated > 0.2` → banner amber nhỏ dưới hero strip:
-  > "AI sinh {actual} bài (bạn ước tính {estimated}). [Sinh lại với ràng buộc chặt hơn]" — nút gọi lại `triggerSchedulePreview` với cùng target.
-
-### 3. Edge cases
-
-- `estimatedPosts = 0` (chưa chọn kênh): không gửi target, edge function dùng default cũ.
-- AI ignore target (sinh lệch >30%): vẫn render những gì AI trả về, banner cảnh báo để user biết.
-- `scheduleStale = true` sau khi user đổi kênh/tần suất: hero quay lại estimatedPosts cho tới khi sinh lại.
-
-## Files sẽ chỉnh
+### Kiến trúc
 
 ```text
-supabase/functions/generate-campaign-strategy/index.ts
-  ~ calculatePieceCount() — accept target
-  ~ buildStrategyPrompt() — thêm CHANNEL DISTRIBUTION block khi có per_channel_targets
-  ~ handler — đọc target_post_count, per_channel_targets từ body; clamp 200; trả plan_warning
-
-src/hooks/agents/usePreviewSchedule.ts
-  ~ PreviewRequest type — thêm target_post_count, per_channel_targets
-
-src/components/agents/GoalWizard.tsx
-  ~ triggerSchedulePreview() — truyền target_post_count + per_channel_targets
-  ~ Hero metric "Bài viết" — dùng actualPosts với fallback estimatedPosts + label dynamic
-  ~ postsPerWeek + Content Pillars — dùng actualPosts ?? estimatedPosts
-  + Banner cảnh báo lệch >20% (chỉ render khi có cả 2 số)
+GoalWizard Step 4 "Sinh lịch"
+      ↓
+[NEW] Pre-fetch topic pool từ topic-ai (action: suggest)
+      ↓ pool {title, hook, key_message, scores, source}
+generate-campaign-strategy (preview)
+      ↓ AI nhận topic_pool → chọn N topic + gán channel/role/date/angle
+plan rendered ở Step 4
+      ↓ user confirm
+[NEW] Auto-save các topic đã dùng vào Topic Bank (status: planned)
 ```
 
-## Không làm
+Topic-ai là **nguồn topic duy nhất**; strategy AI chỉ làm **orchestrator** (chia channel/role/lịch), không sinh title tự do nữa.
 
-- Không buộc AI sinh đúng tuyệt đối từng bài (giữ ±10% tolerance).
-- Không đổi `total_pieces` schema trong `campaign_content_plans`.
-- Không đổi UI ngoài Step 4 Xác nhận.
+### Thay đổi cụ thể
+
+**1. Hook mới `useCampaignTopicPool` (frontend)**
+- Gọi `topic-ai` (action `suggest`) qua `useTopicAI` hiện có, với:
+  - `brandTemplateId`, `contentGoal` map từ primary objective (awareness→awareness, conversion→sales, …)
+  - `categoryHint` = campaign title
+  - `count` = `estimatedPosts * 1.5` (dư để AI chọn lọc), cap 60
+- Trả `pool: { title, hook, key_message, scores, source }[]`
+
+**2. `generate-campaign-strategy` — nhận `topic_pool`**
+- Body thêm: `topic_pool?: Array<{title, hook, key_message, scores?}>`
+- Khi có pool:
+  - Inject vào system prompt block **TOPIC POOL (MUST pick from here)**:
+    ```
+    Bạn PHẢI chọn title từ pool này (không được bịa). Mỗi piece = 1 topic từ pool.
+    Pool (sorted by quality score):
+    [01] {title} — hook: {hook} — score: {scores.overall}
+    ...
+    ```
+  - Đổi rule (1): "Pick EXACTLY N topics FROM POOL, mỗi topic dùng đúng 1 lần"
+  - Thêm field `pool_index: number` vào tool schema để track topic gốc
+- Khi pool rỗng/thiếu → fallback logic cũ (AI tự sinh) + warning.
+
+**3. `GoalWizard.tsx` — `triggerSchedulePreview`**
+- Trước khi gọi `previewSchedule.run`, gọi `useCampaignTopicPool.fetch()` → đợi pool về.
+- UI: hiện trạng thái 2-phase loading: "🧠 Đang chọn chủ đề từ Topic AI…" → "📅 Đang sắp lịch…"
+- Truyền `topic_pool` vào payload preview.
+
+**4. Auto-save Topic Bank khi confirm**
+- Trong `handleConfirm` (nơi user bấm "Tạo campaign"):
+- Sau khi `generate-campaign-strategy` (non-preview) thành công, batch insert vào bảng `topics` với:
+  - `status='planned'`, `source='campaign'`, `campaign_id`, `brand_template_id`, `organization_id`
+  - title/hook/key_message lấy từ pool đã match
+- Dùng RPC hoặc direct insert (tái dùng pattern từ `useTopicAI.suggestions.saveSuggestion`)
+
+**5. `PieceTopicSuggestPopover` — nâng cấp dùng topic-ai**
+- Đổi `useSuggestPieceTopics` → wrap `useTopicAI({...}).suggestions.refresh()` để gợi ý thay-thế cũng dùng topic-ai (scoring + trending + Topic Bank cache).
+- Giữ nguyên UX: popover, click chọn → cập nhật piece.
+
+### Files sẽ chỉnh
+
+```text
+[NEW] src/hooks/agents/useCampaignTopicPool.ts
+        - Wrap useTopicAI, map primary_objective → contentGoal,
+          trả Promise<TopicPoolItem[]>
+
+src/components/agents/GoalWizard.tsx
+        - triggerSchedulePreview: pre-fetch pool → pass topic_pool
+        - 2-phase loading UI
+        - handleConfirm: auto-save pool topics vào Topic Bank
+
+src/hooks/agents/usePreviewSchedule.ts
+        - PreviewRequest thêm topic_pool?
+
+supabase/functions/generate-campaign-strategy/index.ts
+        - Đọc topic_pool từ body
+        - buildStrategyPrompt: thêm TOPIC POOL block + đổi rule (1)
+        - Tool schema: thêm pool_index field
+        - Apply ở cả primary + fallback call
+
+src/components/agents/PieceTopicSuggestPopover.tsx
+        - Đổi sang useTopicAI suggestions (giữ UI)
+
+src/hooks/agents/useSuggestPieceTopics.ts
+        - Mark @deprecated, redirect sang useTopicAI internally
+          (giữ backward-compat cho call sites khác nếu có)
+```
+
+### Edge cases
+
+- **Pool rỗng** (brand chưa setup, topic-ai timeout): fallback strategy AI tự sinh + banner amber "Không lấy được Topic AI, dùng AI tự do".
+- **Pool < số piece cần**: AI được phép bịa thêm phần thiếu, log warning.
+- **User edit title thủ công sau khi sinh**: không auto-save vào Topic Bank với title cũ — chỉ save title cuối cùng lúc confirm.
+- **Multi-objective**: contentGoal = mapping từ `primary_objective`; secondary objectives chỉ ảnh hưởng rule 70/30 cũ (không đổi pool).
+
+### Không làm
+
+- Không đổi schema `topics` table.
+- Không sửa `_shared/` (tránh ảnh hưởng 157 functions).
+- Không đụng pipeline agent execution sau khi confirm.
+- Không bắt buộc Topic Bank — vẫn save best-effort, fail silent.
