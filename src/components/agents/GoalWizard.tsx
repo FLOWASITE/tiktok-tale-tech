@@ -411,6 +411,13 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (!currentOrganization?.id || selectedChannels.length === 0 || !name.trim()) return;
     setScheduleError(null);
     setScheduleStale(false);
+    // Build per-channel targets from current frequency settings
+    const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+    const perChannelTargets: Record<string, number> = {};
+    selectedChannels.forEach(ch => {
+      const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+      perChannelTargets[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
+    });
     const res = await previewSchedule.run({
       campaign_title: name.trim(),
       campaign_description: description.trim() || undefined,
@@ -420,6 +427,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       brand_template_id: brandTemplateId || undefined,
       clarification_context: buildPreviewClarification(),
       organization_id: currentOrganization.id,
+      target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+      per_channel_targets: Object.keys(perChannelTargets).length > 0 ? perChannelTargets : undefined,
     });
     if (res?.plan) {
       setEditableSchedule(res.plan);
