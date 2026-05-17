@@ -468,6 +468,10 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleCancel({ supabase, botConfig, chatId, telegramUserId }));
         break;
+      case "/regenerate":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleRegenerate({ supabase, botConfig, chatId, telegramUserId, arg: args }));
+        break;
       case "/link_group":
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleLinkGroup({ supabase, botConfig, chatId, chatType, telegramUserId }));
