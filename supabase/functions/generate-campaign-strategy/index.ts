@@ -402,6 +402,7 @@ Deno.serve(async (req) => {
       existingTitles,
       targetPostCount: normalizedTarget,
       perChannelTargets: normalizedPerChannel,
+      topicPool: normalizedPool,
     });
 
     // Call AI via callAIWithMetrics — routes to correct provider based on model prefix.
