@@ -212,7 +212,7 @@ function buildQualitativeChannelBlock(available: Set<ChannelId>): string {
 }
 
 async function fetchRecentChannelUsage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   brandTemplateId?: string,
   organizationId?: string,
 ): Promise<{ avoidIds: Set<ChannelId>; recentSignatures: string[] }> {
