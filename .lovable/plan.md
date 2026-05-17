@@ -1,103 +1,78 @@
-## Vấn đề Step 0 (Brief campaign + AI mode)
+## Vấn đề hiện tại của Step 0
 
-1. **Thiếu ô Mô tả** — code có state `description` được dùng cho auto-pilot và AI gợi ý mục tiêu (`!name.trim() && !description.trim()` mới disable), nhưng UI **không có input nào để nhập** → nút Auto-pilot luôn chỉ dựa vào tên, AI suggestion nghèo context.
-2. **Tên chiến dịch quá khiêm tốn** — Label `text-xs` + Input `text-sm` cao 40px, đứng một mình với placeholder ngắn → không có cảm giác đây là "brief" quan trọng nhất của cả wizard.
-3. **Hai card AI giống hệt nhau** xếp chồng:
-   - "🪄 Để AI lo hết" (border-primary gradient).
-   - "Để AI chọn mục tiêu giúp tôi" (border-dashed primary, gradient).
-   Cùng dùng primary gradient + icon Sparkles, người dùng khó phân biệt khác biệt giữa "AI làm hết" vs "AI chỉ gợi ý mục tiêu".
-4. **Vi phạm core rule**:
-   - Emoji 🪄 (core: dùng SVG icon không dùng emoji).
-   - Gradient `from-primary/10 to-primary/5` đậm + `border-primary/30` (core: Soft Luxury, neutral gray accents).
-5. **Hierarchy lộn xộn** — brief input nhỏ ở trên, AI cards to ở giữa, rồi xuống objectives. Mắt user không biết "tôi đang ở bước nào của bước 0".
-6. **Không có hint chất lượng brief** — user gõ "Ra mắt sản phẩm" 3 chữ rồi bấm AI → kết quả tệ. Cần micro-coaching.
-7. **Char count / state** — không cho thấy độ dài, không có nút "Xoá", không autoFocus.
-8. **AI reasoning** in italic dưới toggle khá lạc lõng, không thuộc card nào rõ rệt.
+1. **Hai radio-card to bằng nhau** trong khi "AI tự chạy" đã là mặc định → người dùng không thấy rõ đâu là hành động chính.
+2. **CTA "Bắt đầu AI tự chạy" bị chôn** bên trong radio card (size sm, không nổi bật).
+3. **Khi đã chọn Auto, phía dưới vẫn show full grid 6 Objective + KPI inputs** — mâu thuẫn với thông điệp "AI tự chọn giúp bạn", gây rối.
+4. **Name + Description trong cùng card** nhưng cả hai đều có header "Bước 1/4" + counter — quá nhiều chữ phụ cho một form 2 field.
+5. Trên viewport hẹp (~707px) hai radio-card stack dọc dài lê thê, cảm giác trùng lặp.
 
-## Mục tiêu
+## Đề xuất layout mới (chỉ JSX, không động state/handler)
 
-Bước 0 phải trông như một **"Brief sáng tạo"** rõ ràng: thông tin → cách AI hỗ trợ → kết quả gợi ý. Frontend-only, không đổi logic state hay edge function.
+```text
+┌─ Brief chiến dịch ─────────────────────────────┐
+│ [ Tên chiến dịch * ............ ]   12/80      │
+│ [ Mô tả ngắn (tuỳ chọn) ............ ] 0/400   │
+│ 💡 Brief càng rõ → AI làm càng đúng            │
+└────────────────────────────────────────────────┘
 
-### A. Brief card (gộp tên + mô tả)
-- Card lớn padding rộng (p-4 sm:p-5), border mảnh, không gradient.
-- **Tên chiến dịch** — Input `h-11 text-base font-medium`, autoFocus, placeholder mạnh hơn ("VD: Ra mắt serum vitamin C tháng 4").
-- **Mô tả ngắn** (Textarea, optional, 2-4 dòng) — mới thêm, bind vào `description` state hiện có. Placeholder gợi: "Mục tiêu chính, đối tượng, điểm khác biệt, ưu đãi…".
-- Counter ký tự nhỏ (`{name.length}/80` cho tên, `{description.length}/400` cho mô tả).
-- Hint dòng dưới (text-[11px] muted): "💡 Brief càng rõ → AI gợi ý càng đúng. Thử 2-3 câu ngắn." → dùng `Lightbulb` icon, **bỏ emoji**.
-- Helper inline khi cả 2 đều trống: badge mờ "Cần brief để AI hoạt động".
+┌─ Cách triển khai ──────────────────────────────┐
+│  ◉ AI tự chạy toàn bộ        ┃ ○ Tự chọn từng  │
+│    AI lo objective+kênh+ kế   ┃   bước (assist)│
+│    hoạch. Bạn duyệt cuối.     ┃                │
+│  ───────────────────────────────────────────── │
+│  (Auto)  [▶ Bắt đầu AI tự chạy]  ← CTA lớn     │
+│          ✓ Phân tích mục tiêu                  │
+│          ⟳ Chọn kênh phù hợp                   │
+│          ○ Lên chiến lược                      │
+│                                                │
+│  (Assist) [Switch] Để AI chọn mục tiêu giúp tôi│
+└────────────────────────────────────────────────┘
 
-### B. Gộp 2 AI card thành 1 "AI mode picker" (segmented radio-card)
+(Chỉ khi aiMode === 'assist'):
+┌─ Mục tiêu chiến dịch (1/3) ────────────────────┐
+│ [grid 6 objective cards]                        │
+└────────────────────────────────────────────────┘
+┌─ KPI (tuỳ chọn) ───────────────────────────────┐
+└────────────────────────────────────────────────┘
 ```
-┌─ Cách bạn muốn AI hỗ trợ ─────────────────┐
-│ ◉ Trợ lý gợi ý từng bước  (mặc định)       │
-│   AI gợi ý mục tiêu/kênh, bạn quyết định.  │
-│                                            │
-│ ○ AI tự chạy toàn bộ                       │
-│   AI chọn mục tiêu + kênh + chiến lược.    │
-│   Bạn chỉ review ở bước cuối.              │
-│                                            │
-│ [Khi chọn "Tự chạy"] [Bắt đầu AI tự chạy →]│
-│ [Khi chọn "Trợ lý"] Toggle: Tự chọn mục tiêu│
-└────────────────────────────────────────────┘
-```
-- 2 row radio-card style (border, hover bg-accent/40, selected: border-foreground/30 bg-accent/50 — neutral, không primary).
-- Icon trái: `Sparkles` (AI gợi ý) vs `Wand2` (auto-pilot).
-- Nút "AI tự chạy" chỉ hiện khi chọn option 2; disable + tooltip khi brief trống.
-- Toggle "Để AI chọn mục tiêu giúp tôi" thuộc option 1, slide-in khi option 1 active (giảm clutter khi user chọn full auto).
-- AI reasoning hiển thị **inside** option 1's expanded area (không float lơ lửng).
 
-### C. Progress khi auto-pilot chạy
-- Inline trong cùng card (không thay đổi logic), nhưng style lại checklist: dot 14px + label rõ, không lẫn với option khác.
-- Disable cả picker khi đang chạy.
+### Chi tiết thay đổi
 
-### D. Token & polish
-- Bỏ `from-primary/10 to-primary/5`, `border-primary/30` → dùng `border-border`, `bg-accent/30` cho card phụ; chỉ accent foreground/primary trên element được chọn hoặc nút primary action.
-- Bỏ emoji 🪄 → `Wand2`. Bỏ emoji 💡 → `Lightbulb`.
-- Section spacing `space-y-5` thay vì `space-y-4` để thoáng hơn.
-- Title section nhỏ trên brief card: `Brief chiến dịch` (text-[10px] uppercase tracking-wide muted) để báo hiệu đây là bước 1/4.
+**A. Brief card** — giữ nguyên cấu trúc, bỏ dòng "Bước 1/4" + label "Brief chiến dịch" (header thừa khi đã có Stepper bên ngoài). Đổi label section thành chip nhỏ inline.
 
-### E. Accessibility / state
-- `autoFocus` ô Tên khi vào step 0.
-- `aria-describedby` nối hint với input.
-- Nút Auto-pilot disable kèm tooltip "Cần ít nhất tên hoặc mô tả".
+**B. Mode picker → segmented control 2 cột** (thay vì 2 card stack):
+- Layout `grid grid-cols-2 gap-2` (responsive: dưới 380px stack lại).
+- Mỗi cell cao đồng nhất ~80px: radio dot + icon + tiêu đề + 1 dòng mô tả ngắn (cắt còn ~50 ký tự).
+- Bỏ nhãn "(mặc định)" — selected state đã thể hiện rõ.
 
-## File thay đổi
+**C. Action zone (dưới picker, full-width, bên trong cùng section)**:
+- Khi `aiMode === 'auto'`:
+  - Button **size="lg"** `h-11 w-full` — `[▶ Bắt đầu AI tự chạy]` (primary, full width, không bị stop-propagation hack vì không còn nằm trong button cha).
+  - Disabled tooltip giữ nguyên.
+  - Checklist 3 bước hiện ngay dưới button khi `autoPilotRunning`.
+- Khi `aiMode === 'assist'`:
+  - Row: `Switch` + label "Để AI chọn mục tiêu giúp tôi" (logic giữ nguyên, chỉ move ra khỏi card cha).
+  - AI reasoning box (nếu có) hiện inline.
 
-**Edit (chỉ JSX + import icon)**
-- `src/components/agents/GoalWizard.tsx`:
-  - Replace block `step === 0` đoạn brief + 2 AI card (lines ~1066–1204) với layout mới: BriefCard + AIModePicker.
-  - Thêm Textarea import (nếu chưa) + `Wand2`, `Lightbulb` từ `lucide-react`.
-  - Thêm 1 state local `aiMode: 'assist' | 'auto'` (mặc định `'assist'`) để segmented control điều khiển hiển thị. Toggle `autoMode` + nút `runAutoPilot` giữ nguyên logic.
+**D. Conditional rendering objectives/KPI**:
+- Wrap khối "Mục tiêu chiến dịch" + KPI bằng `{aiMode === 'assist' && (...)}`.
+- Khi auto: ẩn hoàn toàn → màn hình ngắn lại ~60%, focus vào CTA.
+- Khi auto-pilot hoàn tất và chuyển sang step 1, objectives đã được fill sẵn nên không mất data.
 
-**Không đổi**
-- Objective cards section (giữ nguyên bên dưới).
-- Toàn bộ state khác, handlers, edge functions, validation `canProceed`.
-- Stepper trên cùng wizard.
+**E. Bỏ nested `<button>` problem**: Hiện CTA `<Button>` đang nằm trong `<button>` radio-card (HTML invalid). Layout mới tách CTA ra ngoài radio cells → sạch markup.
+
+**F. Polish nhỏ**:
+- Section spacing `space-y-4` (giảm từ `space-y-5`).
+- Icon size đồng bộ `w-4 h-4` cho cả hai mode.
+- Badge "Cần brief để bật AI" → đổi thành inline-hint dưới CTA disabled.
+
+## File chỉnh sửa
+
+- `src/components/agents/GoalWizard.tsx` — chỉ refactor JSX trong block `step === 0` (line ~1068-1442 cho phần brief + mode + objectives wrapper). Không thay state, handler, edge function, hoặc business logic.
 
 ## Out of scope
-- Không đổi flow auto-pilot.
-- Không AI generate tên gợi ý (có thể làm sau bằng nút "Gợi ý tên" → 1 mutation mới).
-- Không refactor các step 1/2/3.
 
-## UX trước/sau (707px)
-```
-TRƯỚC                                 SAU
-─────                                 ────
-[Label] Tên chiến dịch *               BRIEF CHIẾN DỊCH
-[Input  sm  ]                          ┌───────────────────────────┐
-                                       │ Tên chiến dịch *          │
-┌─🪄 Để AI lo hết ──────[AI tự chạy]─┐  │ [Input lớn   ]    0/80   │
-│ AI tự chọn …                       │  │ Mô tả ngắn (tuỳ chọn)    │
-└────────────────────────────────────┘  │ [Textarea 3 dòng] 0/400  │
-                                       │ 💡 Brief rõ → AI tốt hơn │
-┌─ Để AI chọn mục tiêu ──── [toggle]─┐  └───────────────────────────┘
-│ AI sẽ phân tích…                   │
-│ Đang phân tích…                    │  CÁCH AI HỖ TRỢ
-│ AI reasoning…                      │  ┌───────────────────────────┐
-└────────────────────────────────────┘  │ ◉ Trợ lý gợi ý từng bước │
-                                       │   [Toggle: AI chọn mục tiêu]
-                                       │   AI reasoning inline      │
-                                       │ ○ AI tự chạy toàn bộ      │
-                                       │   [Bắt đầu AI tự chạy →]  │
-                                       └───────────────────────────┘
-```
+- Không đổi flow auto-pilot.
+- Không đổi logic `suggestObjectives` / `runAutoPilot`.
+- Không đụng Step 1/2/3.
+- Không thêm icon/animation mới ngoài lucide đã import.
