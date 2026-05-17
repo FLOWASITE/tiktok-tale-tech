@@ -19,8 +19,37 @@ const VALID_CHANNEL_IDS = [
 ] as const;
 type ChannelId = typeof VALID_CHANNEL_IDS[number];
 
-const VALID_FREQ = ["daily", "3/week", "2/week", "weekly"] as const;
+const VALID_FREQ = ["2/day", "daily", "5/week", "4/week", "3/week", "2/week", "weekly", "bi-weekly"] as const;
 type Freq = typeof VALID_FREQ[number];
+
+// Frequency → posts per week (for math + fallback derivation)
+const FREQ_PER_WEEK: Record<Freq, number> = {
+  "2/day": 14, "daily": 7, "5/week": 5, "4/week": 4, "3/week": 3,
+  "2/week": 2, "weekly": 1, "bi-weekly": 0.5,
+};
+
+const LONGFORM_IDS = new Set(["website", "blogger", "wordpress", "medium", "shopify", "wix", "email"]);
+const MESSAGING_IDS = new Set(["zalo", "telegram", "google_maps"]);
+
+function pickFreqLabel(perWeek: number, channelId: ChannelId): Freq {
+  // Clamp per channel medium
+  let p = perWeek;
+  if (LONGFORM_IDS.has(channelId)) p = Math.min(p, 1);
+  else if (MESSAGING_IDS.has(channelId)) p = Math.min(p, 2);
+  else p = Math.min(p, 14);
+
+  // Nearest band
+  const bands: Array<[Freq, number]> = [
+    ["2/day", 14], ["daily", 7], ["5/week", 5], ["4/week", 4],
+    ["3/week", 3], ["2/week", 2], ["weekly", 1], ["bi-weekly", 0.5],
+  ];
+  let best: Freq = "weekly"; let bestDiff = Infinity;
+  for (const [label, val] of bands) {
+    const d = Math.abs(val - p);
+    if (d < bestDiff) { bestDiff = d; best = label; }
+  }
+  return best;
+}
 
 const MIN_CHANNELS = 3;
 const MAX_CHANNELS = 6;
@@ -93,8 +122,11 @@ function scoreChannels(opts: {
   objectives: string[];
   industryClass: string;
   available: Set<ChannelId>;
+  postsPerWeek?: number;
+  avoidIds?: Set<ChannelId>;
+  jitterSeed?: number;
 }): SuggestedChannel[] {
-  const { objectives, industryClass, available } = opts;
+  const { objectives, industryClass, available, postsPerWeek = 0, avoidIds, jitterSeed = 0 } = opts;
   const objs = objectives.length > 0 ? objectives : ["awareness"];
   const weights = [1.0, 0.6, 0.4];
   const scores = new Map<ChannelId, number>();
@@ -111,27 +143,113 @@ function scoreChannels(opts: {
 
   applyIndustryModifier(scores, industryClass);
 
+  // Diversity: penalize channels heavily used in recent campaigns (~−18 each)
+  if (avoidIds && avoidIds.size > 0) {
+    for (const id of avoidIds) {
+      if (scores.has(id)) scores.set(id, Math.max(0, scores.get(id)! - 18));
+    }
+  }
+
+  // Deterministic jitter (±6) seeded per run → break ties differently each call
+  let seed = jitterSeed | 0;
+  const rng = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  for (const id of Array.from(scores.keys())) {
+    scores.set(id, scores.get(id)! + (rng() - 0.5) * 12);
+  }
+
   let entries = Array.from(scores.entries());
   if (available.size > 0) entries = entries.filter(([id]) => available.has(id));
   entries.sort((a, b) => b[1] - a[1]);
 
-  return entries
-    .filter(([, s]) => s > 30)
-    .slice(0, 5)
-    .map(([id]) => ({ id, frequency: DEFAULT_FREQ[id], reason: REASONS[id] }));
+  const picked = entries.filter(([, s]) => s > 25).slice(0, 5);
+  const total = picked.reduce((s, [, v]) => s + v, 0) || 1;
+
+  return picked.map(([id, val]) => {
+    let freq: Freq;
+    if (postsPerWeek > 0) {
+      const share = val / total;
+      const channelPerWeek = Math.max(0.5, share * postsPerWeek);
+      freq = pickFreqLabel(channelPerWeek, id);
+    } else {
+      freq = DEFAULT_FREQ[id];
+    }
+    return { id, frequency: freq, reason: REASONS[id] };
+  });
 }
 
-// Top hint channels per objective for LLM context
-function buildHintBlock(objectives: string[]): string {
-  const objs = objectives.length > 0 ? objectives : ["awareness"];
-  const lines: string[] = [];
-  objs.slice(0, 3).forEach((o, i) => {
-    const tag = i === 0 ? "primary" : `secondary-${i}`;
-    const table = OBJECTIVE_SCORES[o.toLowerCase().trim()] || OBJECTIVE_SCORES.awareness!;
-    const top = Object.entries(table).sort((a, b) => (b[1] || 0) - (a[1] || 0)).slice(0, 6);
-    lines.push(`- ${o} (${tag}): ${top.map(([c, s]) => `${c}=${s}`).join(", ")}`);
-  });
-  return lines.join("\n");
+// Qualitative channel context — no numeric scores so LLM không bị anchor
+const CHANNEL_STRENGTHS: Partial<Record<ChannelId, string>> = {
+  facebook: "reach rộng VN, group/community, mid-funnel",
+  instagram: "visual-first, lifestyle/beauty, story+reel",
+  linkedin: "B2B authority, thought leadership, lead gen cao cấp",
+  threads: "conversational community, organic discovery",
+  twitter: "realtime, news jacking, tech audience",
+  bluesky: "early adopter, dev/creative niche",
+  pinterest: "evergreen discovery, search-driven visual",
+  telegram: "broadcast 1-many, loyal subscribers",
+  zalo: "messaging VN, customer care, local retail",
+  google_maps: "local SEO, reviews, foot traffic",
+  website: "owned media, SEO long-form, conversion landing",
+  blogger: "long-form SEO ngách, low-cost test",
+  wordpress: "long-form SEO chuyên sâu, content hub",
+  medium: "thought leadership cross-audience",
+  shopify: "commerce content, product storytelling",
+  wix: "owned site nhẹ, portfolio",
+  email: "nurture/retention, owned 1:1, conversion mạnh",
+};
+
+function buildQualitativeChannelBlock(available: Set<ChannelId>): string {
+  const ids = available.size > 0
+    ? Array.from(available)
+    : (Object.keys(CHANNEL_STRENGTHS) as ChannelId[]);
+  return ids
+    .filter((id) => CHANNEL_STRENGTHS[id])
+    .map((id) => `- ${id}: ${CHANNEL_STRENGTHS[id]}`)
+    .join("\n");
+}
+
+async function fetchRecentChannelUsage(
+  supabase: any,
+  brandTemplateId?: string,
+  organizationId?: string,
+): Promise<{ avoidIds: Set<ChannelId>; recentSignatures: string[] }> {
+  const avoidIds = new Set<ChannelId>();
+  const recentSignatures: string[] = [];
+  try {
+    let q = supabase
+      .from("agent_goals")
+      .select("target_channels, frequency, name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (brandTemplateId) q = q.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) q = q.eq("organization_id", organizationId);
+    else return { avoidIds, recentSignatures };
+
+    const { data } = await q;
+    if (!Array.isArray(data)) return { avoidIds, recentSignatures };
+
+    const counts = new Map<ChannelId, number>();
+    for (const row of data as any[]) {
+      const chans = Array.isArray(row?.target_channels) ? row.target_channels : [];
+      for (const c of chans) {
+        const id = String(c).toLowerCase() as ChannelId;
+        if (VALID_CHANNEL_IDS.includes(id)) {
+          counts.set(id, (counts.get(id) || 0) + 1);
+        }
+      }
+      const freqObj = row?.frequency && typeof row.frequency === "object" ? row.frequency : {};
+      const sig = chans
+        .map((c: string) => `${c}:${freqObj[c] || "?"}`)
+        .join(", ");
+      if (sig) recentSignatures.push(`"${row?.name || "campaign"}" → ${sig}`);
+    }
+    // Avoid channels used in ≥2 of last 3 campaigns
+    for (const [id, n] of counts) if (n >= 2) avoidIds.add(id);
+  } catch { /* ignore */ }
+  return { avoidIds, recentSignatures };
 }
 
 function getSeasonHint(): string {
@@ -231,22 +349,44 @@ Deno.serve(async (req) => {
     }
 
     const industryClass = classifyIndustry(industry, description || title);
-    const fallbackRun = () => {
-      let channels = scoreChannels({ objectives, industryClass, available });
-      if (channels.length === 0) channels = scoreChannels({ objectives, industryClass, available: new Set() }).slice(0, 3);
-      return channels;
-    };
 
-    // ─── Build prompt for LLM ───
+    // Diversity context: avoid repeating recent campaign channel mix
+    const { avoidIds, recentSignatures } = await fetchRecentChannelUsage(
+      supabase,
+      brandTemplateId,
+      organizationId,
+    );
+
+    // Per-run jitter seed → break ties differently each call
+    const jitterSeed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+
     const durationWeeks = durationDays > 0 ? Math.max(1, Math.round(durationDays / 7)) : 0;
     const postsPerWeekTarget = (targetPostCount > 0 && durationWeeks > 0)
       ? Math.round((targetPostCount / durationWeeks) * 10) / 10
       : 0;
 
-    const availableList = available.size > 0 ? Array.from(available).join(", ") : "(chưa khai báo — pick theo objective/industry)";
-    const hintBlock = buildHintBlock(objectives);
+    const fallbackRun = () => {
+      let channels = scoreChannels({
+        objectives, industryClass, available,
+        postsPerWeek: postsPerWeekTarget, avoidIds, jitterSeed,
+      });
+      if (channels.length === 0) {
+        channels = scoreChannels({
+          objectives, industryClass, available: new Set(),
+          postsPerWeek: postsPerWeekTarget, avoidIds, jitterSeed,
+        }).slice(0, 3);
+      }
+      return channels;
+    };
 
-    const prompt = `Bạn là chuyên gia marketing đa kênh tại Việt Nam. Hãy chọn KÊNH + TẦN SUẤT đăng cho campaign cụ thể bên dưới — KHÔNG dùng preset mặc định, phải phù hợp đặc thù campaign này.
+    const availableList = available.size > 0 ? Array.from(available).join(", ") : "(chưa khai báo — pick theo objective/industry)";
+    const channelContextBlock = buildQualitativeChannelBlock(available);
+    const recentBlock = recentSignatures.length > 0
+      ? recentSignatures.map((s, i) => `- [${i + 1}] ${s}`).join("\n")
+      : "(chưa có campaign trước — free pick)";
+    const avoidList = avoidIds.size > 0 ? Array.from(avoidIds).join(", ") : "(không có)";
+
+    const prompt = `Bạn là chuyên gia marketing đa kênh tại Việt Nam. Chọn KÊNH + TẦN SUẤT đăng cho campaign cụ thể bên dưới. Mỗi lần chọn phải khác nhau dựa trên context — KHÔNG dùng preset cố định.
 
 CAMPAIGN CONTEXT
 - Tên: ${title || "(chưa có)"}
@@ -254,7 +394,8 @@ CAMPAIGN CONTEXT
 - Mục tiêu: ${objectives.length > 0 ? `${objectives.join(", ")} — primary: ${objectives[0]}` : "awareness"}
 - Thời lượng: ${durationDays > 0 ? `${durationDays} ngày (~${durationWeeks} tuần)` : "(chưa rõ)"}
 - Số bài mục tiêu: ${targetPostCount > 0 ? `${targetPostCount} bài${postsPerWeekTarget > 0 ? ` (~${postsPerWeekTarget} bài/tuần tổng)` : ""}` : "(chưa rõ)"}
-- Mùa vụ hiện tại: ${getSeasonHint()}
+- Mùa vụ: ${getSeasonHint()}
+- Run seed: ${jitterSeed} (dùng để đảm bảo mỗi lần gọi sinh kết quả khác nhau)
 
 BRAND CONTEXT
 - Brand: ${brandName || "(chưa có)"} | Industry: ${industry || "general"} (class: ${industryClass})
@@ -262,32 +403,36 @@ BRAND CONTEXT
 - Positioning: ${brandPositioning || "(chưa có)"}
 - Audience: ${targetAudienceCtx || "(chưa có)"}
 
-AVAILABLE CONNECTIONS (chỉ các kênh này đã kết nối)
+AVAILABLE CONNECTIONS (chỉ pick từ list này nếu có)
 ${availableList}
 
-RULE-BASED HINTS (tham khảo, không bắt buộc theo)
-${hintBlock}
+CHANNEL STRENGTHS (định tính, KHÔNG có điểm số — pick dựa trên fit thật)
+${channelContextBlock}
+
+DIVERSITY CONTEXT — 3 campaign gần nhất của brand:
+${recentBlock}
+→ Kênh BỊ LẠM DỤNG (xuất hiện ≥2 lần): ${avoidList}
+→ Ưu tiên thêm ít nhất 1 kênh KHÁC với danh sách trên, trừ khi objective bắt buộc.
 
 YÊU CẦU
-1. Chọn ${MIN_CHANNELS}–${MAX_CHANNELS} kênh phù hợp NHẤT cho campaign này. Đa dạng (1 long-form + 2-3 social + 1 messaging/email nếu hợp lý).
-2. Chỉ chọn từ danh sách available_connections nếu có; nếu danh sách rỗng thì free pick.
-3. TẦN SUẤT (frequency) phải KHỚP với context:
-   - Tính từ duration + target_post_count: tổng bài/tuần phải gần ${postsPerWeekTarget > 0 ? postsPerWeekTarget : "phù hợp campaign"}.
-   - Long-form (website, blogger, wordpress, medium, email, shopify, wix): tối đa "weekly".
-   - Social ngắn (twitter, threads, instagram, facebook): có thể "daily" → "weekly".
-   - Messaging (zalo, telegram, google_maps): "weekly" → "2/week".
-4. KHÔNG lặp preset cứng — mỗi reason phải reference context CỤ THỂ (objective, audience, mùa, brand) — không nói chung chung.
-5. Reason mỗi kênh 1 câu ngắn (≤120 ký tự, tiếng Việt).
-6. Reasoning tổng: 1-2 câu giải thích logic chọn bộ kênh này cho campaign này.
+1. Chọn ${MIN_CHANNELS}–${MAX_CHANNELS} kênh phù hợp NHẤT. Đa dạng medium (long-form + social + messaging).
+2. Chỉ chọn từ available_connections nếu có; rỗng thì free pick.
+3. TẦN SUẤT phải TÍNH từ duration × target_post_count, KHÔNG copy preset:
+   - Tổng bài/tuần across all channels ≈ ${postsPerWeekTarget > 0 ? postsPerWeekTarget : "phù hợp"}.
+   - Phân bổ theo weight thực tế của channel cho objective này (vd: kênh chính 40-50%, phụ 15-25%).
+   - Long-form (website/blogger/wordpress/medium/shopify/wix/email): tối đa "weekly" (hoặc "bi-weekly" nếu deep content).
+   - Social (twitter/threads/instagram/facebook/linkedin/bluesky/pinterest): "2/day" → "weekly" tuỳ tổng bài.
+   - Messaging (zalo/telegram/google_maps): "weekly" → "2/week".
+4. Mỗi reason phải reference context CỤ THỂ (objective + audience + brand/mùa). KHÔNG nói chung chung.
+5. Reason ≤120 ký tự, tiếng Việt. Reasoning tổng 1-2 câu giải thích logic mix.
+6. KHÔNG lặp lại nguyên xi mix của 3 campaign trước.
 
 VALID channel ids: ${VALID_CHANNEL_IDS.join(", ")}
 VALID frequency: ${VALID_FREQ.join(", ")}
 
-CHỈ trả về JSON hợp lệ theo shape:
+CHỈ trả JSON:
 {
-  "channels": [
-    { "id": "facebook", "frequency": "3/week", "reason": "..." }
-  ],
+  "channels": [ { "id": "facebook", "frequency": "3/week", "reason": "..." } ],
   "reasoning": "..."
 }`;
 
@@ -301,7 +446,7 @@ CHỈ trả về JSON hợp lệ theo shape:
         functionName: "suggest-channels",
         organizationId,
         messages: [{ role: "user", content: prompt }],
-        temperatureOverride: 0.6,
+        temperatureOverride: 0.9,
         maxTokensOverride: 900,
       } as any);
 
@@ -337,12 +482,22 @@ CHỈ trả về JSON hợp lệ theo shape:
 
     const channels = llmChannels || fallbackRun();
     const reasoning = aiReasoning
-      || `Gợi ý theo ${industryClass !== "general" ? `industry "${industryClass}"` : "tổng quát"} + mục tiêu ${objectives.join(", ") || "awareness"}.`;
+      || `Gợi ý theo ${industryClass !== "general" ? `industry "${industryClass}"` : "tổng quát"} + mục tiêu ${objectives.join(", ") || "awareness"}${avoidIds.size > 0 ? `, tránh lặp ${Array.from(avoidIds).join("/")}` : ""}.`;
 
     return new Response(
-      JSON.stringify({ channels, reasoning, ai_powered: aiPowered }),
+      JSON.stringify({
+        channels,
+        reasoning,
+        ai_powered: aiPowered,
+        diversity: {
+          recent_count: recentSignatures.length,
+          avoided: Array.from(avoidIds),
+          seed: jitterSeed,
+        },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (e) {
     console.error("[suggest-channels] Error:", e);
     return new Response(

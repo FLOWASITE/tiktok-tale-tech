@@ -1360,7 +1360,7 @@ async function handleGenerate(
             available_connections: availableChannels,
           },
         }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 12000)),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 18000)),
       ]) as { data?: any; error?: any };
       const sg = sgRes?.data;
       if (sg && Array.isArray(sg.channels) && sg.channels.length > 0) {
