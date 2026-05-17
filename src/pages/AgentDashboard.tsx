@@ -88,6 +88,7 @@ export default function AgentDashboard() {
     approval_mode?: string;
     brand_template_id?: string;
     clarification_context?: Record<string, string>;
+    pre_generated_plan?: any[];
   }): Promise<{ total_pieces?: number; pipelines_created?: number; approval_mode?: string; plan_id?: string }> => {
     const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
       body: {
@@ -101,6 +102,7 @@ export default function AgentDashboard() {
         brand_template_id: data.brand_template_id || null,
         clarification_context: data.clarification_context || null,
         organization_id: currentOrganization?.id,
+        pre_generated_plan: data.pre_generated_plan,
       },
     });
     if (error) {
