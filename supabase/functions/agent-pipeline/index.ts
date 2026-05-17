@@ -539,6 +539,12 @@ Deno.serve(async (req) => {
         .single();
       if (goalErr || !goal) throw new Error("Goal not found");
 
+      // P1: forward topic_pool from clarification_context (set by Telegram /generate or Wizard).
+      const clarCtx = goal.clarification_context || null;
+      const topicPoolFromCtx = Array.isArray((clarCtx as any)?.topic_pool)
+        ? (clarCtx as any).topic_pool
+        : undefined;
+
       // Synchronous fast mode (only when caller explicitly asks) — kept for backward compat / testing
       if (body.sync === true) {
         const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
@@ -550,7 +556,8 @@ Deno.serve(async (req) => {
           campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
           approval_mode: goal.approval_mode || "approve_plan",
           brand_template_id: goal.brand_template_id || null,
-          clarification_context: goal.clarification_context || null,
+          clarification_context: clarCtx,
+          topic_pool: topicPoolFromCtx,
           organization_id: goal.organization_id,
         });
         return json({
@@ -565,7 +572,7 @@ Deno.serve(async (req) => {
       // Async mode (default): dispatch in background, return 202 immediately
       const bgTask = (async () => {
         try {
-          console.log(`[trigger_from_goal] bg: starting strategy for goal ${goal.id}`);
+          console.log(`[trigger_from_goal] bg: starting strategy for goal ${goal.id} | topic_pool=${topicPoolFromCtx?.length || 0}`);
           const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
             goal_id: goal.id,
             campaign_title: goal.name,
@@ -575,7 +582,8 @@ Deno.serve(async (req) => {
             campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
             approval_mode: goal.approval_mode || "approve_plan",
             brand_template_id: goal.brand_template_id || null,
-            clarification_context: goal.clarification_context || null,
+            clarification_context: clarCtx,
+            topic_pool: topicPoolFromCtx,
             organization_id: goal.organization_id,
           });
           console.log(`[trigger_from_goal] bg: done goal=${goal.id} plan=${strategyResult?.plan_id} pipelines=${strategyResult?.pipelines_created}`);
