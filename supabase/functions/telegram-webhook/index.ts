@@ -4016,6 +4016,179 @@ async function getAvailableChannels(supabase: any, organizationId: string, brand
   }
 }
 
+// ─── P1: Approval-mode picker draft store + helpers ───
+// In-memory draft for /generate 2-step flow (mode picker).
+// Edge instance scope; TTL 10 minutes — acceptable for interactive UX.
+type ApprovalMode = "auto" | "approve_plan";
+interface GenerateDraft {
+  id: string;
+  chatId: number;
+  telegramUserId: number;
+  userId: string;
+  organizationId: string;
+  prompt: string;
+  extracted: {
+    channels: string[];
+    duration_days: number;
+    cadence: "weekly" | "daily";
+    per_week: number;
+    suggested_name: string;
+    objectives: Objective[];
+    reasoning?: string;
+  };
+  durationDays: number;
+  endDateIso: string;
+  targetPostCount: number;
+  finalChannels: string[];
+  perChannelFreq: Array<{ id: string; frequency: string }>;
+  suggestReasoning?: string;
+  suggestAiPowered: boolean;
+  brandId?: string;
+  brandName?: string;
+  brandIndustry?: string;
+  brandTargetAudience?: string;
+  brandPositioning?: string;
+  brandToneOfVoice?: string;
+  primaryPersona?: {
+    name?: string;
+    occupation?: string;
+    age_range?: string;
+    pain_points?: unknown;
+    desires?: unknown;
+    communication_style?: string;
+  };
+  topicPool: Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }>;
+  createdAt: number;
+  pickerMessageId?: number;
+}
+const generateDrafts = new Map<string, GenerateDraft>();
+const GENERATE_DRAFT_TTL_MS = 10 * 60 * 1000;
+
+function pruneGenerateDrafts() {
+  const now = Date.now();
+  for (const [k, d] of generateDrafts) {
+    if (now - d.createdAt > GENERATE_DRAFT_TTL_MS) generateDrafts.delete(k);
+  }
+}
+
+function makeDraftId(): string {
+  // Short id (8 chars) to keep callback_data under Telegram's 64-byte cap.
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+}
+
+// Parse `--auto` / `--plan` flags out of the prompt body.
+function parseApprovalModeFlag(raw: string): { mode: ApprovalMode | null; prompt: string } {
+  const trimmed = (raw || "").trim();
+  // Match flag anywhere; strip it.
+  const reAuto = /(?:^|\s)--auto(?:\s|$)/i;
+  const rePlan = /(?:^|\s)--plan(?:\s|$)/i;
+  let mode: ApprovalMode | null = null;
+  let prompt = trimmed;
+  if (reAuto.test(prompt)) {
+    mode = "auto";
+    prompt = prompt.replace(reAuto, " ").trim();
+  } else if (rePlan.test(prompt)) {
+    mode = "approve_plan";
+    prompt = prompt.replace(rePlan, " ").trim();
+  }
+  return { mode, prompt };
+}
+
+// Map AI-extracted objective → topic-ai contentGoal taxonomy.
+function mapObjectiveToContentGoal(obj?: string): string {
+  if (!obj) return "education";
+  const id = String(obj).toLowerCase();
+  if (id.includes("aware")) return "awareness";
+  if (id.includes("engage") || id.includes("community")) return "engagement";
+  if (id.includes("lead") || id.includes("traffic")) return "lead-gen";
+  if (id.includes("revenue") || id.includes("conver") || id.includes("sale")) return "sales";
+  if (id.includes("retention")) return "community";
+  return "education";
+}
+
+// Best-effort topic-ai pool fetch (mirrors GoalWizard.fetchTopicPool). 12s timeout, fail-silent.
+async function fetchTopicPoolForTelegram(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  params: {
+    organizationId: string;
+    brandTemplateId?: string;
+    primaryObjective?: string;
+    industry?: string;
+    categoryHint: string;
+  },
+): Promise<GenerateDraft["topicPool"]> {
+  try {
+    const invoke = supabase.functions.invoke("topic-ai", {
+      body: {
+        action: "suggest",
+        brandTemplateId: params.brandTemplateId || undefined,
+        organizationId: params.organizationId,
+        contentGoal: mapObjectiveToContentGoal(params.primaryObjective),
+        industry: params.industry || undefined,
+        format: "all",
+        categoryHint: (params.categoryHint || "").slice(0, 180),
+        forceRefresh: false,
+      },
+    });
+    const res = await Promise.race([
+      invoke,
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("topic-ai-timeout")), 12000)),
+    ]) as { data?: any; error?: any };
+    if (res?.error) {
+      console.warn("[topic-pool] invoke error:", res.error);
+      return [];
+    }
+    const raw: any[] = Array.isArray(res?.data?.suggestions) ? res.data.suggestions : [];
+    const pool = raw
+      .map((s) => ({
+        title: typeof s?.topic === "string" ? s.topic : (typeof s?.title === "string" ? s.title : ""),
+        hook: typeof s?.hook === "string" ? s.hook : undefined,
+        key_message: typeof s?.keyMessage === "string" ? s.keyMessage : (typeof s?.key_message === "string" ? s.key_message : undefined),
+        pillar: typeof s?.pillar === "string" ? s.pillar : undefined,
+        category: typeof s?.category === "string" ? s.category : undefined,
+        scores: s?.scores && typeof s.scores === "object" ? s.scores : undefined,
+      }))
+      .filter((t) => t.title && t.title.length > 5);
+    console.log(`[topic-pool] fetched ${pool.length} topics for "${params.categoryHint.slice(0,60)}"`);
+    return pool;
+  } catch (e) {
+    console.warn("[topic-pool] failed:", (e as Error).message);
+    return [];
+  }
+}
+
+// Fetch primary persona (is_primary=true preferred, else newest) for brand.
+async function fetchPrimaryPersona(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  brandTemplateId?: string,
+): Promise<GenerateDraft["primaryPersona"] | undefined> {
+  if (!brandTemplateId) return undefined;
+  try {
+    const { data } = await supabase
+      .from("customer_personas")
+      .select("name, occupation, age_range, pain_points, desires, communication_style, is_primary, created_at")
+      .eq("brand_template_id", brandTemplateId)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return undefined;
+    return {
+      name: data.name ?? undefined,
+      occupation: data.occupation ?? undefined,
+      age_range: data.age_range ?? undefined,
+      pain_points: data.pain_points ?? undefined,
+      desires: data.desires ?? undefined,
+      communication_style: data.communication_style ?? undefined,
+    };
+  } catch (e) {
+    console.warn("[fetchPrimaryPersona] failed:", (e as Error).message);
+    return undefined;
+  }
+}
+
 // LLM extract for /generate Quick mode. Falls back to safe defaults.
 const VALID_OBJECTIVES = ["awareness","engagement","traffic","leads","conversion","revenue","retention","community"] as const;
 type Objective = typeof VALID_OBJECTIVES[number];
