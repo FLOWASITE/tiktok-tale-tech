@@ -52,6 +52,9 @@ export function useAgentGoals() {
           created_by: user?.id,
           campaign_id: goal.campaign_id || null,
           clarification_context: goal.clarification_context || null,
+          period_type: goal.period_type || 'custom',
+          period_label: goal.period_label ?? null,
+          parent_goal_id: goal.parent_goal_id ?? null,
         } as any)
         .select()
         .single();
