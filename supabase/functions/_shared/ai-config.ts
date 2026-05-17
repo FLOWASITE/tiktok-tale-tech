@@ -384,6 +384,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     // Agent campaign helpers
     'suggest-piece-topics',
     'suggest-strategy',
+    'suggest-objectives',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
