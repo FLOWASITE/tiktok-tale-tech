@@ -76,10 +76,10 @@ export function useAgentGoals() {
 
   const deleteGoal = useMutation({
     mutationFn: async (id: string) => {
-      // Nullify goal_id on related pipelines first (FK is NO ACTION)
+      // Unlink pipelines khỏi goal + campaign plan để tránh FK chặn xoá
       const { error: unlinkError } = await supabase
         .from('agent_pipelines')
-        .update({ goal_id: null } as any)
+        .update({ goal_id: null, campaign_plan_id: null } as any)
         .eq('goal_id', id);
       if (unlinkError) throw unlinkError;
 
