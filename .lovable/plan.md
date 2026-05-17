@@ -1,58 +1,89 @@
-# Tối ưu 2 AI function: rule-based + cache
+## Phát triển Search trong Function Configuration
 
-## 1. `suggest-channels` → Rule-based (bỏ AI)
+Nâng cấp ô tìm kiếm tại `Admin → AI Management → Function Configuration` từ match chuỗi đơn giản (name/description/category) lên **smart search + advanced filters + highlight**.
 
-Thay AI call bằng bảng điểm `CHANNEL_FIT` deterministic.
+### 1. Smart matching (fuzzy + diacritics + multi-field)
 
-**Logic:**
-- Bảng `OBJECTIVE_CHANNEL_SCORES`: map `objective × channel → score (0-100)`
-  - `awareness`: tiktok 95, facebook 90, instagram 85, youtube 80, linkedin 40, blog 50, zalo 60
-  - `engagement`: instagram 95, tiktok 90, facebook 85, threads 80, linkedin 60
-  - `conversion`: facebook 90, instagram 85, blog 80, website 85, linkedin 75, google_business 70
-  - `retention`: zalo 90, email 95, blog 70, facebook 60
-  - `seo/traffic`: blog 95, website 90, youtube 75
-  - `b2b/leads`: linkedin 95, blog 80, website 75
-- **Modifier theo brand/industry:**
-  - Industry `beauty/aesthetic` → +10 instagram, +15 tiktok, −20 linkedin
-  - Industry `b2b/saas/legal` → +20 linkedin, +10 blog, −15 tiktok
-  - Brand tone `professional` → +5 linkedin/blog
-  - Brand tone `playful/genz` → +10 tiktok/instagram
-- **Filter:** chỉ giữ channels có trong `available_connections` (đã connect)
-- **Output:** top 3-6 channels theo score giảm dần, kèm `reason` ngắn ("Phù hợp awareness + audience trẻ trên TikTok")
+Tạo `src/lib/functionConfigSearch.ts` — tái sử dụng `normalizeVi` từ `src/lib/industrySearch.ts`, mở rộng cho AIFunction:
 
-**Code:** rewrite `supabase/functions/suggest-channels/index.ts`
-- Bỏ `callAI`, bỏ AI config
-- Pure function `scoreChannels({ objective, industry, brandTone, available })`
-- Latency <5ms, 0$ cost, deterministic
-- Xóa entry `suggest-channels` khỏi `ai-config.ts` + admin UI (migration soft-delete row trong `ai_function_configs`)
+- **Trường tham gia matching** (mỗi trường có trọng số riêng):
+  - `name` (vd `generate-script`) — weight 100
+  - `description` (mô tả tiếng Việt) — weight 60
+  - `category` slug + label hiển thị — weight 40
+  - `currentModel` (vd `google/gemini-2.5-flash`) — weight 50
+  - `modelOverride` (model admin đã set) — weight 50
+  - `provider` suy ra từ model (lovable / openrouter / 9router / dashscope) — weight 30
+  - `tags` (knowledge-graph, …) — weight 40
+- **Scoring**: exact = 100, prefix = 60, substring = 40, token-level = 12, Levenshtein ≤2 cho token ≥4 ký tự = 6 (giống industrySearch).
+- **Diacritics-insensitive** cho mọi trường: "kich ban" → match "generate-script" (mô tả "Tạo kịch bản…"), "ai gateway" → match được, v.v.
+- Trả về `{ item, score, matchedFields, matchSpans }` để dùng cho highlight.
 
-## 2. `suggest-piece-topics` → Giữ AI + thêm Cache 7 ngày
+### 2. Advanced query operators
 
-**Cache key:** `hash(brand_id + pillar + angle + role + channel + existing_titles.join('|'))`
+Parser nhẹ cho cú pháp `key:value` trước khi fuzzy match:
 
-**Triển khai:**
-- Dùng `withCache()` từ `_shared/cache-utils.ts` (đã có)
-- TTL: 7 ngày = 604800s
-- Scope: `'org'` (cache per organization, không cross-tenant)
-- Update `ai-config.ts`: `cache_ttl_seconds: 604800`
-- Update DB row trong `ai_function_configs` cho `suggest-piece-topics`
-
-**Expected impact:**
-- 70-80% cache hit rate (user thường suggest lại cùng pillar/angle trong 1 campaign)
-- Cost giảm từ ~$0.0003/call → ~$0.00006/call trung bình
-- Latency cache hit <50ms (thay vì 2-4s gọi AI)
-
-## Files thay đổi
-
-```text
-supabase/functions/suggest-channels/index.ts          [rewrite - bỏ AI]
-supabase/functions/suggest-piece-topics/index.ts      [thêm withCache wrap]
-supabase/functions/_shared/ai-config.ts               [xóa suggest-channels, set TTL 604800 cho suggest-piece-topics]
-supabase/migrations/<new>.sql                         [DELETE suggest-channels row, UPDATE TTL cho suggest-piece-topics]
+```
+model:gpt-5            → lọc theo model id (contains)
+provider:openrouter    → lọc theo provider
+tag:knowledge-graph    → lọc theo tag
+status:override        → có modelOverride
+status:default         → không override
+status:disabled        → isEnabled=false
+category:seo           → lọc category slug
 ```
 
-## Verify sau khi deploy
+Các token còn lại (không có `:`) gộp lại làm free-text query đưa vào smart matcher. Hỗ trợ nhiều operator cùng lúc, AND logic.
 
-1. Curl `suggest-channels` với 3 objective khác nhau → check score ranking đúng
-2. Curl `suggest-piece-topics` 2 lần liên tiếp cùng input → lần 2 phải hit cache (check `x-cache: HIT` header hoặc log)
-3. Check Admin AI Management UI → `suggest-channels` không còn, `suggest-piece-topics` hiện TTL 7d
+### 3. Filter chips mới (ngoài Type filter cũ)
+
+Thêm 1 dòng filter phụ ngay dưới ô search:
+
+- **Status pills**: `Override` / `Default` / `Disabled` (toggle, multi-select OR trong cùng nhóm)
+- **Provider pills**: `Lovable` / `OpenRouter` / `9Router` / `DashScope` (multi-select)
+- **Category multi-select**: dropdown `Categories ▾` (popover + checkbox list từ `useCategoryConfig`); badge số đếm khi đã chọn
+- Nút **Clear filters** xuất hiện khi có filter active
+
+State được mã hoá vào URL search params (`?q=&status=override&provider=openrouter&cat=seo,content`) để share/bookmark.
+
+### 4. Highlight + sort theo score
+
+- `filteredFunctions` sort theo `score DESC` khi có query (giữ thứ tự category cũ khi rỗng).
+- `FunctionCard` nhận thêm prop `highlightSpans?: { field, ranges }[]` để bọc `<mark>` quanh ký tự match trong `name` + `description`. Style `<mark>`: `bg-primary/15 text-primary rounded-sm px-0.5` (đúng Soft Luxury tokens).
+- Khi query rỗng → không highlight, không sort lại.
+
+### 5. UX nâng cao (responsive)
+
+- Ô search full-width trên mobile (`< 640px`), max-w-sm trên desktop.
+- Filter chips wrap nhiều dòng, scroll-x ngang trên mobile nếu cần (`overflow-x-auto`, `snap-x`).
+- Debounce input 150ms (`useDeferredValue`) để không lag khi 100+ functions.
+- Empty state riêng khi search không có kết quả: gợi ý "Thử bỏ filter X" + nút Clear.
+- Hiển thị badge `N kết quả` cạnh số `total functions` ở header khi query active.
+
+### 6. Files thay đổi
+
+```
+NEW   src/lib/functionConfigSearch.ts        ← parser + scorer + highlight spans
+EDIT  src/components/admin/ai/AIFunctionConfig.tsx
+        - thay block filter useMemo (lines 90-114)
+        - thêm state: statusFilter[], providerFilter[], categoryFilter[]
+        - thêm Filter chips row + Clear button
+        - đổi search placeholder: "Tìm: tên, model, tag, status:override..."
+EDIT  src/components/admin/ai/FunctionCard.tsx
+        - nhận highlightSpans, render <mark> trong name/description
+EDIT  src/components/admin/ai/FunctionCategoryGroup.tsx
+        - pass highlightSpans xuống FunctionCard
+```
+
+Không đụng edge functions, không đụng DB, không thay đổi data model — thuần frontend UX.
+
+### 7. Verify
+
+- Search "kich ban" → ra `generate-script`, `generate-carousel`, … có description chứa "kịch bản".
+- Search "gemini" → tất cả function dùng model Gemini, sort theo độ khớp.
+- `model:gpt-5 status:override` → chỉ function override sang GPT-5.
+- `provider:openrouter tag:knowledge-graph` → giao của 2 điều kiện.
+- Toggle Status chip "Disabled" → đếm khớp `stats.disabled`.
+- Responsive 707px viewport: search + chips không vỡ layout.
+- Highlight: gõ "script" → chữ "script" trong tên function được tô.
+
+Sau khi anh duyệt, em bắt tay vào implement.

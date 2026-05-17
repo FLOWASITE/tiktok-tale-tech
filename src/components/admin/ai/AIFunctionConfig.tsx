@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
@@ -20,10 +22,16 @@ import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music, Film } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music, Film, X as XIcon, ChevronDown } from 'lucide-react';
 import { getVideoModelCaps, VIDEO_PROVIDER_LABEL } from '@/lib/videoModelCaps';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import {
+  smartSearchFunctions,
+  parseQuery,
+  type FunctionStatus,
+  type FunctionProvider,
+} from '@/lib/functionConfigSearch';
 
 interface AIFunctionConfigProps {
   organizationId?: string;
@@ -48,7 +56,11 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredQuery = useDeferredValue(searchQuery);
   const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<FunctionStatus[]>([]);
+  const [providerFilter, setProviderFilter] = useState<FunctionProvider[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Check if OpenRouter provider has API key configured
@@ -86,32 +98,57 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     return map;
   }, [functions]);
 
-  // Filter functions
+  // Parse query to extract free-text terms (for <mark> highlight)
+  const parsedQuery = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
+  const highlightTerms = useMemo(
+    () => (parsedQuery.freeTokens.length ? parsedQuery.freeTokens : []),
+    [parsedQuery],
+  );
+
+  // Pre-filter by type tab (legacy behavior), then run smart search + chip filters
   const filteredFunctions = useMemo(() => {
-    let result = [...AI_FUNCTIONS] as AIFunction[];
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(fn => 
-        fn.name.toLowerCase().includes(query) ||
-        fn.description.toLowerCase().includes(query) ||
-        fn.category.toLowerCase().includes(query)
-      );
-    }
-    
+    let pool = [...AI_FUNCTIONS] as AIFunction[];
+
     if (typeFilter !== 'all') {
-      // Check if it's a tag filter (knowledge-graph)
       if (typeFilter === 'knowledge-graph') {
-        result = result.filter(fn => fn.tags?.includes('knowledge-graph'));
+        pool = pool.filter(fn => fn.tags?.includes('knowledge-graph'));
       } else if (typeFilter === 'image') {
-        result = result.filter(fn => fn.type === 'image' || fn.type === 'image-direct');
+        pool = pool.filter(fn => fn.type === 'image' || fn.type === 'image-direct');
       } else {
-        result = result.filter(fn => fn.type === typeFilter);
+        pool = pool.filter(fn => fn.type === typeFilter);
       }
     }
-    
-    return result;
-  }, [searchQuery, typeFilter]);
+
+    const scored = smartSearchFunctions(pool, {
+      query: deferredQuery,
+      configsMap,
+      statusFilter,
+      providerFilter,
+      categoryFilter,
+      getModelInfo: getEnhancedModelInfo,
+    });
+
+    return scored.map(s => s.item);
+  }, [deferredQuery, typeFilter, statusFilter, providerFilter, categoryFilter, configsMap]);
+
+  const hasActiveFilters =
+    !!deferredQuery.trim() ||
+    typeFilter !== 'all' ||
+    statusFilter.length > 0 ||
+    providerFilter.length > 0 ||
+    categoryFilter.length > 0;
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setStatusFilter([]);
+    setProviderFilter([]);
+    setCategoryFilter([]);
+  };
+
+  const toggleInArray = <T,>(arr: T[], value: T, setter: (v: T[]) => void) => {
+    setter(arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value]);
+  };
 
   // Count Knowledge Graph functions
   const kgCount = useMemo(() => countByTag(AI_FUNCTIONS as unknown as { tags?: AIFunctionTag[] }[], 'knowledge-graph'), []);
@@ -267,43 +304,74 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm function..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9"
-            />
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Search + View toggle */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm: tên, model, tag, hoặc status:override..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-8 h-9 w-full"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 sm:ml-auto">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Type Filter */}
-          <div className="flex items-center gap-1 flex-wrap">
+          {/* Row 2: Type filter pills (scrollable on mobile) */}
+          <div className="flex items-center gap-1 flex-wrap overflow-x-auto sm:overflow-visible -mx-1 px-1">
             {TYPE_FILTERS.map((filter) => {
               const isTagFilter = 'isTagFilter' in filter && filter.isTagFilter;
-              const count = isTagFilter 
-                ? kgCount 
+              const count = isTagFilter
+                ? kgCount
                 : AI_FUNCTIONS.filter(fn => {
                     if (filter.id === 'image') return fn.type === 'image' || fn.type === 'image-direct';
                     return fn.type === filter.id;
                   }).length;
-              
+
               return (
                 <Button
                   key={filter.id}
-                  variant={typeFilter === filter.id ? "default" : "outline"}
+                  variant={typeFilter === filter.id ? 'default' : 'outline'}
                   size="sm"
                   className={cn(
-                    "h-8 text-xs",
-                    isTagFilter && typeFilter === filter.id && "bg-violet-600 hover:bg-violet-700",
-                    isTagFilter && typeFilter !== filter.id && "border-violet-500/50 text-violet-600 hover:bg-violet-500/10"
+                    'h-8 text-xs shrink-0',
+                    isTagFilter && typeFilter === filter.id && 'bg-violet-600 hover:bg-violet-700',
+                    isTagFilter && typeFilter !== filter.id && 'border-violet-500/50 text-violet-600 hover:bg-violet-500/10',
                   )}
                   onClick={() => setTypeFilter(filter.id)}
                 >
                   {filter.icon}
-                  <span className={filter.icon ? "ml-1" : ""}>{filter.label}</span>
+                  <span className={filter.icon ? 'ml-1' : ''}>{filter.label}</span>
                   {filter.id !== 'all' && (
                     <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
                       {count}
@@ -314,24 +382,88 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             })}
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 ml-auto">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setViewMode('grid')}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+          {/* Row 3: Advanced chips — Status / Provider / Category multi-select */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            {/* Status */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground mr-0.5">Status:</span>
+              {(['override', 'default', 'disabled'] as FunctionStatus[]).map(s => (
+                <Button
+                  key={s}
+                  variant={statusFilter.includes(s) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] capitalize shrink-0"
+                  onClick={() => toggleInArray(statusFilter, s, setStatusFilter)}
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+
+            {/* Provider */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground mr-0.5">Provider:</span>
+              {(['lovable', 'openrouter', 'ninerouter', 'dashscope'] as FunctionProvider[]).map(p => (
+                <Button
+                  key={p}
+                  variant={providerFilter.includes(p) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] shrink-0"
+                  onClick={() => toggleInArray(providerFilter, p, setProviderFilter)}
+                >
+                  {p === 'ninerouter' ? '9Router' : p === 'openrouter' ? 'OpenRouter' : p === 'dashscope' ? 'DashScope' : 'Lovable'}
+                </Button>
+              ))}
+            </div>
+
+            {/* Category multi-select */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] shrink-0">
+                  Categories
+                  {categoryFilter.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                      {categoryFilter.length}
+                    </Badge>
+                  )}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="start">
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {categories.map(c => (
+                    <label
+                      key={c.slug}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-xs"
+                    >
+                      <Checkbox
+                        checked={categoryFilter.includes(c.slug)}
+                        onCheckedChange={() => toggleInArray(categoryFilter, c.slug, setCategoryFilter)}
+                      />
+                      <span className="truncate">{c.label || c.slug}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] text-muted-foreground hover:text-foreground"
+                onClick={clearAllFilters}
+              >
+                <XIcon className="h-3 w-3 mr-1" />
+                Clear filters
+              </Button>
+            )}
+
+            {(deferredQuery.trim() || statusFilter.length || providerFilter.length || categoryFilter.length) ? (
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {filteredFunctions.length} kết quả
+              </Badge>
+            ) : null}
           </div>
         </div>
       </div>
@@ -356,18 +488,25 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
               onQuickModelChange={handleQuickModelChange}
               onBulkReset={handleBulkReset}
               categoryConfig={getCategoryConfig(category)}
-              defaultExpanded={category === 'content' || category === 'ideation'}
+              defaultExpanded={category === 'content' || category === 'ideation' || !!deferredQuery.trim()}
               getEnhancedModelInfo={getEnhancedModelInfo}
               groupModelOverride={groupConfig?.modelOverride || null}
               getEffectiveModel={getEffectiveModel}
+              highlightTerms={highlightTerms}
             />
           );
         })}
 
         {groupedFunctions.size === 0 && (
           <Card>
-            <CardContent className="p-8 text-center">
+            <CardContent className="p-8 text-center space-y-3">
               <p className="text-muted-foreground">Không tìm thấy function nào phù hợp</p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                  <XIcon className="h-3.5 w-3.5 mr-1" />
+                  Xóa bộ lọc
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

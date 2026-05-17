@@ -6,6 +6,7 @@ import { ProviderIndicator } from './ModelCard';
 import { FunctionTagBadges } from './FunctionTagBadges';
 import { InlineModelPicker } from './InlineModelPicker';
 import { Settings, Check, X, Clock, RotateCcw } from 'lucide-react';
+import { HighlightText } from './HighlightText';
 
 export interface AIFunction {
   name: string;
@@ -24,6 +25,7 @@ interface FunctionCardProps {
   onEdit: () => void;
   onQuickModelChange?: (model: string | null) => void;
   compact?: boolean;
+  highlightTerms?: string[];
 }
 
 const TYPE_BADGES: Record<AIFunctionType, { label: string; className: string }> = {
@@ -54,7 +56,7 @@ const COST_LABEL: Record<string, { text: string; className: string }> = {
   high: { text: '$$$', className: 'text-red-500' },
 };
 
-export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact }: FunctionCardProps) {
+export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact, highlightTerms }: FunctionCardProps) {
   const typeBadge = TYPE_BADGES[fn.type];
   const borderClass = CATEGORY_BORDER[fn.category] || 'border-l-muted';
   const hasOverride = !!config?.modelOverride;
@@ -75,7 +77,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-medium text-sm truncate" title={fn.name}>{fn.name}</span>
+              <span className="font-medium text-sm truncate" title={fn.name}><HighlightText text={fn.name} terms={highlightTerms || []} /></span>
               <FunctionTagBadges tags={fn.tags} compact />
               {modelSource === 'individual' && (
                 <Badge variant="outline" className="text-[9px] py-0 px-1 bg-primary/10 text-primary border-primary/30">
@@ -93,7 +95,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{fn.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1"><HighlightText text={fn.description} terms={highlightTerms || []} /></p>
           </div>
           
           <Button
@@ -154,7 +156,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-semibold text-sm">{fn.name}</h4>
+            <h4 className="font-semibold text-sm"><HighlightText text={fn.name} terms={highlightTerms || []} /></h4>
             <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", typeBadge.className)}>
               {typeBadge.label}
             </Badge>
@@ -165,7 +167,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">{fn.description}</p>
+          <p className="text-xs text-muted-foreground mt-1"><HighlightText text={fn.description} terms={highlightTerms || []} /></p>
         </div>
 
         <div className="flex items-center gap-1">
