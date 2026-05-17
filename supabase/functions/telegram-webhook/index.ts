@@ -1313,6 +1313,54 @@ async function handleGenerate(
   const durationDays = extracted.duration_days;
   const endDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
+  // Compute target_post_count from cadence × duration weeks
+  const durationWeeks = Math.max(1, Math.ceil(durationDays / 7));
+  const targetPostCount = extracted.cadence === "daily"
+    ? durationDays
+    : extracted.per_week * durationWeeks;
+
+  // AI-driven channel pick: call suggest-channels with full campaign context
+  // (objectives, duration, post_count, brand, available_connections) — same as GoalWizard.
+  // Fallback to extracted.channels (rule-based) on failure.
+  let finalChannels: string[] = extracted.channels;
+  let suggestReasoning: string | undefined;
+  let suggestAiPowered = false;
+  let perChannelFreq: Array<{ id: string; frequency: string }> = [];
+  try {
+    const sgRes = await Promise.race([
+      supabase.functions.invoke("suggest-channels", {
+        body: {
+          title: extracted.suggested_name,
+          description: prompt,
+          objectives: extracted.objectives,
+          brand_template_id: (activeBrandGen as any)?.id || undefined,
+          organization_id: botConfig.organizationId,
+          brand_name: (activeBrandGen as any)?.brand_name || undefined,
+          industry: Array.isArray((activeBrandGen as any)?.industry)
+            ? (activeBrandGen as any).industry[0]
+            : (activeBrandGen as any)?.industry || undefined,
+          campaign_duration_days: durationDays,
+          target_post_count: targetPostCount,
+          available_connections: availableChannels,
+        },
+      }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("suggest-timeout")), 12000)),
+    ]) as { data?: any; error?: any };
+
+    const sg = sgRes?.data;
+    if (sg && Array.isArray(sg.channels) && sg.channels.length > 0) {
+      perChannelFreq = sg.channels.map((c: any) => ({ id: String(c.id), frequency: String(c.frequency) }));
+      finalChannels = perChannelFreq.map((c) => c.id);
+      suggestReasoning = typeof sg.reasoning === "string" ? sg.reasoning : undefined;
+      suggestAiPowered = !!sg.ai_powered;
+      console.log("[handleGenerate] suggest-channels:", { ai_powered: suggestAiPowered, channels: finalChannels });
+    } else {
+      console.warn("[handleGenerate] suggest-channels empty, using extracted fallback");
+    }
+  } catch (e) {
+    console.warn("[handleGenerate] suggest-channels failed:", (e as Error).message);
+  }
+
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
     .insert({
@@ -1321,7 +1369,7 @@ async function handleGenerate(
       organization_id: botConfig.organizationId,
       created_by: binding.userId,
       target_topics: [],
-      target_channels: extracted.channels,
+      target_channels: finalChannels,
       frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
       campaign_duration_days: durationDays,
       campaign_start_date: today.toISOString().split("T")[0],
@@ -1331,7 +1379,18 @@ async function handleGenerate(
       approval_mode: "approve_plan",
       is_active: true,
       is_paused: false,
-      clarification_context: { telegram_ai_extracted: extracted },
+      clarification_context: {
+        telegram_ai_extracted: extracted,
+        objectives: extracted.objectives,
+        primary_objective: extracted.objectives[0],
+        secondary_objectives: extracted.objectives.slice(1),
+        target_post_count: targetPostCount,
+        channel_frequencies: perChannelFreq,
+        suggest_channels: {
+          reasoning: suggestReasoning,
+          ai_powered: suggestAiPowered,
+        },
+      },
     })
     .select("id, name")
     .single();
@@ -3958,12 +4017,16 @@ async function getAvailableChannels(supabase: any, organizationId: string, brand
 }
 
 // LLM extract for /generate Quick mode. Falls back to safe defaults.
+const VALID_OBJECTIVES = ["awareness","engagement","traffic","leads","conversion","revenue","retention","community"] as const;
+type Objective = typeof VALID_OBJECTIVES[number];
+
 async function extractCampaignParams(prompt: string, availableChannels: string[]): Promise<{
   channels: string[];
   duration_days: number;
   cadence: "weekly" | "daily";
   per_week: number;
   suggested_name: string;
+  objectives: Objective[];
   reasoning?: string;
 }> {
   const fallback = {
@@ -3974,6 +4037,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
     cadence: "weekly" as const,
     per_week: 3,
     suggested_name: prompt.slice(0, 80),
+    objectives: ["awareness"] as Objective[],
   };
   // Ensure at least one channel
   if (fallback.channels.length === 0) fallback.channels = ["facebook", "website"];
@@ -3987,9 +4051,9 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
   try {
     const sys = `Bạn trích xuất tham số campaign marketing từ mô tả tiếng Việt/Anh. Trả về JSON đúng schema. Nếu user không nói rõ, giữ default hợp lý.`;
     const channelHint = availableChannels.length > 0
-      ? `Các kênh đang có connection: ${availableChannels.join(", ")}. Ưu tiên chọn từ danh sách này.`
-      : `Chỉ chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
-    const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- channels: array tên kênh (lowercase)\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
+      ? `Các kênh đang có connection: ${availableChannels.join(", ")}.`
+      : `Có thể chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
+    const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- objectives: array 1-3 mục tiêu, primary đầu tiên (chọn từ: ${VALID_OBJECTIVES.join(", ")})\n- channels: array tên kênh gợi ý (lowercase) — chỉ làm hint\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -4024,6 +4088,12 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
     const duration = Math.min(90, Math.max(1, Number(parsed.duration_days) || 14));
     const cadence: "weekly" | "daily" = parsed.cadence === "daily" ? "daily" : "weekly";
     const perWeek = Math.min(7, Math.max(1, Number(parsed.per_week) || 3));
+    const objectives: Objective[] = Array.isArray(parsed.objectives)
+      ? parsed.objectives
+          .map((o: unknown) => String(o).toLowerCase())
+          .filter((o: string): o is Objective => (VALID_OBJECTIVES as readonly string[]).includes(o))
+          .slice(0, 3)
+      : [];
 
     return {
       channels: channels.length > 0 ? channels : fallback.channels,
@@ -4031,6 +4101,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
       cadence,
       per_week: perWeek,
       suggested_name: String(parsed.suggested_name || prompt).slice(0, 80),
+      objectives: objectives.length > 0 ? objectives : fallback.objectives,
       reasoning: parsed.reasoning ? String(parsed.reasoning).slice(0, 200) : undefined,
     };
   } catch (e) {
