@@ -288,7 +288,29 @@ Deno.serve(async (req) => {
     const startDate = campaign_start_date || new Date().toISOString().split("T")[0];
     const channels = target_channels?.length ? target_channels : ["facebook"];
     const effectiveApprovalMode = approval_mode || "approve_plan";
-    const pieceCount = calculatePieceCount(durationDays);
+
+    // Normalize target count
+    let normalizedTarget: number | null = null;
+    let planWarning: string | null = null;
+    if (typeof target_post_count === "number" && Number.isFinite(target_post_count) && target_post_count >= 1) {
+      const raw = Math.round(target_post_count);
+      if (raw > PIECE_HARD_CAP) {
+        normalizedTarget = PIECE_HARD_CAP;
+        planWarning = `Đã giới hạn ở ${PIECE_HARD_CAP} bài (yêu cầu ${raw}). Hãy giảm tần suất hoặc rút ngắn thời gian chiến dịch nếu cần nhiều hơn.`;
+      } else {
+        normalizedTarget = raw;
+      }
+    }
+    // Normalize per-channel targets (filter to selected channels only, clamp ≥1)
+    let normalizedPerChannel: Record<string, number> | null = null;
+    if (per_channel_targets && typeof per_channel_targets === "object") {
+      const entries = Object.entries(per_channel_targets as Record<string, unknown>)
+        .filter(([ch, n]) => channels.includes(ch) && typeof n === "number" && Number.isFinite(n) && (n as number) >= 1)
+        .map(([ch, n]) => [ch, Math.min(PIECE_HARD_CAP, Math.max(1, Math.round(n as number)))] as const);
+      if (entries.length > 0) normalizedPerChannel = Object.fromEntries(entries);
+    }
+
+    const pieceCount = calculatePieceCount(durationDays, normalizedTarget);
 
     let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
 
