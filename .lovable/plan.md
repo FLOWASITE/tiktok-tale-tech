@@ -1,41 +1,45 @@
-## Mục tiêu
-Làm rõ sự khác biệt giữa 3 loại nội dung trong ContentScheduleStudio (lịch chiến dịch) để user không nhầm lẫn khi chọn loại cho từng piece.
+## Vấn đề
+Ở Step "Xác nhận" (GoalWizard → ContentScheduleStudio), mỗi bài chỉ hiển thị: tiêu đề · ngày · giờ · kênh · pillar. **Loại nội dung (Post / Carousel / Video) bị ẩn trong popover**, nên user nhìn lịch không biết bài nào là Post, bài nào là Carousel, bài nào là Video.
+
+## Giải pháp
+Thêm **chip Loại nội dung** hiển thị trực tiếp trên mỗi `ScheduleRow`, đồng bộ với 3 type đã định nghĩa trong `CONTENT_TYPES` (Post / Carousel / Video).
 
 ## Phạm vi
-Chỉ sửa `src/components/agents/ContentScheduleStudio.tsx`. Không thay đổi logic nghiệp vụ hay API.
+Chỉ sửa `src/components/agents/ContentScheduleStudio.tsx`. Không đụng logic, không đụng API, không đụng `GoalWizard.tsx`.
 
 ## Chi tiết implement
 
-### 1. Enrich SelectItem — icon + mô tả 1 dòng
-Mở rộng `CONTENT_TYPES` từ `{value, label}` thành thêm `description` và `icon` (lucide icon name).  
-Các mục:
+### 1. Thêm `ContentTypeChip` (component nhỏ trong file)
+Một chip nhỏ dùng lại data từ `CONTENT_TYPES`:
+- Icon (FileText / Layers / Video) + label rất ngắn (Post / Carousel / Video)
+- Style: viền mảnh, `bg-muted/50`, `text-[10px]`, `h-5`, `rounded-full`, padding ngang 1.5
+- Màu icon theo loại để dễ phân biệt khi liếc:
+  - Post → `text-slate-600` (neutral)
+  - Carousel → `text-amber-600`
+  - Video → `text-violet-600`
+- Có `title` (tooltip native) ghi description đầy đủ của loại
 
-| Loại | Label | Icon | Mô tả |
-|------|-------|------|-------|
-| `multichannel` | Post | `FileText` | Bài text/ảnh ngắn, đồng bộ nhiều kênh |
-| `carousel` | Carousel | `Layers` | 5-10 slide vuốt, tối ưu cho Facebook/Instagram/LinkedIn |
-| `video_script` | Video | `Video` | Kịch bản 15-180s cho Reels, TikTok, Shorts, YouTube |
+### 2. Gắn chip vào `ScheduleRow` (line 327-358)
+Chèn chip ngay **bên cạnh tiêu đề** (cùng dòng với title, align top, shrink-0) để dù title 2 dòng vẫn thấy loại ngay. Cấu trúc:
 
-Trong `<SelectItem>`, render layout 2 dòng:
-- Dòng 1: `<icon>` + label (bold)
-- Dòng 2: description nhỏ, muted
+```text
+[●pillar]  [Tiêu đề bài viết dài có thể 2 dòng...]   [📄 Post]
+           Thu 12/6 · 09:00 · 📘 Facebook · awareness
+```
 
-Dùng `textValue` prop của `<SelectItem>` để accessibility vẫn đọc đúng label.
+Khi đang ở mode edit title (`isEditing`), chip vẫn render bên phải input để vị trí ổn định.
 
-### 2. Tooltip (i) cạnh nhãn "Loại"
-Thêm icon `Info` nhỏ (w-3 h-3) ngay cạnh label `<label className="text-[11px] text-muted-foreground">Loại</label>` trong grid cell.  
-Dùng `<Tooltip>` (có sẵn trong `src/components/ui/tooltip.tsx`) hoặc `<Popover>` nếu mobile-first tốt hơn.
+### 3. Chip có thể bấm để đổi nhanh loại (bonus, low-risk)
+Wrap chip trong `<Select>` ngầm (giống pattern Loại trong popover) để user click chip → đổi loại ngay mà không cần mở popover. Nếu phức tạp hóa layout → fallback: chip read-only, vẫn phải mở popover để đổi (giữ behavior cũ).
 
-Nội dung tooltip (3 bullet):
-- **Post**: Bài ngắn dạng text + ảnh, tự động chuyển đổi sang nhiều kênh social khác nhau.
-- **Carousel**: Chuỗi 5-10 slide hình ảnh có thể vuốt, phù hợp giới thiệu sản phẩm hoặc storytelling.
-- **Video**: Kịch bản video có lời thoại, độ dài 15-180 giây, xuất ra Reels / TikTok / Shorts / YouTube.
+→ **Mặc định: chip read-only** (đơn giản, ít rủi ro layout). User vẫn đổi loại qua popover như cũ. Có thể nâng cấp sau.
 
-### 3. Trigger cũng hiển thị icon
-Khi một loại được chọn, `<SelectTrigger>` hiển thị icon tương ứng bên trái label (giống pattern `ContentGoalCombobox`).
+### 4. Empty/legacy values
+Nếu `p.content_type` không nằm trong `CONTENT_TYPES` (data cũ) → fallback hiển thị chip "Post" (giống default khi `addPiece` ở line 178).
 
 ## Kiểm tra sau khi sửa
-- Dropdown mở ra hiển thị đúng 3 mục với icon + description.
-- Tooltip hiện khi hover/click icon (i).
-- SelectTrigger hiển thị icon tương ứng loại đã chọn.
-- Không lỗi TypeScript, không phá vỡ layout responsive hiện tại.
+- Mỗi row trong lịch hiển thị rõ chip loại nội dung ở góc phải.
+- 3 loại có icon + màu khác nhau, phân biệt được khi scan nhanh.
+- Hover chip thấy mô tả đầy đủ (native title).
+- Layout không vỡ trên viewport mobile 707px (user đang ở 707x662) — chip `shrink-0`, title `min-w-0 line-clamp-2`.
+- Popover Loại + tooltip (i) vẫn hoạt động như cũ.

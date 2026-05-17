@@ -324,6 +324,24 @@ export default function ContentScheduleStudio({
 
   /* ---------- row ---------- */
 
+  const ContentTypeChip = ({ value }: { value: string }) => {
+    const sel = CONTENT_TYPES.find((t) => t.value === value) || CONTENT_TYPES[0];
+    const Icon = sel.icon;
+    const colorClass =
+      sel.value === 'carousel' ? 'text-amber-600 dark:text-amber-400'
+      : sel.value === 'video_script' ? 'text-violet-600 dark:text-violet-400'
+      : 'text-slate-600 dark:text-slate-300';
+    return (
+      <span
+        title={`${sel.label} — ${sel.description}`}
+        className="shrink-0 inline-flex items-center gap-1 h-5 px-1.5 rounded-full border border-border/60 bg-muted/50 text-[10px] font-medium text-foreground/80"
+      >
+        <Icon className={cn('w-3 h-3', colorClass)} />
+        <span className="leading-none">{sel.label}</span>
+      </span>
+    );
+  };
+
   const ScheduleRow = ({ p }: { p: SchedulePiece }) => {
     const overload = (stats.byDay.get(p.scheduled_date) || 0) > 3;
     const isEditing = editingId === p.piece_number;
@@ -336,26 +354,31 @@ export default function ContentScheduleStudio({
       >
         <PillarDot pillar={p.pillar} size={8} />
         <div className="flex-1 min-w-0 space-y-1">
-          {isEditing ? (
-            <Input
-              autoFocus
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              onBlur={() => { updatePiece(p.piece_number, { title: draftTitle }); setEditingId(null); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { updatePiece(p.piece_number, { title: draftTitle }); setEditingId(null); }
-                if (e.key === 'Escape') setEditingId(null);
-              }}
-              className="h-7 px-2 text-sm"
-            />
-          ) : (
-            <button
-              className="text-left text-sm font-medium leading-snug line-clamp-2 hover:text-primary w-full"
-              onClick={() => { setDraftTitle(p.title); setEditingId(p.piece_number); }}
-            >
-              {p.title}
-            </button>
-          )}
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              {isEditing ? (
+                <Input
+                  autoFocus
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  onBlur={() => { updatePiece(p.piece_number, { title: draftTitle }); setEditingId(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { updatePiece(p.piece_number, { title: draftTitle }); setEditingId(null); }
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  className="h-7 px-2 text-sm"
+                />
+              ) : (
+                <button
+                  className="text-left text-sm font-medium leading-snug line-clamp-2 hover:text-primary w-full"
+                  onClick={() => { setDraftTitle(p.title); setEditingId(p.piece_number); }}
+                >
+                  {p.title}
+                </button>
+              )}
+            </div>
+            <ContentTypeChip value={p.content_type} />
+          </div>
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground tabular-nums">
