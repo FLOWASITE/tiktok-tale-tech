@@ -324,6 +324,14 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   // NOTE: 'suggest-channels' removed — now rule-based (deterministic, no AI)
+  'suggest-strategy': {
+    model: 'google/gemini-3-flash-preview',
+    temperature: 0.7,
+    max_tokens: 600,
+    cache_ttl_seconds: 3600,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   'generate-seo-landing': {
     model: 'google/gemini-2.5-flash',
     temperature: 0.6,
