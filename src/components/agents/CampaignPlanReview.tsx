@@ -15,9 +15,12 @@ import {
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
+import { PieceTopicSuggestPopover } from './PieceTopicSuggestPopover';
+import type { PieceTopicSuggestion, SuggestPieceTopicsInput } from '@/hooks/agents/useSuggestPieceTopics';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import type { ReactNode } from 'react';
 
 type ViewMode = 'channel' | 'timeline' | 'list';
 
