@@ -184,7 +184,8 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
 
     // Determine status
     let status = latestPlan?.status || (goalPipelines.length > 0 ? 'executing' : 'draft');
-    if (!latestPlan && goal.is_paused) status = 'paused';
+    // Goal-level pause cờ luôn ưu tiên — kể cả khi đã có plan
+    if (goal.is_paused) status = 'paused';
 
     // Timeline info
     const startDate = latestPlan?.campaign_start_date || goal.campaign_start_date;
