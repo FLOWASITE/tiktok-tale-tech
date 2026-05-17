@@ -2589,7 +2589,7 @@ async function getBrandContextById(
 ): Promise<ActiveBrandContext | null> {
   const { data: brand } = await supabase
     .from("brand_templates")
-    .select("id, brand_name, industry, tone_of_voice, unique_value_proposition")
+    .select("id, brand_name, industry, tone_of_voice, unique_value_proposition, target_audience, brand_positioning")
     .eq("organization_id", organizationId)
     .eq("id", brandId)
     .is("deleted_at", null)
