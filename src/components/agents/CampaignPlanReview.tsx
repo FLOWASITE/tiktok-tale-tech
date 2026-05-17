@@ -644,13 +644,13 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
 
       {/* Content Views */}
       {viewMode === 'channel' && (
-        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'timeline' && (
-        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'list' && (
-        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
 
       {/* Edit Piece Dialog */}
