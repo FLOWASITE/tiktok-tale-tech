@@ -30,17 +30,27 @@ import { ClarificationStep } from './ClarificationStep';
 
 // ─── Constants ───
 
-const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel }[] = [
-  { id: 'blog', label: 'Blog', channelKey: 'website' },
-  { id: 'facebook', label: 'Facebook', channelKey: 'facebook' },
-  { id: 'instagram', label: 'Instagram', channelKey: 'instagram' },
-  { id: 'tiktok', label: 'TikTok', channelKey: 'tiktok' },
-  { id: 'zalo', label: 'Zalo OA', channelKey: 'zalo_oa' },
-  { id: 'linkedin', label: 'LinkedIn', channelKey: 'linkedin' },
-  { id: 'twitter', label: 'X (Twitter)', channelKey: 'twitter' },
-  { id: 'email', label: 'Email', channelKey: 'email' },
-  { id: 'threads', label: 'Threads', channelKey: 'threads' },
-  { id: 'pinterest', label: 'Pinterest', channelKey: 'website' },
+const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel; group: 'longform' | 'social' }[] = [
+  // 🌐 Website & Long-form
+  { id: 'website',   label: 'Website',      channelKey: 'website',   group: 'longform' },
+  { id: 'blogger',   label: 'Blogger',      channelKey: 'blogger',   group: 'longform' },
+  { id: 'wordpress', label: 'WordPress',    channelKey: 'wordpress', group: 'longform' },
+  { id: 'shopify',   label: 'Shopify Blog', channelKey: 'shopify',   group: 'longform' },
+  { id: 'wix',       label: 'Wix Blog',     channelKey: 'wix',       group: 'longform' },
+  { id: 'medium',    label: 'Medium',       channelKey: 'medium',    group: 'longform' },
+  { id: 'email',     label: 'Email',        channelKey: 'email',     group: 'longform' },
+  // 💬 Mạng xã hội
+  { id: 'facebook',    label: 'Facebook',    channelKey: 'facebook',    group: 'social' },
+  { id: 'instagram',   label: 'Instagram',   channelKey: 'instagram',   group: 'social' },
+  { id: 'linkedin',    label: 'LinkedIn',    channelKey: 'linkedin',    group: 'social' },
+  { id: 'twitter',     label: 'X (Twitter)', channelKey: 'twitter',     group: 'social' },
+  { id: 'threads',     label: 'Threads',     channelKey: 'threads',     group: 'social' },
+  { id: 'bluesky',     label: 'Bluesky',     channelKey: 'bluesky',     group: 'social' },
+  { id: 'pinterest',   label: 'Pinterest',   channelKey: 'pinterest',   group: 'social' },
+  { id: 'telegram',    label: 'Telegram',    channelKey: 'telegram',    group: 'social' },
+  { id: 'zalo',        label: 'Zalo OA',     channelKey: 'zalo_oa',     group: 'social' },
+  { id: 'google_maps', label: 'Google Maps', channelKey: 'google_maps', group: 'social' },
+  // ❌ TikTok / YouTube không nằm trong AI Campaign — chỉ post từ Video Studio
 ];
 
 const FREQUENCY_OPTIONS = [
