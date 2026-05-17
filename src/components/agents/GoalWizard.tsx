@@ -277,6 +277,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [totalPostsTarget, setTotalPostsTarget] = useState<number | ''>('');
 
+  // Content Schedule Studio state
+  const [editableSchedule, setEditableSchedule] = useState<SchedulePiece[] | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
+  const previewSchedule = usePreviewSchedule();
+
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
