@@ -636,6 +636,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setAutoPilotRunning(false);
     }
   };
+
+  const canNext = () => {
     switch (step) {
       case 0: return name.trim().length > 0 && objectives.length > 0;
       case 1: return true; // Strategy step optional
