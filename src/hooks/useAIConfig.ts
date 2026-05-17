@@ -65,6 +65,8 @@ export const AI_FUNCTIONS = [
   { name: 'suggest-ad-fix', description: 'Đề xuất sửa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'optimize-ad-copy', description: 'Tối ưu hóa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'suggest-channels', description: 'Gợi ý kênh & tần suất cho Campaign (AI-driven)', category: 'agent', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'suggest-strategy', description: 'Gợi ý chiến lược nội dung (key messages, CTA)', category: 'agent', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-flash-preview' },
+  { name: 'suggest-objectives', description: 'Gợi ý mục tiêu & KPI cho Campaign', category: 'agent', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   
   // Chat Functions
   { name: 'chat-topics', description: 'AI chat assistant', category: 'chat', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
