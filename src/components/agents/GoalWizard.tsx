@@ -214,6 +214,9 @@ type GoalSubmitData = {
   campaign_duration_days?: number;
   campaign_start_date?: string;
   approval_mode?: string;
+  period_type?: 'month' | 'quarter' | 'year' | 'custom';
+  period_label?: string | null;
+  parent_goal_id?: string | null;
 };
 
 type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
