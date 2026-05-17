@@ -358,7 +358,13 @@ async function generateCarouselImages(
     return { success: 0, failed: slides.length, taskId };
   }
 
-  // Poll until completion (max 5 minutes, every 3s)
+  // Option B (fire-and-forget): return immediately so the agent-pipeline create
+  // stage can finish under the 140s edge timeout. Caller polls generation_tasks.
+  if (fireAndForget) {
+    return { success: 0, failed: 0, taskId, deferred: true, seamless_score: null };
+  }
+
+  // Poll until completion (max 5 minutes, every 3s) — legacy synchronous path
   const start = Date.now();
   const timeoutMs = 5 * 60 * 1000;
   const pollMs = 3000;
