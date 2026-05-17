@@ -122,8 +122,22 @@ Available channels: ${params.channels.join(", ")}
 Duration: ${params.durationDays} days starting ${params.startDate}
 Brand voice: ${params.brandVoice || "professional, friendly"}
 ${briefSection}
+${(() => {
+  const tgt = params.targetPostCount;
+  const perCh = params.perChannelTargets;
+  if (!tgt || tgt < 1) return '';
+  const lines: string[] = [];
+  lines.push(`\nPOST COUNT TARGET (CRITICAL — must follow):`);
+  lines.push(`- Total pieces: EXACTLY ${tgt} (acceptable range ${params.pieceCount.min}-${params.pieceCount.max}).`);
+  lines.push(`- Do NOT return fewer than ${params.pieceCount.min} or more than ${params.pieceCount.max} pieces.`);
+  if (perCh && Object.keys(perCh).length > 0) {
+    lines.push(`\nCHANNEL DISTRIBUTION (MUST match these counts ±1):`);
+    Object.entries(perCh).forEach(([ch, n]) => lines.push(`- ${ch}: ${n} pieces`));
+  }
+  return lines.join('\n') + '\n';
+})()}
 RULES:
-1. Create ${params.pieceCount.min}-${params.pieceCount.max} content pieces spread across the campaign duration.
+1. Create EXACTLY ${params.targetPostCount ?? `${params.pieceCount.min}-${params.pieceCount.max}`} content pieces spread across the campaign duration${params.targetPostCount ? ` (tolerance ${params.pieceCount.min}-${params.pieceCount.max})` : ''}.
 
 2. Each piece must have a DIFFERENT angle/hook — never repeat the same approach.
    Angle types: educational, comparison, case_study, behind_the_scenes,
