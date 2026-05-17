@@ -261,6 +261,31 @@ Deno.serve(async (req) => {
     const effectiveApprovalMode = approval_mode || "approve_plan";
     const pieceCount = calculatePieceCount(durationDays);
 
+    let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
+
+    if (hasPrePlan) {
+      const validPieces = (pre_generated_plan as any[]).filter(
+        (p) => p && typeof p === 'object' && p.title && p.scheduled_date && p.target_channel,
+      );
+      if (validPieces.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "pre_generated_plan invalid: no valid pieces" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const mix: Record<string, number> = { seed: 0, sprout: 0, harvest: 0 };
+      validPieces.forEach((p) => {
+        const r = p.content_role || 'seed';
+        mix[r] = (mix[r] || 0) + 1;
+      });
+      planData = {
+        plan: validPieces,
+        strategy_summary: typeof clarification_context?.strategy_summary === 'string'
+          ? clarification_context.strategy_summary
+          : `Lịch ${validPieces.length} bài do người dùng tinh chỉnh`,
+        content_mix: mix,
+      };
+    } else {
     const systemPrompt = buildStrategyPrompt({
       title: campaign_title,
       description: campaign_description || "",
