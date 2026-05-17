@@ -504,13 +504,25 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
             return (
               <Card
                 key={goal.id}
-                className="group cursor-pointer hover:border-primary/30 transition-colors"
+                className={cn(
+                  'group cursor-pointer hover:border-primary/30 transition-colors',
+                  selectedGoalIds.has(goal.id) && 'border-primary/50 bg-primary/5'
+                )}
                 onClick={() => {
                   if (plan) setSelectedPlan({ planId: plan.id, goalName: goal.name });
                 }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
+                    <div
+                      className={cn(
+                        'shrink-0 mt-0.5 transition-opacity',
+                        selectedGoalIds.has(goal.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      )}
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(goal.id); }}
+                    >
+                      <Checkbox checked={selectedGoalIds.has(goal.id)} />
+                    </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold">{goal.name}</p>
