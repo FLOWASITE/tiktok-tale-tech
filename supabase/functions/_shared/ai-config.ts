@@ -315,6 +315,22 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  'suggest-piece-topics': {
+    model: 'google/gemini-3-flash-preview',
+    temperature: 0.75,
+    max_tokens: 1200,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'suggest-channels': {
+    model: 'google/gemini-3-flash-preview',
+    temperature: 0.4,
+    max_tokens: 800,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   'generate-seo-landing': {
     model: 'google/gemini-2.5-flash',
     temperature: 0.6,
@@ -349,6 +365,8 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'keyword-research-v2', 'keyword-research', 'keyword-research-save',
     'enrich-keyword-serp', 'suggest-cluster-topics', 'generate-seo-landing',
     'seo-rank-tracker',
+    // Agent campaign helpers
+    'suggest-piece-topics', 'suggest-channels',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
