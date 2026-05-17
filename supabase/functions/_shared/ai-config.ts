@@ -368,6 +368,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'seo-rank-tracker',
     // Agent campaign helpers
     'suggest-piece-topics',
+    'suggest-strategy',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
