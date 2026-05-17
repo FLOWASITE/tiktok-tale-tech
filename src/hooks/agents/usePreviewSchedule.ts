@@ -13,6 +13,14 @@ type PreviewRequest = {
   organization_id: string;
   target_post_count?: number;
   per_channel_targets?: Record<string, number>;
+  topic_pool?: Array<{
+    title: string;
+    hook?: string;
+    key_message?: string;
+    pillar?: string;
+    category?: string;
+    scores?: Record<string, number>;
+  }>;
 };
 
 type PreviewResult = {
