@@ -1203,6 +1203,35 @@ Deno.serve(async (req) => {
       return json({ success: true, cleared, prefix: prefix || null });
     }
 
+    // ========== ACTION: poll_pending_creators (Option B — async carousel polling) ==========
+    if (action === "poll_pending_creators") {
+      // Find pipelines whose create stage is awaiting an async generation_tasks row.
+      // Cap to 50/run to avoid bursts.
+      const { data: pending } = await supabase
+        .from("agent_pipelines")
+        .select("id, current_stage, pipeline_state, stage_started_at")
+        .eq("current_stage", "create")
+        .eq("is_flagged", false)
+        .order("stage_started_at", { ascending: true, nullsFirst: false })
+        .limit(100);
+
+      const candidates = (pending || []).filter((p: any) => {
+        const st = p.pipeline_state?.stages?.create;
+        return st?.status === "awaiting_async" && st?.async_task_id;
+      }).slice(0, 50);
+
+      let fired = 0;
+      for (let i = 0; i < candidates.length; i++) {
+        const p = candidates[i];
+        // Stagger 1s/each to avoid 50 concurrent edge invocations
+        setTimeout(() => fireNextStage(supabaseUrl, supabaseKey, p.id, "create"), i * 1000);
+        fired++;
+      }
+
+      console.log(`[poll_pending_creators] Fired ${fired}/${candidates.length} pending creator polls`);
+      return json({ success: true, scanned: pending?.length || 0, awaiting: candidates.length, fired });
+    }
+
     // ========== ACTION: create_from_plan ==========
     if (action === "create_from_plan") {
       const { plan_id } = body;
