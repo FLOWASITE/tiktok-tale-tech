@@ -283,35 +283,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
   const previewSchedule = usePreviewSchedule();
 
-  const triggerSchedulePreview = useCallback(async () => {
-    if (!currentOrganization?.id || !name.trim() || selectedChannels.length === 0) return;
-    setScheduleError(null);
-    const briefCtx: Record<string, any> = {};
-    if (objectives.length > 0) {
-      briefCtx.objectives = objectives;
-      briefCtx.primary_objective = objectives[0];
-      briefCtx.secondary_objectives = objectives.slice(1);
-    }
-    if (keyMessages.length > 0) briefCtx.key_messages = keyMessages;
-    if (primaryCta.trim()) briefCtx.primary_cta = primaryCta.trim();
-    if (Object.keys(pillarAllocation).length > 0) briefCtx.pillar_allocation = pillarAllocation;
-    if (Object.keys(kpiTargets).length > 0) briefCtx.kpi_targets = kpiTargets;
-    const result = await previewSchedule.run({
-      campaign_title: name.trim(),
-      campaign_description: description.trim() || undefined,
-      target_channels: selectedChannels,
-      campaign_duration_days: campaignDurationDays > 0 ? campaignDurationDays : (parseInt(customDuration) || 14),
-      campaign_start_date: campaignStartDate,
-      brand_template_id: brandTemplateId || currentBrand?.id,
-      clarification_context: briefCtx,
-      organization_id: currentOrganization.id,
-    });
-    if (result) {
-      setEditableSchedule(result.plan as SchedulePiece[]);
-    } else {
-      setScheduleError(previewSchedule.error || 'Không sinh được lịch');
-    }
-  }, [currentOrganization, name, description, selectedChannels, objectives, keyMessages, primaryCta, pillarAllocation, campaignDurationDays, customDuration, campaignStartDate, brandTemplateId, currentBrand, previewSchedule]);
+  // triggerSchedulePreview defined later as plain function (after deps declared)
 
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
