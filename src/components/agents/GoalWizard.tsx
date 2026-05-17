@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useCurrentBrand } from '@/contexts/BrandContext';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
@@ -298,6 +299,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [aiChannelIds, setAiChannelIds] = useState<Set<string>>(new Set());
   const [aiChannelReasoning, setAiChannelReasoning] = useState<string>('');
   const suggestChannels = useSuggestChannels();
+  const [aiChannelPowered, setAiChannelPowered] = useState(false);
 
   // Step 1 Auto strategy
   const [autoStrategyMode, setAutoStrategyMode] = useState(false);
@@ -328,6 +330,25 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 4: Xác nhận
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
+
+  // Fetch connected channels for current brand → pass as available_connections
+  const { connections: brandConnections } = useSocialConnections({
+    brandTemplateId: brandTemplateId || currentBrand?.id,
+    organizationId: currentOrganization?.id,
+  });
+  const availableConnections = useMemo(() => {
+    if (!brandConnections) return [];
+    return Array.from(new Set(
+      brandConnections
+        .filter((c) => c.is_active)
+        .map((c) => {
+          const p = c.platform;
+          if (p === 'google_business') return 'google_maps';
+          if (p === 'wordpress_com') return 'wordpress';
+          return p;
+        })
+    ));
+  }, [brandConnections]);
 
   // Clarification
   const [clarifying, setClarifying] = useState(false);
@@ -781,6 +802,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         brand_name: currentBrand?.brand_name,
         industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
         organization_id: currentOrganization?.id,
+        campaign_duration_days: effectiveDuration,
+        target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+        audience: (currentBrand as any)?.target_audience || undefined,
+        available_connections: availableConnections.length > 0 ? availableConnections : undefined,
       });
       const chIds = chResult.channels.map(c => c.id);
       setSelectedChannels(prev => Array.from(new Set([...prev, ...chIds])));
@@ -791,6 +816,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       });
       setAiChannelIds(new Set(chIds));
       setAiChannelReasoning(chResult.reasoning || '');
+      setAiChannelPowered(!!chResult.ai_powered);
 
       // 3. Strategy (dùng kết quả vừa lấy)
       setAutoPilotStage('strategy');
@@ -1944,6 +1970,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                               ? currentBrand.industry[0]
                               : (currentBrand?.industry as string | undefined),
                             organization_id: currentOrganization?.id,
+                            campaign_duration_days: effectiveDuration,
+                            target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+                            audience: (currentBrand as any)?.target_audience || undefined,
+                            available_connections: availableConnections.length > 0 ? availableConnections : undefined,
                           });
                           const aiIds = result.channels.map(c => c.id);
                           setSelectedChannels(prev => Array.from(new Set([...prev, ...aiIds])));
@@ -1956,7 +1986,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                           });
                           setAiChannelIds(new Set(aiIds));
                           setAiChannelReasoning(result.reasoning || '');
-                          toast.success('AI đã gợi ý kênh', { description: result.reasoning });
+                          setAiChannelPowered(!!result.ai_powered);
+                          toast.success(result.ai_powered ? '🧠 AI đã phân tích & gợi ý kênh' : 'Đã gợi ý kênh (rule-based)', { description: result.reasoning });
                         } catch (err: any) {
                           const msg = String(err?.message || '');
                           if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
@@ -1972,12 +2003,16 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </p>
                   {suggestChannels.isPending && (
                     <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích kênh phù hợp…
+                      <Loader2 className="w-3 h-3 animate-spin" /> 🧠 AI đang phân tích kênh phù hợp cho campaign này…
                     </div>
                   )}
                   {aiChannelReasoning && !suggestChannels.isPending && (
                     <p className="text-[10px] text-muted-foreground italic mt-1.5">
-                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiChannelReasoning}
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />
+                      {aiChannelPowered && (
+                        <span className="not-italic inline-flex items-center gap-0.5 px-1 py-px mr-1 rounded bg-primary/10 text-primary text-[9px] font-medium align-middle">✨ AI</span>
+                      )}
+                      {aiChannelReasoning}
                     </p>
                   )}
                 </div>

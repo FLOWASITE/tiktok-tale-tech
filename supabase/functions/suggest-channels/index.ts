@@ -1,10 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAI } from "../_shared/ai-provider.ts";
 
-// Rule-based channel suggestion (no AI). Deterministic, <5ms, free.
+// AI-driven channel & frequency suggestion. Reads full campaign context
+// (objectives, duration, target_post_count, brand industry/voice/audience,
+// available connections, season) and asks LLM to pick 3-6 channels with
+// per-channel frequency. Falls back to rule-based scoring on failure.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const VALID_CHANNEL_IDS = [
@@ -17,13 +22,14 @@ type ChannelId = typeof VALID_CHANNEL_IDS[number];
 const VALID_FREQ = ["daily", "3/week", "2/week", "weekly"] as const;
 type Freq = typeof VALID_FREQ[number];
 
-const MAX_CHANNELS = 5;
+const MIN_CHANNELS = 3;
+const MAX_CHANNELS = 6;
 
 interface SuggestedChannel { id: ChannelId; frequency: Freq; reason?: string; }
 
-// Base score per (objective × channel). 0-100. Missing = 0.
+// ─── Rule-based scoring (used as fallback + hint for LLM) ───
 const OBJECTIVE_SCORES: Record<string, Partial<Record<ChannelId, number>>> = {
-  awareness:  { tiktok: 0, facebook: 90, instagram: 85, threads: 70, pinterest: 70, youtube: 0, linkedin: 40, blogger: 50, wordpress: 50, website: 55, zalo: 60, twitter: 65, bluesky: 55 },
+  awareness:  { facebook: 90, instagram: 85, threads: 70, pinterest: 70, linkedin: 40, blogger: 50, wordpress: 50, website: 55, zalo: 60, twitter: 65, bluesky: 55 },
   engagement: { instagram: 95, facebook: 85, threads: 80, twitter: 75, linkedin: 60, zalo: 65, telegram: 70, pinterest: 50 },
   traffic:    { website: 95, blogger: 90, wordpress: 90, medium: 80, pinterest: 75, linkedin: 70, facebook: 60, email: 70 },
   leads:      { linkedin: 95, website: 90, blogger: 80, wordpress: 80, email: 90, facebook: 70, zalo: 75 },
@@ -33,7 +39,6 @@ const OBJECTIVE_SCORES: Record<string, Partial<Record<ChannelId, number>>> = {
   community:  { threads: 90, telegram: 85, facebook: 80, instagram: 75, twitter: 70, bluesky: 65 },
 };
 
-// Default frequency per channel
 const DEFAULT_FREQ: Record<ChannelId, Freq> = {
   website: "weekly", blogger: "weekly", wordpress: "weekly", medium: "weekly",
   shopify: "weekly", wix: "weekly", email: "weekly",
@@ -46,12 +51,12 @@ const REASONS: Partial<Record<ChannelId, string>> = {
   facebook: "Reach rộng tại VN", instagram: "Visual-first audience",
   linkedin: "B2B professional reach", website: "SEO + thought leadership",
   blogger: "Long-form SEO", wordpress: "Long-form SEO",
-  email: "Nurture & retention", tiktok: "Short video reach",
-  pinterest: "Discovery visual search", zalo: "Customer messaging VN",
-  threads: "Community conversation", twitter: "Realtime updates",
-  shopify: "Commerce content", google_maps: "Local SEO + reviews",
-  telegram: "Direct broadcast", medium: "Thought leadership",
-  bluesky: "Early adopter community", wix: "Owned site",
+  email: "Nurture & retention", pinterest: "Discovery visual search",
+  zalo: "Customer messaging VN", threads: "Community conversation",
+  twitter: "Realtime updates", shopify: "Commerce content",
+  google_maps: "Local SEO + reviews", telegram: "Direct broadcast",
+  medium: "Thought leadership", bluesky: "Early adopter community",
+  wix: "Owned site",
 };
 
 function classifyIndustry(industry: string, description: string): "beauty" | "b2b" | "local" | "ecommerce" | "general" {
@@ -91,8 +96,6 @@ function scoreChannels(opts: {
 }): SuggestedChannel[] {
   const { objectives, industryClass, available } = opts;
   const objs = objectives.length > 0 ? objectives : ["awareness"];
-
-  // Weight: primary objective (idx 0) = 1.0, subsequent = 0.6, 0.4
   const weights = [1.0, 0.6, 0.4];
   const scores = new Map<ChannelId, number>();
 
@@ -108,23 +111,66 @@ function scoreChannels(opts: {
 
   applyIndustryModifier(scores, industryClass);
 
-  // Filter by available connections (if provided)
   let entries = Array.from(scores.entries());
-  if (available.size > 0) {
-    entries = entries.filter(([id]) => available.has(id));
-  }
-
+  if (available.size > 0) entries = entries.filter(([id]) => available.has(id));
   entries.sort((a, b) => b[1] - a[1]);
 
-  // Take top up to MAX_CHANNELS with score > 30
   return entries
     .filter(([, s]) => s > 30)
-    .slice(0, MAX_CHANNELS)
-    .map(([id]) => ({
+    .slice(0, 5)
+    .map(([id]) => ({ id, frequency: DEFAULT_FREQ[id], reason: REASONS[id] }));
+}
+
+// Top hint channels per objective for LLM context
+function buildHintBlock(objectives: string[]): string {
+  const objs = objectives.length > 0 ? objectives : ["awareness"];
+  const lines: string[] = [];
+  objs.slice(0, 3).forEach((o, i) => {
+    const tag = i === 0 ? "primary" : `secondary-${i}`;
+    const table = OBJECTIVE_SCORES[o.toLowerCase().trim()] || OBJECTIVE_SCORES.awareness!;
+    const top = Object.entries(table).sort((a, b) => (b[1] || 0) - (a[1] || 0)).slice(0, 6);
+    lines.push(`- ${o} (${tag}): ${top.map(([c, s]) => `${c}=${s}`).join(", ")}`);
+  });
+  return lines.join("\n");
+}
+
+function getSeasonHint(): string {
+  const m = new Date().getMonth() + 1; // 1-12
+  if (m === 12 || m === 1) return "Cuối năm / Tết — mùa shopping, gift, year-end review";
+  if (m >= 2 && m <= 4) return "Đầu năm / Q1 — kế hoạch mới, comeback, spring";
+  if (m >= 5 && m <= 7) return "Giữa năm / hè — du lịch, summer sale";
+  if (m >= 8 && m <= 10) return "Q3-Q4 — back-to-school, lễ hội mùa thu";
+  return "Cuối năm";
+}
+
+interface LLMChannel { id: string; frequency: string; reason?: string }
+interface LLMResult { channels: LLMChannel[]; reasoning: string }
+
+function validateLLMResult(
+  parsed: any,
+  available: Set<ChannelId>,
+): { channels: SuggestedChannel[]; reasoning: string } | null {
+  if (!parsed || !Array.isArray(parsed.channels)) return null;
+  const seen = new Set<string>();
+  const out: SuggestedChannel[] = [];
+  for (const raw of parsed.channels as LLMChannel[]) {
+    const id = String(raw?.id || "").toLowerCase().trim() as ChannelId;
+    const freq = String(raw?.frequency || "").toLowerCase().trim() as Freq;
+    if (!VALID_CHANNEL_IDS.includes(id)) continue;
+    if (!VALID_FREQ.includes(freq)) continue;
+    if (seen.has(id)) continue;
+    if (available.size > 0 && !available.has(id)) continue;
+    seen.add(id);
+    out.push({
       id,
-      frequency: DEFAULT_FREQ[id],
-      reason: REASONS[id],
-    }));
+      frequency: freq,
+      reason: typeof raw.reason === "string" ? raw.reason.trim().slice(0, 140) : REASONS[id],
+    });
+    if (out.length >= MAX_CHANNELS) break;
+  }
+  if (out.length < MIN_CHANNELS) return null;
+  const reasoning = typeof parsed.reasoning === "string" ? parsed.reasoning.trim().slice(0, 240) : "";
+  return { channels: out, reasoning };
 }
 
 Deno.serve(async (req) => {
@@ -138,58 +184,170 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const title: string = body.title || "";
     const description: string = body.description || "";
-    const objectives: string[] = Array.isArray(body.objectives) ? body.objectives : [];
+    const objectives: string[] = Array.isArray(body.objectives) ? body.objectives.filter((o: unknown) => typeof o === "string") : [];
     const brandTemplateId: string | undefined = body.brand_template_id;
+    const organizationId: string | undefined = body.organization_id;
     let industry: string = body.industry || "";
+    const brandName: string = body.brand_name || "";
+    const durationDays: number = Number(body.campaign_duration_days) || 0;
+    const targetPostCount: number = Number(body.target_post_count) || 0;
+    const audience: string = body.audience || "";
 
-    // available_connections: array of channel ids the user already connected
     const availableInput: string[] = Array.isArray(body.available_connections) ? body.available_connections : [];
     const available = new Set<ChannelId>(
       availableInput
         .map((c) => String(c).toLowerCase().trim())
-        .filter((c): c is ChannelId => VALID_CHANNEL_IDS.includes(c as ChannelId))
+        .filter((c): c is ChannelId => VALID_CHANNEL_IDS.includes(c as ChannelId)),
     );
 
     if (!description?.trim() && !title?.trim() && objectives.length === 0) {
       return new Response(
         JSON.stringify({ error: "Cần có tên, mô tả hoặc mục tiêu chiến dịch" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (brandTemplateId && !industry) {
+    // Enrich brand context if missing
+    let toneOfVoice = "";
+    let brandPositioning = "";
+    let targetAudienceCtx = audience;
+    if (brandTemplateId) {
       try {
         const { data: brand } = await supabase
           .from("brand_templates")
-          .select("industry")
+          .select("brand_name, industry, tone_of_voice, brand_positioning, target_audience")
           .eq("id", brandTemplateId)
           .maybeSingle();
         if (brand) {
-          const ind = Array.isArray((brand as any).industry) ? (brand as any).industry[0] : (brand as any).industry;
-          industry = ind || "";
+          if (!industry) {
+            const ind = Array.isArray((brand as any).industry) ? (brand as any).industry[0] : (brand as any).industry;
+            industry = ind || "";
+          }
+          toneOfVoice = (brand as any).tone_of_voice || "";
+          brandPositioning = (brand as any).brand_positioning || "";
+          if (!targetAudienceCtx) targetAudienceCtx = (brand as any).target_audience || "";
         }
       } catch { /* ignore */ }
     }
 
     const industryClass = classifyIndustry(industry, description || title);
-    let channels = scoreChannels({ objectives, industryClass, available });
+    const fallbackRun = () => {
+      let channels = scoreChannels({ objectives, industryClass, available });
+      if (channels.length === 0) channels = scoreChannels({ objectives, industryClass, available: new Set() }).slice(0, 3);
+      return channels;
+    };
 
-    // Fallback: if no channel matched (e.g. no connections), return top 3 ignoring availability
-    if (channels.length === 0) {
-      channels = scoreChannels({ objectives, industryClass, available: new Set() }).slice(0, 3);
+    // ─── Build prompt for LLM ───
+    const durationWeeks = durationDays > 0 ? Math.max(1, Math.round(durationDays / 7)) : 0;
+    const postsPerWeekTarget = (targetPostCount > 0 && durationWeeks > 0)
+      ? Math.round((targetPostCount / durationWeeks) * 10) / 10
+      : 0;
+
+    const availableList = available.size > 0 ? Array.from(available).join(", ") : "(chưa khai báo — pick theo objective/industry)";
+    const hintBlock = buildHintBlock(objectives);
+
+    const prompt = `Bạn là chuyên gia marketing đa kênh tại Việt Nam. Hãy chọn KÊNH + TẦN SUẤT đăng cho campaign cụ thể bên dưới — KHÔNG dùng preset mặc định, phải phù hợp đặc thù campaign này.
+
+CAMPAIGN CONTEXT
+- Tên: ${title || "(chưa có)"}
+- Mô tả: ${description || "(chưa có)"}
+- Mục tiêu: ${objectives.length > 0 ? `${objectives.join(", ")} — primary: ${objectives[0]}` : "awareness"}
+- Thời lượng: ${durationDays > 0 ? `${durationDays} ngày (~${durationWeeks} tuần)` : "(chưa rõ)"}
+- Số bài mục tiêu: ${targetPostCount > 0 ? `${targetPostCount} bài${postsPerWeekTarget > 0 ? ` (~${postsPerWeekTarget} bài/tuần tổng)` : ""}` : "(chưa rõ)"}
+- Mùa vụ hiện tại: ${getSeasonHint()}
+
+BRAND CONTEXT
+- Brand: ${brandName || "(chưa có)"} | Industry: ${industry || "general"} (class: ${industryClass})
+- Tone: ${toneOfVoice || "(chưa có)"}
+- Positioning: ${brandPositioning || "(chưa có)"}
+- Audience: ${targetAudienceCtx || "(chưa có)"}
+
+AVAILABLE CONNECTIONS (chỉ các kênh này đã kết nối)
+${availableList}
+
+RULE-BASED HINTS (tham khảo, không bắt buộc theo)
+${hintBlock}
+
+YÊU CẦU
+1. Chọn ${MIN_CHANNELS}–${MAX_CHANNELS} kênh phù hợp NHẤT cho campaign này. Đa dạng (1 long-form + 2-3 social + 1 messaging/email nếu hợp lý).
+2. Chỉ chọn từ danh sách available_connections nếu có; nếu danh sách rỗng thì free pick.
+3. TẦN SUẤT (frequency) phải KHỚP với context:
+   - Tính từ duration + target_post_count: tổng bài/tuần phải gần ${postsPerWeekTarget > 0 ? postsPerWeekTarget : "phù hợp campaign"}.
+   - Long-form (website, blogger, wordpress, medium, email, shopify, wix): tối đa "weekly".
+   - Social ngắn (twitter, threads, instagram, facebook): có thể "daily" → "weekly".
+   - Messaging (zalo, telegram, google_maps): "weekly" → "2/week".
+4. KHÔNG lặp preset cứng — mỗi reason phải reference context CỤ THỂ (objective, audience, mùa, brand) — không nói chung chung.
+5. Reason mỗi kênh 1 câu ngắn (≤120 ký tự, tiếng Việt).
+6. Reasoning tổng: 1-2 câu giải thích logic chọn bộ kênh này cho campaign này.
+
+VALID channel ids: ${VALID_CHANNEL_IDS.join(", ")}
+VALID frequency: ${VALID_FREQ.join(", ")}
+
+CHỈ trả về JSON hợp lệ theo shape:
+{
+  "channels": [
+    { "id": "facebook", "frequency": "3/week", "reason": "..." }
+  ],
+  "reasoning": "..."
+}`;
+
+    // ─── Call LLM ───
+    let llmChannels: SuggestedChannel[] | null = null;
+    let aiReasoning = "";
+    let aiPowered = false;
+
+    try {
+      const aiResult = await callAI({
+        functionName: "suggest-channels",
+        organizationId,
+        messages: [{ role: "user", content: prompt }],
+        temperatureOverride: 0.6,
+        maxTokensOverride: 900,
+      } as any);
+
+      if (aiResult?.success) {
+        const content = aiResult.data?.choices?.[0]?.message?.content || "";
+        let parsed: any = null;
+        try { parsed = JSON.parse(content); }
+        catch {
+          const m = content.match(/\{[\s\S]*\}/);
+          if (m) { try { parsed = JSON.parse(m[0]); } catch { /* ignore */ } }
+        }
+        const validated = validateLLMResult(parsed, available);
+        if (validated) {
+          llmChannels = validated.channels;
+          aiReasoning = validated.reasoning;
+          aiPowered = true;
+        } else {
+          console.warn("[suggest-channels] LLM output invalid/empty, falling back");
+        }
+      } else {
+        const errMsg = aiResult?.error || "";
+        if (errMsg.includes("429")) {
+          console.warn("[suggest-channels] 429 rate limit, falling back to rule-based");
+        } else if (errMsg.includes("402")) {
+          console.warn("[suggest-channels] 402 credits exhausted, falling back to rule-based");
+        } else {
+          console.warn("[suggest-channels] AI failed:", errMsg);
+        }
+      }
+    } catch (e) {
+      console.warn("[suggest-channels] AI exception:", (e as Error).message);
     }
 
-    const reasoning = `Gợi ý theo ${industryClass !== "general" ? `industry "${industryClass}"` : "tổng quát"} + mục tiêu ${objectives.join(", ") || "awareness"}.`;
+    const channels = llmChannels || fallbackRun();
+    const reasoning = aiReasoning
+      || `Gợi ý theo ${industryClass !== "general" ? `industry "${industryClass}"` : "tổng quát"} + mục tiêu ${objectives.join(", ") || "awareness"}.`;
 
     return new Response(
-      JSON.stringify({ channels, reasoning }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ channels, reasoning, ai_powered: aiPowered }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("[suggest-channels] Error:", e);
     return new Response(
       JSON.stringify({ error: (e as Error).message || "Unexpected error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
