@@ -991,6 +991,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
+      period_type: periodType,
+      period_label: periodLabel,
+      parent_goal_id: parentGoalId,
     };
 
     // Start generating flow inside dialog
