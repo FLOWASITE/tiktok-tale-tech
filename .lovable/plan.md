@@ -1,75 +1,86 @@
-# Auto-Suggest Objectives Mode
+# Auto AI chọn Social/Channel hợp lý
 
-## Mục tiêu
-Thêm toggle "✨ Để AI chọn giúp" vào step Objective trong `GoalWizard`. Khi bật, AI phân tích brief (industry, brand, mô tả campaign, audience, channels đã chọn) → đề xuất 1 primary + 1-2 secondary objectives + KPI gợi ý. User vẫn override được trước khi Next.
+Mở rộng pattern Auto-AI (đã có ở Objectives) sang Step 2 "Kênh" của GoalWizard. AI sẽ phân tích brief + objectives + brand industry để gợi ý bộ kênh hợp lý + tần suất đăng cho từng kênh, user có thể override.
 
-## Flow
+## 1. UX
+
+Step 2 thêm toggle phía trên grid kênh:
 
 ```text
-[Step Objective mở ra]
-   │
-   ├── Toggle "✨ Để AI chọn giúp"  (OFF mặc định)
-   │
-   ON ──► Loading skeleton (3 cards shimmer + KPI rows)
-         │
-         ├── Call edge: suggest-objectives
-         │    Input: { brief, brand, industry, audience, channels, locale }
-         │    Output: { primary, secondary[], kpis{}, reasoning }
-         │
-         ├── Pre-fill state:
-         │    objectives = [primary, ...secondary]
-         │    kpis = output.kpis  (override các field rỗng, giữ field user đã nhập)
-         │
-         └── Render cards với badge "✨ AI gợi ý" + tooltip reasoning
-              User có thể: bỏ chọn, đổi primary, sửa KPI bình thường
+┌────────────────────────────────────────────────────────┐
+│  ✨ Để AI tự chọn kênh hợp lý        [ Toggle  ⚪ ]    │
+│  AI sẽ chọn kênh + tần suất dựa trên mục tiêu & brand  │
+└────────────────────────────────────────────────────────┘
 ```
 
-## Thay đổi code
+Khi bật:
+- Loading 1-2s → các kênh AI chọn sẽ có badge ✨ + border accent + auto-tick
+- Mỗi kênh AI chọn hiện tần suất gợi ý (vd: "AI: 3/tuần") thay vì default weekly
+- Hiện 1 dòng lý do ngắn: *"Brand mỹ phẩm + mục tiêu Awareness → ưu tiên Instagram, Facebook, TikTok (visual-first)."*
+- User vẫn click toggle off / bỏ chọn / thêm kênh khác bình thường — badge ✨ vẫn giữ ở kênh AI đã chọn để phân biệt
 
-### 1. Edge function mới: `supabase/functions/suggest-objectives/index.ts`
-- `verify_jwt = false` + service client + JWT validate trong code (theo pattern Flowa)
-- Input schema (zod): `briefContext` (description, audience, channels, locale), `brandSnapshot` (name, industry_template_id, voice tags), `availableObjectives` (id + label list từ frontend để AI chỉ chọn trong tập hợp hợp lệ)
-- Load industry rules nếu `industry_template_id` có → đưa vào system prompt (tránh đề xuất conflict)
-- Gọi `callAI()` với `google/gemini-3-flash-preview`, structured output (zod schema):
-  ```
-  { primary: ObjectiveId, secondary: ObjectiveId[] (0-2), kpis: { reach?, engagement?, conversions?, … }, reasoning: string (vi, ≤200 ký tự) }
-  ```
-- Validate: `secondary` không chứa `primary`, tổng ≤3, không vi phạm `GOAL_ANGLE_CONFLICTS`/`GOAL_ROLE_CONFLICTS`. Nếu AI trả conflict → strip secondary vi phạm rồi return.
-- Log `ai_metrics` (traceId, model, cost)
-- Khai báo trong `supabase/config.toml`
+Khi tắt: về trạng thái thủ công, giữ những kênh user đã tick (không reset).
 
-### 2. Hook mới: `src/hooks/agents/useSuggestObjectives.ts`
-- Wrap `supabase.functions.invoke('suggest-objectives', ...)` qua TanStack mutation
-- States: `idle | loading | success | error`
-- Trả `{ primary, secondary, kpis, reasoning }`
+## 2. AI Logic (edge function `suggest-channels`)
 
-### 3. `src/components/agents/GoalWizard.tsx`
-- Thêm state `autoMode: boolean` (default `false`), `aiSuggestion: { reasoning, isAI: true } | null`
-- Phía trên list objective cards: 1 row chứa `<Switch>` "✨ Để AI chọn mục tiêu giúp tôi" + caption nhỏ "AI sẽ phân tích brief để đề xuất tối ưu"
-- Khi `autoMode` bật lần đầu (hoặc khi brief thay đổi đáng kể):
-  - Call `useSuggestObjectives.mutate(...)` với context hiện có
-  - Loading: skeleton 3 cards + KPI section blur
-  - Success: set `objectives = [primary, ...secondary]`, merge KPI (chỉ fill field đang rỗng để tôn trọng input user), set `aiSuggestion`
-  - Error (429/402/timeout): toast lỗi, auto tắt toggle, fallback về manual
-- Mỗi objective được AI chọn hiển thị badge `✨ AI` (neutral gray theo Soft Luxury) cạnh tên; tooltip hover hiện `reasoning`
-- KPI auto-fill: input có placeholder italic `✨ AI gợi ý: 5000` thay vì set value cứng — tránh nhầm với user input. (Hoặc set value + small `Undo` link bên cạnh.) **→ chọn approach set value + nút "↺ Khôi phục trống" cho từng field**
-- User mọi thao tác (toggle objective, đổi primary, sửa KPI) → `autoMode` vẫn ON nhưng badge ✨ biến mất khỏi field đã edit (đánh dấu `userOverridden`)
-- Edit campaign cũ: nếu campaign đã có objectives → `autoMode = false` mặc định
+Input:
+- `title`, `description`, `objectives` (primary + secondary), `brand_template_id`, `organization_id`
 
-### 4. Memory update
-Append vào `mem://features/agent/multi-objective-campaign-vn`: section "Auto-Suggest Mode" mô tả toggle, edge function, KPI merge logic.
+AI làm:
+1. Đọc brand industry, mục tiêu, mô tả
+2. Map theo heuristic + LLM:
+   - **Visual industry** (beauty, fashion, food, travel) → Instagram, Pinterest, TikTok, Facebook
+   - **B2B / professional** (SaaS, consulting, finance) → LinkedIn, Website, Email, Medium
+   - **Local service** (clinic, restaurant) → Facebook, Google Maps, Zalo OA
+   - **Content/thought leadership** → Website/Blog, LinkedIn, Threads, Email
+3. Map theo objective:
+   - `awareness` → +social reach (FB, IG, TikTok-like)
+   - `traffic` / `leads` → +long-form (website, blog, email)
+   - `engagement` → +community (Threads, FB, IG)
+   - `revenue` → +Shopify/website + retargeting channel
+4. Trả về:
+   ```json
+   {
+     "channels": [
+       { "id": "instagram", "frequency": "3/week", "reason": "visual-first" },
+       { "id": "facebook",  "frequency": "weekly", "reason": "broad reach" },
+       { "id": "website",   "frequency": "weekly", "reason": "SEO long-form" }
+     ],
+     "reasoning": "Brand beauty + mục tiêu Awareness → ưu tiên kênh visual social."
+   }
+   ```
 
-## Out of scope
-- Không đổi `generate-campaign-strategy` (vẫn nhận `objectives` + `primary` + `weights` như cũ)
-- Không thêm AI suggest cho các step khác (audience, channel) — sẽ làm sau nếu được duyệt
-- Không lưu `ai_suggestion_reasoning` vào DB (chỉ giữ ở client state để hiển thị; có thể thêm sau)
-- Không bật Auto mode mặc định cho user mới — opt-in để giữ minh bạch
+Fallback (khi LLM fail): rule-based theo industry keyword + objective, giống pattern `suggest-objectives`.
 
-## Verification
-1. Toggle ON → thấy loading 1-3s → 3 cards có badge ✨, KPI fill số
-2. Click bỏ 1 secondary → còn primary + 1 secondary, badge ✨ giữ nguyên card còn lại
-3. Sửa KPI reach → badge ✨ biến mất khỏi field đó, các field khác giữ ✨
-4. Toggle OFF → trở về empty state ban đầu (clear objectives + KPI AI đã set; giữ field user đã sửa tay)
-5. Brief rỗng (chưa nhập gì) → toggle disabled + tooltip "Hãy nhập mô tả campaign trước"
-6. Edge function trả conflict (Awareness + Revenue) → tự strip Revenue, thấy reasoning note
-7. 402/429 → toast "AI hết credit / quá tải", toggle auto-OFF
+Giới hạn: tối đa 5 kênh để tránh dàn trải.
+
+## 3. Frontend
+
+`src/hooks/agents/useSuggestChannels.ts` — mirror `useSuggestObjectives`.
+
+`GoalWizard.tsx`:
+- Thêm state: `autoChannelMode`, `aiChannelIds: Set<string>`, `aiChannelReasoning: string`
+- Khi toggle ON: gọi hook → set `selectedChannels`, `frequency`, lưu `aiChannelIds` để render badge ✨
+- Khi user tick/untick: chỉ update `selectedChannels`, không xoá `aiChannelIds` (badge vẫn hiện để phân biệt)
+- Step 2 render: badge ✨ + reasoning box (giống objectives auto mode)
+
+## 4. Technical details
+
+**Files mới:**
+- `supabase/functions/suggest-channels/index.ts` — copy structure từ `suggest-objectives`
+- `src/hooks/agents/useSuggestChannels.ts`
+
+**Files sửa:**
+- `src/components/agents/GoalWizard.tsx` — thêm toggle + state + render badge ở Step 2 (lines 1224-1255)
+
+**Không đổi:**
+- Schema DB, `agent_pipelines` table, generate-campaign-strategy
+- Logic `estimatedPosts` (vẫn dùng `frequency` map, chỉ là AI fill sẵn giá trị)
+
+**Pattern reuse:** giống hệt `suggest-objectives` (toggle + badge + reasoning + fallback heuristic), giảm code mới và đảm bảo UX nhất quán.
+
+## 5. Out of scope
+
+- Không tự động connect social account chưa kết nối (chỉ gợi ý ID, user vẫn cần connect ở Brand settings)
+- Không thay đổi logic tính số bài (đã sửa ở turn trước)
+- Không sửa Step 1 (chiến lược) hay Step 3 (tự động)
