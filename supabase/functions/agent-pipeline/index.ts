@@ -2599,11 +2599,18 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
   }
 
   // Save stage output to pipeline_state
-  if (pState.stages?.[stage] && result.status !== "failed") {
-    pState.stages[stage].output = result.output || null;
-    pState.stages[stage].duration_ms = durationMs;
-    pState.stages[stage].status = "completed";
-    pState.stages[stage].completed_at = new Date().toISOString();
+  if (pState.stages?.[stage]) {
+    if (result.status === "completed") {
+      pState.stages[stage].output = result.output || null;
+      pState.stages[stage].duration_ms = durationMs;
+      pState.stages[stage].status = "completed";
+      pState.stages[stage].completed_at = new Date().toISOString();
+    } else if (result.status === "awaiting_async") {
+      // Option B: persist task pointer; do NOT mark completed (so polling re-enters)
+      pState.stages[stage].output = result.output || null;
+      pState.stages[stage].status = "awaiting_async";
+      pState.stages[stage].last_polled_at = new Date().toISOString();
+    }
   }
 
   await supabase.from("agent_pipelines")
@@ -2614,7 +2621,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
   await supabase.from("agent_pipeline_logs").insert({
     pipeline_id: pipeline.id,
     agent_name: stage,
-    action: result.status === "completed" ? "completed" : "failed",
+    action: result.status === "completed" ? "completed" : (result.status === "awaiting_async" ? "awaiting_async" : "failed"),
     output_summary: JSON.stringify(result).slice(0, 500),
     duration_ms: durationMs,
     error_message: result.error || null,
