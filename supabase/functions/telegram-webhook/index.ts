@@ -3713,7 +3713,142 @@ async function handleCancel(
 
 
 // =====================================================
-// /examples — example prompt library
+// P2: /regenerate <goal_id|prefix>
+// Clone an existing agent_goal's clarification_context + channels and
+// trigger a fresh pipeline (start_date = today). Useful to retry a failed
+// campaign or run a new cycle of a successful one without retyping the prompt.
+// =====================================================
+async function handleRegenerate(
+  ctx: HandlerCtx & { telegramUserId?: number; arg?: string },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, arg } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId,
+      "Chưa kết nối. Gõ /start để liên kết tài khoản trước.");
+    return;
+  }
+
+  const idPrefix = (arg || "").trim();
+  if (!idPrefix) {
+    // Show last 5 goals for picker convenience
+    const { data: recent } = await supabase
+      .from("agent_goals")
+      .select("id, name, created_at")
+      .eq("organization_id", botConfig.organizationId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    const list = (recent ?? []) as Array<{ id: string; name: string; created_at: string }>;
+    if (list.length === 0) {
+      await sendMessage(botConfig.botToken, chatId,
+        "Chưa có goal nào để regenerate. Gõ /generate để tạo mới.");
+      return;
+    }
+    const lines = list.map((g) =>
+      `• \`${g.id.slice(0, 8)}\` — ${escMdNotif(g.name.slice(0, 60))}`
+    ).join("\n");
+    await sendMessage(botConfig.botToken, chatId,
+      `*Cú pháp:* \`/regenerate <id 8 ký tự>\`\n\n*5 goal gần đây:*\n${lines}`,
+      { parse_mode: "Markdown" });
+    return;
+  }
+
+  // Resolve goal by full UUID or 8-char prefix
+  let query = supabase
+    .from("agent_goals")
+    .select("*")
+    .eq("organization_id", botConfig.organizationId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (idPrefix.length >= 32) {
+    query = query.eq("id", idPrefix);
+  } else {
+    query = query.ilike("id", `${idPrefix}%`);
+  }
+  const { data: matches, error: qErr } = await query;
+  if (qErr) {
+    console.error("[handleRegenerate] query failed:", qErr);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không tra được goal.");
+    return;
+  }
+  const src = (matches ?? [])[0];
+  if (!src) {
+    await sendMessage(botConfig.botToken, chatId,
+      `❌ Không tìm thấy goal khớp \`${escMdNotif(idPrefix)}\`. Gõ /regenerate (không tham số) để xem danh sách.`,
+      { parse_mode: "Markdown" });
+    return;
+  }
+
+  // Clone with fresh dates + same context (override telegram_notify chat)
+  const todayIso = new Date().toISOString().split("T")[0];
+  const durationDays = src.campaign_duration_days || 14;
+  const endDate = new Date();
+  endDate.setUTCDate(endDate.getUTCDate() + Math.max(1, durationDays - 1));
+  const endIso = endDate.toISOString().split("T")[0];
+
+  const srcCtx = (src.clarification_context && typeof src.clarification_context === "object")
+    ? { ...(src.clarification_context as Record<string, unknown>) }
+    : {};
+  (srcCtx as Record<string, unknown>).telegram_notify = { enabled: true, chat_id: chatId };
+  (srcCtx as Record<string, unknown>).regenerated_from = src.id;
+
+  const { data: cloned, error: insErr } = await supabase
+    .from("agent_goals")
+    .insert({
+      name: `${src.name} (regen)`.slice(0, 120),
+      description: src.description,
+      organization_id: src.organization_id,
+      created_by: binding.userId,
+      target_topics: src.target_topics || [],
+      target_channels: src.target_channels || [],
+      frequency: src.frequency || null,
+      campaign_duration_days: durationDays,
+      campaign_start_date: todayIso,
+      campaign_end_date: endIso,
+      brand_template_id: src.brand_template_id || null,
+      autonomy_level: src.autonomy_level || botConfig.defaultAutonomyLevel,
+      approval_mode: src.approval_mode || "approve_plan",
+      is_active: true,
+      is_paused: false,
+      clarification_context: srcCtx,
+    })
+    .select("id, name")
+    .single();
+
+  if (insErr || !cloned) {
+    console.error("[handleRegenerate] insert failed:", insErr);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không clone được goal.");
+    return;
+  }
+
+  // Trigger pipeline (best-effort; lifecycle notify will ping back on completion)
+  try {
+    const r: any = await supabase.functions.invoke("agent-pipeline", {
+      body: { action: "trigger_from_goal", goal_id: cloned.id },
+    });
+    if (r?.error) {
+      console.warn("[handleRegenerate] pipeline trigger error:", r.error);
+    }
+  } catch (e) {
+    console.warn("[handleRegenerate] pipeline invoke threw:", e);
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `🔁 Đã clone từ \`${src.id.slice(0, 8)}\`.\n*Goal mới:* ${escMdNotif(cloned.name)}\nAI đang khởi chạy lại — bạn sẽ nhận push khi xong.\n\nDùng /status để xem tiến trình.`,
+    { parse_mode: "Markdown" },
+  );
+}
+
+
+
 // =====================================================
 async function handleExamples(ctx: HandlerCtx): Promise<void> {
   const { supabase, botConfig, chatId } = ctx;
