@@ -544,6 +544,23 @@ Deno.serve(async (req) => {
     endDate.setDate(endDate.getDate() + durationDays);
     const campaignEndDate = endDate.toISOString().split("T")[0];
 
+    // ── Preview mode: return pieces without persisting ──
+    if (isPreview) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          preview: true,
+          plan: pieces,
+          strategy_summary: planData.strategy_summary,
+          content_mix: planData.content_mix,
+          total_pieces: pieces.length,
+          campaign_start_date: startDate,
+          campaign_end_date: campaignEndDate,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Insert into campaign_content_plans
     const { data: plan, error: planError } = await supabase
       .from("campaign_content_plans")
@@ -596,6 +613,7 @@ Deno.serve(async (req) => {
         total_pieces: pieces.length,
         pipelines_created: pipelinesCreated,
         approval_mode: effectiveApprovalMode,
+        used_pre_generated: hasPrePlan,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
