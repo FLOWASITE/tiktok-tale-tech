@@ -979,18 +979,33 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                   <p className="text-[10px] text-muted-foreground">Nhập con số mong muốn để AI đánh giá hiệu quả.</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {selectedObj.kpis.map(kpi => (
-                      <div key={kpi.key} className="space-y-1">
-                        <span className="text-[10px] text-muted-foreground">{kpi.label}</span>
-                        <Input
-                          type="number"
-                          value={kpiTargets[kpi.key] || ''}
-                          onChange={e => setKpiTargets({ ...kpiTargets, [kpi.key]: Number(e.target.value) })}
-                          placeholder={kpi.placeholder}
-                          className="text-sm h-8"
-                        />
-                      </div>
-                    ))}
+                    {selectedObj.kpis.map(kpi => {
+                      const isAiKpi = aiKpiKeys.has(kpi.key);
+                      return (
+                        <div key={kpi.key} className="space-y-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            {kpi.label}
+                            {isAiKpi && <Sparkles className="w-2.5 h-2.5 text-primary" />}
+                          </span>
+                          <Input
+                            type="number"
+                            value={kpiTargets[kpi.key] || ''}
+                            onChange={e => {
+                              setKpiTargets({ ...kpiTargets, [kpi.key]: Number(e.target.value) });
+                              if (isAiKpi) {
+                                setAiKpiKeys(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(kpi.key);
+                                  return next;
+                                });
+                              }
+                            }}
+                            placeholder={kpi.placeholder}
+                            className={cn("text-sm h-8", isAiKpi && "border-primary/40 bg-primary/5")}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
