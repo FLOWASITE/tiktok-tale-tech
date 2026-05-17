@@ -4397,6 +4397,8 @@ interface GenerateDraft {
   topicPool: Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }>;
   createdAt: number;
   pickerMessageId?: number;
+  // P2: chosen approval mode (set after user taps mode picker, used by schedule callback).
+  chosenMode?: ApprovalMode;
 }
 const generateDrafts = new Map<string, GenerateDraft>();
 const GENERATE_DRAFT_TTL_MS = 10 * 60 * 1000;
