@@ -570,6 +570,7 @@ Deno.serve(async (req) => {
                           key_message: { type: "string" },
                           estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                           pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
+                          pool_index: { type: "number", description: "If TOPIC POOL is provided, the [NN] index (1-based) of the pool topic this piece was picked from." },
                         },
                         required: [
                           "piece_number", "title", "angle", "content_type", "target_channel",
