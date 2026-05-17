@@ -372,6 +372,52 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }, 0);
   }, [selectedChannels, frequency, effectiveDuration]);
 
+  // ─── Schedule Studio: build context + trigger preview ───
+  const buildPreviewClarification = (): Record<string, any> => {
+    const ctx: Record<string, any> = {};
+    if (objectives.length > 0) {
+      ctx.objectives = objectives;
+      ctx.primary_objective = objectives[0];
+      ctx.secondary_objectives = secondaryObjectives;
+      ctx.objective = objectives[0];
+      ctx.objective_weights = { primary: 0.7, secondary: 0.3 };
+    }
+    if (Object.keys(kpiTargets).length > 0) ctx.kpi_targets = kpiTargets;
+    if (keyMessages.length > 0) ctx.key_messages = keyMessages;
+    if (primaryCta.trim()) ctx.primary_cta = primaryCta.trim();
+    if (Object.keys(pillarAllocation).length > 0) ctx.pillar_allocation = pillarAllocation;
+    if (totalPostsTarget) ctx.total_posts_target = totalPostsTarget;
+    if (totalBudget > 0) {
+      ctx.total_budget = totalBudget;
+      ctx.budget_allocation = budgetAllocation;
+    }
+    ctx.frequency = frequency;
+    return ctx;
+  };
+
+  const triggerSchedulePreview = async () => {
+    if (!currentOrganization?.id || selectedChannels.length === 0 || !name.trim()) return;
+    setScheduleError(null);
+    setScheduleStale(false);
+    const res = await previewSchedule.run({
+      campaign_title: name.trim(),
+      campaign_description: description.trim() || undefined,
+      target_channels: selectedChannels,
+      campaign_duration_days: effectiveDuration,
+      campaign_start_date: campaignStartDate,
+      brand_template_id: brandTemplateId || undefined,
+      clarification_context: buildPreviewClarification(),
+      organization_id: currentOrganization.id,
+    });
+    if (res?.plan) {
+      setEditableSchedule(res.plan);
+      setScheduleAutoTriggered(true);
+    } else {
+      setScheduleError(previewSchedule.error || 'Không tạo được lịch');
+      setScheduleAutoTriggered(true);
+    }
+  };
+
   // ─── Effects ───
   useEffect(() => {
     if (currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && Object.keys(pillarAllocation).length === 0) {
