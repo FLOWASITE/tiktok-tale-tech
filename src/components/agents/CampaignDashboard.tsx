@@ -589,6 +589,23 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
           })}
         </div>
       )}
+
+      <CampaignBulkActionsBar
+        selectedCount={selectedGoalIds.size}
+        hasRunning={Array.from(selectedGoalIds).some(id => {
+          const g = goals.find(x => x.id === id);
+          return g && !g.is_paused;
+        })}
+        hasPaused={Array.from(selectedGoalIds).some(id => {
+          const g = goals.find(x => x.id === id);
+          return g && g.is_paused;
+        })}
+        onPause={() => bulkSetPaused(true)}
+        onResume={() => bulkSetPaused(false)}
+        onDelete={bulkDelete}
+        onClear={clearSelection}
+        isProcessing={bulkProcessing}
+      />
     </div>
   );
 }
