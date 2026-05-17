@@ -1,40 +1,40 @@
-## Vấn đề
-Khi xoá một Campaign (`agent_goals`), hook `useAgentGoals.deleteGoal`:
-1. Set `agent_pipelines.goal_id = NULL` cho các pipeline liên quan
-2. `DELETE FROM agent_goals` → trigger cascade xoá `campaign_content_plans` (vì plan có FK `goal_id` ON DELETE CASCADE)
-3. ❌ Postgres báo lỗi:
-   ```
-   update or delete on table "campaign_content_plans" violates foreign key
-   constraint "agent_pipelines_campaign_plan_id_fkey" on table "agent_pipelines"
-   ```
+## Mục tiêu
+Thêm khả năng chọn nhiều campaign cùng lúc trong **CampaignDashboard** (`/agents` → tab Campaign) để thao tác hàng loạt: **Tạm dừng**, **Chạy tiếp**, **Xóa**. Áp dụng cho cả 2 view "Danh sách" (theo plan) và "Chiến dịch" (theo goal).
 
-Nguyên nhân: FK `agent_pipelines.campaign_plan_id → campaign_content_plans.id` đang là **NO ACTION**. Pipeline vẫn trỏ tới plan cũ → không xoá được plan → không xoá được goal.
+## Thay đổi
 
-## Giải pháp
-Đổi FK `agent_pipelines.campaign_plan_id` thành `ON DELETE SET NULL` (giống cách `goal_id` và `campaign_id` đang xử lý). Pipeline cũ vẫn được giữ làm lịch sử, chỉ mất liên kết tới plan đã xoá.
+### 1. `src/components/agents/CampaignDashboard.tsx`
+- Thêm state `selectedIds: Set<string>` + `selectionMode: boolean`.
+- Mỗi `Card` campaign/plan thêm `Checkbox` ở góc trái, hiện khi hover hoặc khi `selectionMode = true`. Click checkbox → toggle; click vào card vẫn mở chi tiết (stopPropagation trên checkbox).
+- Header (cạnh "X kế hoạch · Y chiến dịch") thêm nút **"Chọn"** → bật selection mode + nút **"Chọn tất cả"** khi đang ở mode.
+- Khi `selectedIds.size > 0` render `<CampaignBulkActionsBar />` (floating bottom-center, theo pattern `CharacterBulkBar`/`TopicBulkActions`):
+  - Badge `Đã chọn {n}`
+  - **Chạy tiếp** (`Play` icon) — chỉ enable khi có item đang paused
+  - **Tạm dừng** (`Pause` icon) — chỉ enable khi có item đang chạy
+  - **Xóa** (`Trash2`, có `AlertDialog` confirm)
+  - Nút `X` để clear selection
 
-### Migration
-```sql
-ALTER TABLE public.agent_pipelines
-  DROP CONSTRAINT IF EXISTS agent_pipelines_campaign_plan_id_fkey;
-
-ALTER TABLE public.agent_pipelines
-  ADD CONSTRAINT agent_pipelines_campaign_plan_id_fkey
-  FOREIGN KEY (campaign_plan_id)
-  REFERENCES public.campaign_content_plans(id)
-  ON DELETE SET NULL;
-```
-
-### Code (`src/hooks/useAgentGoals.ts`)
-Mở rộng `deleteGoal` để null cả `campaign_plan_id` trước khi xoá (defense-in-depth, phòng plan khác cùng goal):
-
+### 2. `src/components/agents/CampaignBulkActionsBar.tsx` (mới)
+Component thuần UI, nhận props:
 ```ts
-await supabase.from('agent_pipelines')
-  .update({ goal_id: null, campaign_plan_id: null })
-  .eq('goal_id', id);
+{ selectedCount, hasRunning, hasPaused,
+  onPause, onResume, onDelete, onClear, isProcessing }
 ```
+Style giống `CharacterBulkBar` (dark pill, `bg-foreground text-background`, sticky bottom).
 
-## Phạm vi không đụng
-- Không sửa schema `campaign_content_plans`
-- Không sửa logic display ở `CampaignDashboard`
-- Không thay đổi RLS
+### 3. Logic bulk actions (trong `CampaignDashboard.tsx`)
+Map từ `selectedIds` → danh sách `goal.id` (nếu view = campaign) hoặc qua `plan.goal_id` (nếu view = list).
+
+- **Pause**: `supabase.from('agent_goals').update({ is_paused: true }).in('id', goalIds)` → invalidate `['agent-goals', orgId]`.
+- **Resume**: same với `{ is_paused: false }`.
+- **Delete**: loop `deleteGoal.mutateAsync(id)` (đã có sẵn unlink pipelines + `ON DELETE SET NULL` từ migration trước). Có `Promise.allSettled` để 1 lỗi không chặn cả batch; toast tổng kết `Đã xóa X/Y`.
+
+Sau mỗi action: `setSelectedIds(new Set())` + `setSelectionMode(false)`.
+
+### 4. Không thay đổi
+- Schema DB (không cần migration mới).
+- Hook `useAgentGoals` (đã đủ `updateGoal` + `deleteGoal`).
+- View chi tiết plan, các alert card, stats.
+
+## Câu hỏi xác nhận
+- "Chạy" trong yêu cầu = **Resume campaign đang paused** (unset `is_paused`). Đúng ý bạn chứ? Nếu bạn muốn nghĩa khác (vd "force run pipeline tiếp theo ngay"), nói thêm để mình điều chỉnh.
