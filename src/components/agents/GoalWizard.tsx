@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useOrganizationSettings } from '@/hooks/useOrganizationSettings';
 import { useCurrentBrand } from '@/contexts/BrandContext';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
