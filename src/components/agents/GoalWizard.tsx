@@ -662,6 +662,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       toast.error('Cần có tên hoặc mô tả chiến dịch trước');
       return;
     }
+    if (nameQuality.status === 'gibberish') {
+      toast.error('Tên chiến dịch không rõ nghĩa', {
+        description: nameQuality.reason || 'Đặt tên cụ thể hơn (sản phẩm, đối tượng, thời điểm) để AI hiểu đúng.',
+      });
+      return;
+    }
     setAutoPilotRunning(true);
     try {
       // 1. Objectives
