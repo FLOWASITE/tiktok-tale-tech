@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
       pre_generated_plan, // if array → skip AI, use these pieces directly
       target_post_count,  // FE-estimated total pieces
       per_channel_targets,// FE-estimated per-channel pieces
+      topic_pool,         // FE-curated topic pool from topic-ai
     } = await req.json();
 
     const isPreview = !!preview;
