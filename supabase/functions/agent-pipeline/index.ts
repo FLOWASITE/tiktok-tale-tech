@@ -1586,7 +1586,33 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         if (task.status === "failed") {
           throw new Error(`Async carousel batch failed: ${task.error_message || "unknown"}`);
         }
-        if (task.status !== "completed") {
+        if (task.status === "cancelled") {
+          // Cancelled (by watchdog/wall-timeout). Salvage if ≥80% images present, else fail to retry.
+          let salvageCount = 0;
+          try {
+            const { count } = await supabase
+              .from("carousel_images")
+              .select("id", { count: "exact", head: true })
+              .eq("carousel_id", pipeline.content_id)
+              .eq("is_selected", true);
+            salvageCount = count ?? 0;
+          } catch { /* ignore */ }
+          const expected = (task.progress && task.progress > 0) ? Math.max(1, Math.round((salvageCount / (task.progress / 100)))) : salvageCount;
+          if (salvageCount > 0 && salvageCount / Math.max(expected, salvageCount) >= 0.8) {
+            console.log(`[create] Async task cancelled but salvageable (${salvageCount}/${expected} images). Proceeding.`);
+            pState.stages.create.async_task_id = null;
+            pState.stages.create.async_completed_at = new Date().toISOString();
+            result.output = {
+              ...(pState.stages.create.output || {}),
+              async_resolved: true,
+              async_partial: true,
+              image_count: salvageCount,
+            };
+            // fall through: shouldAutoAdvance stays true
+          } else {
+            throw new Error(`Async carousel batch cancelled with insufficient images (${salvageCount}/${expected})`);
+          }
+        } else if (task.status !== "completed") {
           console.log(`[create] Async task still ${task.status} (progress=${task.progress ?? 0}). Will re-poll later.`);
           result.status = "awaiting_async";
           result.output = {
