@@ -285,7 +285,8 @@ async function generateCarouselImages(
   platform: string,
   carouselTopic: string,
   pipelineId: string | null,
-): Promise<{ success: number; failed: number; taskId?: string; seamless_score?: number | null }> {
+  fireAndForget: boolean = false,
+): Promise<{ success: number; failed: number; taskId?: string; seamless_score?: number | null; deferred?: boolean }> {
   const brandColors = await extractBrandColorsFromTemplate(supabase, {
     brandTemplateId: brandTemplateId || null,
     brandGuideline: brief.brand_guideline || null,
@@ -357,7 +358,13 @@ async function generateCarouselImages(
     return { success: 0, failed: slides.length, taskId };
   }
 
-  // Poll until completion (max 5 minutes, every 3s)
+  // Option B (fire-and-forget): return immediately so the agent-pipeline create
+  // stage can finish under the 140s edge timeout. Caller polls generation_tasks.
+  if (fireAndForget) {
+    return { success: 0, failed: 0, taskId, deferred: true, seamless_score: null };
+  }
+
+  // Poll until completion (max 5 minutes, every 3s) — legacy synchronous path
   const start = Date.now();
   const timeoutMs = 5 * 60 * 1000;
   const pollMs = 3000;
@@ -726,9 +733,10 @@ async function routeCarousel(
     output: { ...carouselOutput, slides },
   };
 
-  // Phase 2: Generate actual images via the SAME batch pipeline as the manual flow
+  // Phase 2: Fire batch image generation (Option B — fire-and-forget).
+  // Agent-pipeline create stage polls generation_tasks instead of blocking here.
   if (carouselId && slides.length > 0) {
-    console.log(`[carousel] Phase 2: Launching batch image generation for ${slides.length} slides`);
+    console.log(`[carousel] Phase 2: Firing batch image generation (deferred) for ${slides.length} slides`);
     const imageResults = await generateCarouselImages(
       supabaseUrl,
       serviceKey,
@@ -744,19 +752,13 @@ async function routeCarousel(
       targetChannel,
       input.topic,
       input.pipeline_id || null,
+      true, // fireAndForget
     );
     result.output.carousel_images = imageResults;
-    console.log(
-      `[carousel] Batch done: ${imageResults.success}/${slides.length} ok` +
-        (imageResults.seamless_score !== null && imageResults.seamless_score !== undefined
-          ? `, seamless=${imageResults.seamless_score}`
-          : ""),
-    );
-
-    if (imageResults.success === 0) {
-      result.success = false;
-      result.error = "Carousel image generation failed for all slides";
-    }
+    (result as any).deferred = true;
+    (result as any).async_task_id = imageResults.taskId;
+    (result as any).async_kind = "carousel_image";
+    console.log(`[carousel] Batch kicked, taskId=${imageResults.taskId} — returning deferred`);
   }
 
   return result;

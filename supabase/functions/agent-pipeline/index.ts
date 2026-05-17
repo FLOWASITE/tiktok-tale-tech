@@ -1203,6 +1203,35 @@ Deno.serve(async (req) => {
       return json({ success: true, cleared, prefix: prefix || null });
     }
 
+    // ========== ACTION: poll_pending_creators (Option B — async carousel polling) ==========
+    if (action === "poll_pending_creators") {
+      // Find pipelines whose create stage is awaiting an async generation_tasks row.
+      // Cap to 50/run to avoid bursts.
+      const { data: pending } = await supabase
+        .from("agent_pipelines")
+        .select("id, current_stage, pipeline_state, stage_started_at")
+        .eq("current_stage", "create")
+        .eq("is_flagged", false)
+        .order("stage_started_at", { ascending: true, nullsFirst: false })
+        .limit(100);
+
+      const candidates = (pending || []).filter((p: any) => {
+        const st = p.pipeline_state?.stages?.create;
+        return st?.status === "awaiting_async" && st?.async_task_id;
+      }).slice(0, 50);
+
+      let fired = 0;
+      for (let i = 0; i < candidates.length; i++) {
+        const p = candidates[i];
+        // Stagger 1s/each to avoid 50 concurrent edge invocations
+        setTimeout(() => fireNextStage(supabaseUrl, supabaseKey, p.id, "create"), i * 1000);
+        fired++;
+      }
+
+      console.log(`[poll_pending_creators] Fired ${fired}/${candidates.length} pending creator polls`);
+      return json({ success: true, scanned: pending?.length || 0, awaiting: candidates.length, fired });
+    }
+
     // ========== ACTION: create_from_plan ==========
     if (action === "create_from_plan") {
       const { plan_id } = body;
@@ -1441,7 +1470,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck, backfill_approvals, backfill_publish, expire_approvals, invalidate_cache" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck, backfill_approvals, backfill_publish, expire_approvals, invalidate_cache, poll_pending_creators" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -1541,6 +1570,66 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
     // ========== STAGE: create ==========
     } else if (stage === "create") {
+      // ===== Option B: poll deferred async task (carousel images) on re-entry =====
+      const pendingAsyncTaskId = pState.stages?.create?.async_task_id;
+      if (pendingAsyncTaskId) {
+        console.log(`[create] Polling pending async task ${pendingAsyncTaskId} for pipeline ${pipeline.id}`);
+        const { data: task } = await supabase
+          .from("generation_tasks")
+          .select("status, progress, error_message")
+          .eq("id", pendingAsyncTaskId)
+          .single();
+
+        if (!task) {
+          throw new Error(`Async task ${pendingAsyncTaskId} not found`);
+        }
+        if (task.status === "failed") {
+          throw new Error(`Async carousel batch failed: ${task.error_message || "unknown"}`);
+        }
+        if (task.status !== "completed") {
+          console.log(`[create] Async task still ${task.status} (progress=${task.progress ?? 0}). Will re-poll later.`);
+          result.status = "awaiting_async";
+          result.output = {
+            async_task_id: pendingAsyncTaskId,
+            task_status: task.status,
+            progress: task.progress ?? 0,
+          };
+          shouldAutoAdvance = false;
+        } else {
+          console.log(`[create] Async task ${pendingAsyncTaskId} completed — finalising create stage.`);
+          let seamlessScore: number | null = null;
+          let imageCount = 0;
+          try {
+            const { data: car } = await supabase
+              .from("carousels")
+              .select("seamless_consistency_score")
+              .eq("id", pipeline.content_id)
+              .single();
+            seamlessScore = car?.seamless_consistency_score ?? null;
+            const { count } = await supabase
+              .from("carousel_images")
+              .select("id", { count: "exact", head: true })
+              .eq("carousel_id", pipeline.content_id)
+              .eq("is_selected", true);
+            imageCount = count ?? 0;
+          } catch { /* ignore */ }
+
+          if (imageCount === 0) {
+            throw new Error("Carousel async task completed but no selected images persisted");
+          }
+
+          // Clear async marker so dedup/auto-advance works normally
+          pState.stages.create.async_task_id = null;
+          pState.stages.create.async_completed_at = new Date().toISOString();
+          result.output = {
+            ...(pState.stages.create.output || {}),
+            async_resolved: true,
+            seamless_score: seamlessScore,
+            image_count: imageCount,
+          };
+          // shouldAutoAdvance stays true → quality stage fires
+        }
+      } else {
       const campaignCtx = meta.campaign_context;
 
       // Derive topic
@@ -1675,6 +1764,25 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         .single();
       if (refreshed) pipeline = refreshed;
 
+      // ===== Option B: handle deferred async tasks (e.g. carousel images) =====
+      if ((creatorResult as any).deferred && (creatorResult as any).async_task_id) {
+        const asyncTaskId = (creatorResult as any).async_task_id;
+        console.log(`[create] Creator returned deferred task ${asyncTaskId} — switching to awaiting_async`);
+        if (pState.stages?.create) {
+          pState.stages.create.async_task_id = asyncTaskId;
+          pState.stages.create.async_kind = (creatorResult as any).async_kind || "carousel_image";
+          pState.stages.create.async_kicked_at = new Date().toISOString();
+        }
+        result.status = "awaiting_async";
+        result.output = {
+          ...(result.output || {}),
+          async_task_id: asyncTaskId,
+          deferred: true,
+        };
+        shouldAutoAdvance = false;
+      }
+
+      } // end create-stage non-polling branch (Option B)
     // ========== STAGE: quality ==========
     } else if (stage === "quality") {
       const contentId = resolveContentId(pipeline, pState);
@@ -2520,11 +2628,18 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
   }
 
   // Save stage output to pipeline_state
-  if (pState.stages?.[stage] && result.status !== "failed") {
-    pState.stages[stage].output = result.output || null;
-    pState.stages[stage].duration_ms = durationMs;
-    pState.stages[stage].status = "completed";
-    pState.stages[stage].completed_at = new Date().toISOString();
+  if (pState.stages?.[stage]) {
+    if (result.status === "completed") {
+      pState.stages[stage].output = result.output || null;
+      pState.stages[stage].duration_ms = durationMs;
+      pState.stages[stage].status = "completed";
+      pState.stages[stage].completed_at = new Date().toISOString();
+    } else if (result.status === "awaiting_async") {
+      // Option B: persist task pointer; do NOT mark completed (so polling re-enters)
+      pState.stages[stage].output = result.output || null;
+      pState.stages[stage].status = "awaiting_async";
+      pState.stages[stage].last_polled_at = new Date().toISOString();
+    }
   }
 
   await supabase.from("agent_pipelines")
@@ -2535,7 +2650,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
   await supabase.from("agent_pipeline_logs").insert({
     pipeline_id: pipeline.id,
     agent_name: stage,
-    action: result.status === "completed" ? "completed" : "failed",
+    action: result.status === "completed" ? "completed" : (result.status === "awaiting_async" ? "awaiting_async" : "failed"),
     output_summary: JSON.stringify(result).slice(0, 500),
     duration_ms: durationMs,
     error_message: result.error || null,
