@@ -1735,6 +1735,25 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         .single();
       if (refreshed) pipeline = refreshed;
 
+      // ===== Option B: handle deferred async tasks (e.g. carousel images) =====
+      if ((creatorResult as any).deferred && (creatorResult as any).async_task_id) {
+        const asyncTaskId = (creatorResult as any).async_task_id;
+        console.log(`[create] Creator returned deferred task ${asyncTaskId} — switching to awaiting_async`);
+        if (pState.stages?.create) {
+          pState.stages.create.async_task_id = asyncTaskId;
+          pState.stages.create.async_kind = (creatorResult as any).async_kind || "carousel_image";
+          pState.stages.create.async_kicked_at = new Date().toISOString();
+        }
+        result.status = "awaiting_async";
+        result.output = {
+          ...(result.output || {}),
+          async_task_id: asyncTaskId,
+          deferred: true,
+        };
+        shouldAutoAdvance = false;
+      }
+
+      } // end create-stage non-polling branch (Option B)
     // ========== STAGE: quality ==========
     } else if (stage === "quality") {
       const contentId = resolveContentId(pipeline, pState);
