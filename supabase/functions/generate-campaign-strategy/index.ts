@@ -137,6 +137,10 @@ RULES:
 6. Schedule pieces with 2-3 day gaps minimum
    - Avoid weekends for B2B content
    - Tuesday-Thursday are best for LinkedIn
+   - ALSO assign each piece a "recommended_time" (HH:mm 24h) at the platform's golden hour:
+     facebook 19:30, instagram 20:00, linkedin 09:00, threads 12:00, twitter 09:30,
+     bluesky 11:00, pinterest 21:00, tiktok 19:00, telegram 20:30, zalo 11:30,
+     email 09:30, website/blogger/wordpress/shopify/wix/medium 09:30, google_maps 10:00.
 ${pillarAllocation ? '\n7. PILLAR ALLOCATION is MANDATORY — distribute pieces according to the specified percentages above.\n   Every piece must be assigned to a pillar.\n' : ''}
 7${pillarAllocation ? '' : ''}. ALL pieces must be directly related to: "${params.title}"
    Do NOT suggest unrelated trending topics.
@@ -167,11 +171,22 @@ Deno.serve(async (req) => {
       brand_template_id,
       clarification_context,
       organization_id,
+      preview,            // if true → don't insert, return pieces only
+      pre_generated_plan, // if array → skip AI, use these pieces directly
     } = await req.json();
 
-    if (!goal_id || !campaign_title || !organization_id) {
+    const isPreview = !!preview;
+    const hasPrePlan = Array.isArray(pre_generated_plan) && pre_generated_plan.length > 0;
+
+    if (!campaign_title || !organization_id) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields: goal_id, campaign_title, organization_id" }),
+        JSON.stringify({ success: false, error: "Missing required fields: campaign_title, organization_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!isPreview && !goal_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing required field: goal_id (non-preview)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -246,6 +261,31 @@ Deno.serve(async (req) => {
     const effectiveApprovalMode = approval_mode || "approve_plan";
     const pieceCount = calculatePieceCount(durationDays);
 
+    let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
+
+    if (hasPrePlan) {
+      const validPieces = (pre_generated_plan as any[]).filter(
+        (p) => p && typeof p === 'object' && p.title && p.scheduled_date && p.target_channel,
+      );
+      if (validPieces.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "pre_generated_plan invalid: no valid pieces" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const mix: Record<string, number> = { seed: 0, sprout: 0, harvest: 0 };
+      validPieces.forEach((p) => {
+        const r = p.content_role || 'seed';
+        mix[r] = (mix[r] || 0) + 1;
+      });
+      planData = {
+        plan: validPieces,
+        strategy_summary: typeof clarification_context?.strategy_summary === 'string'
+          ? clarification_context.strategy_summary
+          : `Lịch ${validPieces.length} bài do người dùng tinh chỉnh`,
+        content_mix: mix,
+      };
+    } else {
     const systemPrompt = buildStrategyPrompt({
       title: campaign_title,
       description: campaign_description || "",
@@ -331,6 +371,7 @@ Deno.serve(async (req) => {
                       content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
                       format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
                       scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+                      recommended_time: { type: "string", description: "HH:mm 24h, golden hour for the target_channel" },
                       key_message: { type: "string" },
                       estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                       pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
@@ -419,6 +460,7 @@ Deno.serve(async (req) => {
                           content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
                           format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
                           scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+                          recommended_time: { type: "string", description: "HH:mm 24h, golden hour for the target_channel" },
                           key_message: { type: "string" },
                           estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                           pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
@@ -480,12 +522,12 @@ Deno.serve(async (req) => {
       throw new Error("AI did not return structured plan data");
     }
 
-    let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
     try {
       planData = JSON.parse(toolCall.function.arguments);
     } catch {
       throw new Error("Failed to parse AI strategy output");
     }
+    } // ── end if(!hasPrePlan) branch ──
 
     // Add default statuses, ensure content_type, and pipeline_id to each piece
     const pieces = planData.plan.map((piece: any, idx: number) => ({
@@ -501,6 +543,23 @@ Deno.serve(async (req) => {
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + durationDays);
     const campaignEndDate = endDate.toISOString().split("T")[0];
+
+    // ── Preview mode: return pieces without persisting ──
+    if (isPreview) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          preview: true,
+          plan: pieces,
+          strategy_summary: planData.strategy_summary,
+          content_mix: planData.content_mix,
+          total_pieces: pieces.length,
+          campaign_start_date: startDate,
+          campaign_end_date: campaignEndDate,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Insert into campaign_content_plans
     const { data: plan, error: planError } = await supabase
@@ -554,6 +613,7 @@ Deno.serve(async (req) => {
         total_pieces: pieces.length,
         pipelines_created: pipelinesCreated,
         approval_mode: effectiveApprovalMode,
+        used_pre_generated: hasPrePlan,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

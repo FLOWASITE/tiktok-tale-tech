@@ -34,6 +34,9 @@ import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { ClarificationStep } from './ClarificationStep';
+import ContentScheduleStudio from './ContentScheduleStudio';
+import { usePreviewSchedule } from '@/hooks/agents/usePreviewSchedule';
+import type { SchedulePiece } from '@/lib/scheduleExport';
 
 // ─── Constants ───
 
@@ -273,6 +276,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [customDuration, setCustomDuration] = useState('');
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [totalPostsTarget, setTotalPostsTarget] = useState<number | ''>('');
+
+  // Content Schedule Studio state
+  const [editableSchedule, setEditableSchedule] = useState<SchedulePiece[] | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
+  const previewSchedule = usePreviewSchedule();
+
+  // triggerSchedulePreview defined later as plain function (after deps declared)
 
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
