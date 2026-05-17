@@ -40,6 +40,14 @@ function buildStrategyPrompt(params: {
   existingTitles: string[];
   targetPostCount?: number | null;
   perChannelTargets?: Record<string, number> | null;
+  topicPool?: Array<{
+    title: string;
+    hook?: string;
+    key_message?: string;
+    pillar?: string;
+    category?: string;
+    scores?: Record<string, number>;
+  }> | null;
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
@@ -136,8 +144,32 @@ ${(() => {
   }
   return lines.join('\n') + '\n';
 })()}
+${(() => {
+  const pool = params.topicPool;
+  if (!pool || pool.length === 0) return '';
+  const lines: string[] = [];
+  lines.push(`\nTOPIC POOL (CRITICAL — MUST pick titles FROM THIS POOL):`);
+  lines.push(`These topics were curated by Topic AI (scoring, trending, brand context). They are the source of truth for "title" of each piece.`);
+  lines.push(`Rules:`);
+  lines.push(`- For each piece, set "title" = a topic from the pool below (use verbatim; light copy-edit ≤15% words OK).`);
+  lines.push(`- Set "pool_index" = the [NN] number of the topic you picked.`);
+  lines.push(`- Prefer each pool topic AT MOST ONCE. If pool < total pieces, you MAY reuse a topic with a DIFFERENT angle/channel (same pool_index, distinct title wording).`);
+  lines.push(`- DO NOT invent titles outside the pool. If a topic doesn't fit, skip it.`);
+  lines.push(`- If pool key_message exists, use it as a strong hint for the piece's key_message.`);
+  lines.push(`\nPool (${pool.length} topics, sorted by quality):`);
+  pool.forEach((t, i) => {
+    const idx = String(i + 1).padStart(2, '0');
+    const score = t.scores?.overall ?? t.scores?.score ?? null;
+    const scorePart = typeof score === 'number' ? ` [score ${Math.round(score)}]` : '';
+    const hookPart = t.hook ? ` — hook: ${t.hook}` : '';
+    const kmPart = t.key_message ? ` — km: ${t.key_message}` : '';
+    const pillarPart = t.pillar ? ` — pillar: ${t.pillar}` : '';
+    lines.push(`[${idx}]${scorePart} ${t.title}${hookPart}${kmPart}${pillarPart}`);
+  });
+  return lines.join('\n') + '\n';
+})()}
 RULES:
-1. Create EXACTLY ${params.targetPostCount ?? `${params.pieceCount.min}-${params.pieceCount.max}`} content pieces spread across the campaign duration${params.targetPostCount ? ` (tolerance ${params.pieceCount.min}-${params.pieceCount.max})` : ''}.
+1. Create EXACTLY ${params.targetPostCount ?? `${params.pieceCount.min}-${params.pieceCount.max}`} content pieces spread across the campaign duration${params.targetPostCount ? ` (tolerance ${params.pieceCount.min}-${params.pieceCount.max})` : ''}.${params.topicPool && params.topicPool.length > 0 ? ' Every piece title MUST come from the TOPIC POOL above.' : ''}
 
 2. Each piece must have a DIFFERENT angle/hook — never repeat the same approach.
    Angle types: educational, comparison, case_study, behind_the_scenes,
@@ -202,6 +234,7 @@ Deno.serve(async (req) => {
       pre_generated_plan, // if array → skip AI, use these pieces directly
       target_post_count,  // FE-estimated total pieces
       per_channel_targets,// FE-estimated per-channel pieces
+      topic_pool,         // FE-curated topic pool from topic-ai
     } = await req.json();
 
     const isPreview = !!preview;
@@ -310,6 +343,24 @@ Deno.serve(async (req) => {
       if (entries.length > 0) normalizedPerChannel = Object.fromEntries(entries);
     }
 
+    // Normalize topic_pool (light validation; cap at 60 entries)
+    let normalizedPool: Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }> | null = null;
+    if (Array.isArray(topic_pool) && topic_pool.length > 0) {
+      const cleaned = topic_pool
+        .filter((t: any) => t && typeof t === 'object' && typeof t.title === 'string' && t.title.trim().length > 0)
+        .slice(0, 60)
+        .map((t: any) => ({
+          title: String(t.title).trim().slice(0, 400),
+          hook: typeof t.hook === 'string' ? t.hook.trim().slice(0, 240) : undefined,
+          key_message: typeof t.key_message === 'string' ? t.key_message.trim().slice(0, 240) : undefined,
+          pillar: typeof t.pillar === 'string' ? t.pillar.trim().slice(0, 80) : undefined,
+          category: typeof t.category === 'string' ? t.category.trim().slice(0, 80) : undefined,
+          scores: t.scores && typeof t.scores === 'object' ? t.scores : undefined,
+        }));
+      if (cleaned.length > 0) normalizedPool = cleaned;
+    }
+    console.log(`[generate-campaign-strategy] topic_pool size: ${normalizedPool?.length || 0}`);
+
     const pieceCount = calculatePieceCount(durationDays, normalizedTarget);
 
     let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
@@ -351,6 +402,7 @@ Deno.serve(async (req) => {
       existingTitles,
       targetPostCount: normalizedTarget,
       perChannelTargets: normalizedPerChannel,
+      topicPool: normalizedPool,
     });
 
     // Call AI via callAIWithMetrics — routes to correct provider based on model prefix.
@@ -428,6 +480,7 @@ Deno.serve(async (req) => {
                       key_message: { type: "string" },
                       estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                       pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
+                      pool_index: { type: "number", description: "If TOPIC POOL is provided, the [NN] index (1-based) of the pool topic this piece was picked from." },
                     },
                     required: [
                       "piece_number", "title", "angle", "content_type", "target_channel",
@@ -517,6 +570,7 @@ Deno.serve(async (req) => {
                           key_message: { type: "string" },
                           estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                           pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
+                          pool_index: { type: "number", description: "If TOPIC POOL is provided, the [NN] index (1-based) of the pool topic this piece was picked from." },
                         },
                         required: [
                           "piece_number", "title", "angle", "content_type", "target_channel",

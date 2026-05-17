@@ -286,6 +286,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
   const [scheduleStale, setScheduleStale] = useState(false);
+  const [topicPoolUsed, setTopicPoolUsed] = useState<Array<{ title: string; hook?: string; key_message?: string; pillar?: string; scores?: Record<string, number> }>>([]);
+  const [topicPoolPhase, setTopicPoolPhase] = useState<'idle' | 'topics' | 'schedule'>('idle');
   const previewSchedule = usePreviewSchedule();
 
   // Step 2: Kênh
@@ -407,6 +409,56 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     return ctx;
   };
 
+  // Map primary objective ID → topic-ai contentGoal
+  const mapObjectiveToContentGoal = (objId?: string): string => {
+    if (!objId) return 'education';
+    const id = objId.toLowerCase();
+    if (id.includes('aware') || id.includes('nhận')) return 'awareness';
+    if (id.includes('engage') || id.includes('tương')) return 'engagement';
+    if (id.includes('lead') || id.includes('traffic') || id.includes('thu')) return 'lead-gen';
+    if (id.includes('revenue') || id.includes('doanh') || id.includes('conver') || id.includes('chuyển')) return 'sales';
+    if (id.includes('retention') || id.includes('giữ')) return 'community';
+    return 'education';
+  };
+
+  // Pre-fetch curated topic pool from topic-ai (best-effort, fail-silent)
+  const fetchTopicPool = async (): Promise<Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }>> => {
+    try {
+      const primaryObjId = objectives[0];
+      const contentGoal = mapObjectiveToContentGoal(primaryObjId);
+      const categoryHint = name.trim().slice(0, 180);
+      const { data, error } = await supabase.functions.invoke('topic-ai', {
+        body: {
+          action: 'suggest',
+          brandTemplateId: brandTemplateId || undefined,
+          organizationId: currentOrganization?.id,
+          contentGoal,
+          industry: currentBrand?.industry || undefined,
+          format: 'all',
+          categoryHint,
+          forceRefresh: false,
+        },
+      });
+      if (error) throw error;
+      const raw: any[] = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      const pool = raw
+        .map((s) => ({
+          title: typeof s.topic === 'string' ? s.topic : (typeof s.title === 'string' ? s.title : ''),
+          hook: typeof s.hook === 'string' ? s.hook : undefined,
+          key_message: typeof s.keyMessage === 'string' ? s.keyMessage : (typeof s.key_message === 'string' ? s.key_message : undefined),
+          pillar: typeof s.pillar === 'string' ? s.pillar : undefined,
+          category: typeof s.category === 'string' ? s.category : undefined,
+          scores: s.scores && typeof s.scores === 'object' ? s.scores : undefined,
+        }))
+        .filter((t) => t.title && t.title.length > 5);
+      console.log(`[GoalWizard] Topic pool fetched: ${pool.length} topics`);
+      return pool;
+    } catch (e) {
+      console.warn('[GoalWizard] Topic pool fetch failed, falling back to AI-free strategy:', e);
+      return [];
+    }
+  };
+
   const triggerSchedulePreview = async () => {
     if (!currentOrganization?.id || selectedChannels.length === 0 || !name.trim()) return;
     setScheduleError(null);
@@ -418,6 +470,14 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
       perChannelTargets[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
     });
+
+    // Phase 1: curate topic pool via topic-ai (best-effort)
+    setTopicPoolPhase('topics');
+    const pool = await fetchTopicPool();
+    setTopicPoolUsed(pool);
+
+    // Phase 2: generate schedule with pool injected
+    setTopicPoolPhase('schedule');
     const res = await previewSchedule.run({
       campaign_title: name.trim(),
       campaign_description: description.trim() || undefined,
@@ -429,7 +489,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       organization_id: currentOrganization.id,
       target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
       per_channel_targets: Object.keys(perChannelTargets).length > 0 ? perChannelTargets : undefined,
+      topic_pool: pool.length > 0 ? pool : undefined,
     });
+    setTopicPoolPhase('idle');
     if (res?.plan) {
       setEditableSchedule(res.plan);
       setScheduleAutoTriggered(true);
@@ -914,7 +976,48 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             ? editableSchedule
             : undefined,
       });
-      
+
+      // Best-effort: save planned pieces into Topic Bank (topic_history) for visibility.
+      // Fail-silent — never block campaign creation on this.
+      try {
+        const pieces = (editableSchedule && editableSchedule.length > 0 && !scheduleStale)
+          ? editableSchedule
+          : [];
+        if (pieces.length > 0 && currentOrganization?.id) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser?.id) {
+            const contentGoal = mapObjectiveToContentGoal(objectives[0]);
+            const rows = pieces.slice(0, 60).map((p: any) => ({
+              topic: String(p.title || '').slice(0, 500),
+              category: (p.pillar && String(p.pillar)) || (p.angle && String(p.angle)) || 'campaign',
+              content_goal: contentGoal,
+              format: p.content_type === 'video_script' ? 'script'
+                : p.content_type === 'carousel' ? 'carousel'
+                : 'multichannel',
+              pillar: p.pillar ? String(p.pillar).slice(0, 80) : null,
+              scores: (() => {
+                const idx = typeof p.pool_index === 'number' ? p.pool_index - 1 : -1;
+                return (idx >= 0 && idx < topicPoolUsed.length && topicPoolUsed[idx]?.scores) || {};
+              })(),
+              reasoning: typeof p.key_message === 'string' ? p.key_message.slice(0, 500) : null,
+              usage_status: 'planned',
+              was_used: false,
+              is_favorite: false,
+              user_id: authUser.id,
+              organization_id: currentOrganization.id,
+              brand_template_id: brandTemplateId || null,
+            })).filter(r => r.topic.length > 0);
+            if (rows.length > 0) {
+              const { error: insertErr } = await supabase.from('topic_history').insert(rows);
+              if (insertErr) console.warn('[GoalWizard] topic_history insert failed:', insertErr.message);
+              else console.log(`[GoalWizard] Saved ${rows.length} pieces to Topic Bank`);
+            }
+          }
+        }
+      } catch (saveErr) {
+        console.warn('[GoalWizard] Topic Bank auto-save failed:', saveErr);
+      }
+
       setGenerationResult({ ...result, goal_name: name.trim() });
       setGeneratingStatus('done');
     } catch (e: any) {
@@ -2187,6 +2290,16 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                             Cần làm mới
                           </Badge>
                         )}
+                        {editableSchedule && editableSchedule.length > 0 && topicPoolUsed.length > 0 && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-primary/30 text-primary bg-primary/5" title={`Chủ đề chọn từ Topic AI (${topicPoolUsed.length} ứng viên)`}>
+                            🧠 Topic AI
+                          </Badge>
+                        )}
+                        {editableSchedule && editableSchedule.length > 0 && !previewSchedule.loading && topicPoolUsed.length === 0 && scheduleAutoTriggered && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-muted-foreground/30 text-muted-foreground" title="Không lấy được Topic AI — AI tự sinh chủ đề">
+                            AI tự sinh
+                          </Badge>
+                        )}
                       </div>
                       {(scheduleStale || scheduleError) && (
                         <Button
@@ -2202,11 +2315,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       )}
                     </div>
 
-                    {previewSchedule.loading && (
+                    {(previewSchedule.loading || topicPoolPhase !== 'idle') && (
                       <div className="p-3 space-y-2">
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                          <span>AI đang sinh ~{estimatedPosts} bài cho {selectedChannels.length} kênh…</span>
+                          <span>
+                            {topicPoolPhase === 'topics'
+                              ? '🧠 Topic AI đang chọn chủ đề chất lượng…'
+                              : `📅 Đang sắp ~${estimatedPosts} bài cho ${selectedChannels.length} kênh${topicPoolUsed.length > 0 ? ` (từ pool ${topicPoolUsed.length} chủ đề)` : ' (không có pool — AI tự sinh)'}…`}
+                          </span>
                         </div>
                         {[...Array(5)].map((_, i) => (
                           <div key={i} className="h-7 rounded bg-muted/40 animate-pulse" />
