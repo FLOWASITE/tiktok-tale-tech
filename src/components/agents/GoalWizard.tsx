@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSuggestObjectives } from '@/hooks/agents/useSuggestObjectives';
 import { useSuggestChannels } from '@/hooks/agents/useSuggestChannels';
+import { useSuggestStrategy } from '@/hooks/agents/useSuggestStrategy';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
