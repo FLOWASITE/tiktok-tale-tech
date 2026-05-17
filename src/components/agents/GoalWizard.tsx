@@ -445,6 +445,17 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   };
 
   const handleConfirmStep = async () => {
+    // Client-side smart skip: if strategic context already complete → bypass AI clarify
+    const hasObjective = !!selectedObjective;
+    const hasMessagesOrCta = keyMessages.length > 0 || !!primaryCta.trim();
+    const hasPillars = Object.keys(pillarAllocation).length > 0;
+    const hasGoodTitle = name.trim().length > 15;
+    const hasDescription = description.trim().length > 20;
+    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasGoodTitle || hasDescription)) {
+      finalSubmit(null);
+      return;
+    }
+
     setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null);
     try {
       const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
@@ -454,12 +465,20 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           industry: currentBrand?.industry || undefined,
           channels: selectedChannels,
           brand_name: currentBrand?.brand_name || undefined,
+          // Strategic context from earlier wizard steps
+          objective: selectedObj?.label,
+          key_messages: keyMessages,
+          primary_cta: primaryCta.trim() || undefined,
+          pillars: Object.keys(pillarAllocation),
+          kpi_targets: kpiTargets,
+          total_posts_target: totalPostsTarget || undefined,
+          duration_days: effectiveDuration,
         },
       });
       if (error) throw error;
       if (data?.ready) {
         setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
-        setTimeout(() => finalSubmit(null), 1500);
+        setTimeout(() => finalSubmit(null), 1200);
       } else if (data?.questions?.length > 0) {
         setClarificationQuestions(data.questions);
       } else {
