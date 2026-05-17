@@ -666,6 +666,8 @@ Deno.serve(async (req) => {
         strategy_summary: planData.strategy_summary,
         content_mix: planData.content_mix,
         total_pieces: pieces.length,
+        target_post_count: normalizedTarget,
+        plan_warning: planWarning,
         pipelines_created: pipelinesCreated,
         approval_mode: effectiveApprovalMode,
         used_pre_generated: hasPrePlan,
