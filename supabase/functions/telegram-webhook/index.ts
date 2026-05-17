@@ -2855,6 +2855,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // P1 /generate mode picker: gen:mode:auto|plan:<draftId>  |  gen:cancel:<draftId>
+  if (data.startsWith("gen:") && chatId && fromTgId) {
+    await handleGenerateModeCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
+
   // 2-step link confirmation (Manus-style): confirm_link:<chatId>
   if (data.startsWith("confirm_link:") && chatId) {
     await handleConfirmLinkCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId });
