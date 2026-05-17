@@ -802,6 +802,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         brand_name: currentBrand?.brand_name,
         industry: Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : (currentBrand?.industry as string | undefined),
         organization_id: currentOrganization?.id,
+        campaign_duration_days: effectiveDuration,
+        target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+        audience: (currentBrand as any)?.target_audience || undefined,
+        available_connections: availableConnections.length > 0 ? availableConnections : undefined,
       });
       const chIds = chResult.channels.map(c => c.id);
       setSelectedChannels(prev => Array.from(new Set([...prev, ...chIds])));
@@ -812,6 +816,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       });
       setAiChannelIds(new Set(chIds));
       setAiChannelReasoning(chResult.reasoning || '');
+      setAiChannelPowered(!!chResult.ai_powered);
 
       // 3. Strategy (dùng kết quả vừa lấy)
       setAutoPilotStage('strategy');
