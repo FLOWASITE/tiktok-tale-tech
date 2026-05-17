@@ -607,6 +607,8 @@ Deno.serve(async (req) => {
           strategy_summary: planData.strategy_summary,
           content_mix: planData.content_mix,
           total_pieces: pieces.length,
+          target_post_count: normalizedTarget,
+          plan_warning: planWarning,
           campaign_start_date: startDate,
           campaign_end_date: campaignEndDate,
         }),
