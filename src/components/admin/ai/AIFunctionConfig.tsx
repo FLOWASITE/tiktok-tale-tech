@@ -304,43 +304,74 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm function..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9"
-            />
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Search + View toggle */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm: tên, model, tag, hoặc status:override..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-8 h-9 w-full"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <XIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 sm:ml-auto">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Type Filter */}
-          <div className="flex items-center gap-1 flex-wrap">
+          {/* Row 2: Type filter pills (scrollable on mobile) */}
+          <div className="flex items-center gap-1 flex-wrap overflow-x-auto sm:overflow-visible -mx-1 px-1">
             {TYPE_FILTERS.map((filter) => {
               const isTagFilter = 'isTagFilter' in filter && filter.isTagFilter;
-              const count = isTagFilter 
-                ? kgCount 
+              const count = isTagFilter
+                ? kgCount
                 : AI_FUNCTIONS.filter(fn => {
                     if (filter.id === 'image') return fn.type === 'image' || fn.type === 'image-direct';
                     return fn.type === filter.id;
                   }).length;
-              
+
               return (
                 <Button
                   key={filter.id}
-                  variant={typeFilter === filter.id ? "default" : "outline"}
+                  variant={typeFilter === filter.id ? 'default' : 'outline'}
                   size="sm"
                   className={cn(
-                    "h-8 text-xs",
-                    isTagFilter && typeFilter === filter.id && "bg-violet-600 hover:bg-violet-700",
-                    isTagFilter && typeFilter !== filter.id && "border-violet-500/50 text-violet-600 hover:bg-violet-500/10"
+                    'h-8 text-xs shrink-0',
+                    isTagFilter && typeFilter === filter.id && 'bg-violet-600 hover:bg-violet-700',
+                    isTagFilter && typeFilter !== filter.id && 'border-violet-500/50 text-violet-600 hover:bg-violet-500/10',
                   )}
                   onClick={() => setTypeFilter(filter.id)}
                 >
                   {filter.icon}
-                  <span className={filter.icon ? "ml-1" : ""}>{filter.label}</span>
+                  <span className={filter.icon ? 'ml-1' : ''}>{filter.label}</span>
                   {filter.id !== 'all' && (
                     <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
                       {count}
@@ -351,24 +382,88 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             })}
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 ml-auto">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setViewMode('grid')}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+          {/* Row 3: Advanced chips — Status / Provider / Category multi-select */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            {/* Status */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground mr-0.5">Status:</span>
+              {(['override', 'default', 'disabled'] as FunctionStatus[]).map(s => (
+                <Button
+                  key={s}
+                  variant={statusFilter.includes(s) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] capitalize shrink-0"
+                  onClick={() => toggleInArray(statusFilter, s, setStatusFilter)}
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+
+            {/* Provider */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground mr-0.5">Provider:</span>
+              {(['lovable', 'openrouter', 'ninerouter', 'dashscope'] as FunctionProvider[]).map(p => (
+                <Button
+                  key={p}
+                  variant={providerFilter.includes(p) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-[11px] shrink-0"
+                  onClick={() => toggleInArray(providerFilter, p, setProviderFilter)}
+                >
+                  {p === 'ninerouter' ? '9Router' : p === 'openrouter' ? 'OpenRouter' : p === 'dashscope' ? 'DashScope' : 'Lovable'}
+                </Button>
+              ))}
+            </div>
+
+            {/* Category multi-select */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] shrink-0">
+                  Categories
+                  {categoryFilter.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                      {categoryFilter.length}
+                    </Badge>
+                  )}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="start">
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {categories.map(c => (
+                    <label
+                      key={c.slug}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-xs"
+                    >
+                      <Checkbox
+                        checked={categoryFilter.includes(c.slug)}
+                        onCheckedChange={() => toggleInArray(categoryFilter, c.slug, setCategoryFilter)}
+                      />
+                      <span className="truncate">{c.label || c.slug}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] text-muted-foreground hover:text-foreground"
+                onClick={clearAllFilters}
+              >
+                <XIcon className="h-3 w-3 mr-1" />
+                Clear filters
+              </Button>
+            )}
+
+            {(deferredQuery.trim() || statusFilter.length || providerFilter.length || categoryFilter.length) ? (
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {filteredFunctions.length} kết quả
+              </Badge>
+            ) : null}
           </div>
         </div>
       </div>
