@@ -171,11 +171,22 @@ Deno.serve(async (req) => {
       brand_template_id,
       clarification_context,
       organization_id,
+      preview,            // if true → don't insert, return pieces only
+      pre_generated_plan, // if array → skip AI, use these pieces directly
     } = await req.json();
 
-    if (!goal_id || !campaign_title || !organization_id) {
+    const isPreview = !!preview;
+    const hasPrePlan = Array.isArray(pre_generated_plan) && pre_generated_plan.length > 0;
+
+    if (!campaign_title || !organization_id) {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields: goal_id, campaign_title, organization_id" }),
+        JSON.stringify({ success: false, error: "Missing required fields: campaign_title, organization_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!isPreview && !goal_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing required field: goal_id (non-preview)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
