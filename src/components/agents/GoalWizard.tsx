@@ -1929,7 +1929,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 return sum + Math.max(1, Math.round(effectiveDuration * perDay));
               }, 0);
             const approvalLabel = APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label;
-            const postsPerWeek = effectiveDuration > 0 ? Math.round((estimatedPosts / effectiveDuration) * 7) : 0;
+            // Số bài viết "thật" — ưu tiên độ dài lịch AI đã sinh (khi không stale), fallback ước tính
+            const actualPosts = (!scheduleStale && editableSchedule && editableSchedule.length > 0)
+              ? editableSchedule.length
+              : null;
+            const displayPosts = actualPosts ?? estimatedPosts;
+            const isEstimate = actualPosts == null;
+            const postsPerWeek = effectiveDuration > 0 ? Math.round((displayPosts / effectiveDuration) * 7) : 0;
+            const postsMismatch = actualPosts != null && estimatedPosts > 0
+              && Math.abs(actualPosts - estimatedPosts) / estimatedPosts > 0.2;
             const weeks = Math.floor(effectiveDuration / 7);
             const remDays = effectiveDuration % 7;
             const durationLabel = weeks > 0 ? `${weeks} tuần${remDays > 0 ? ` ${remDays} ngày` : ''}` : `${effectiveDuration} ngày`;
