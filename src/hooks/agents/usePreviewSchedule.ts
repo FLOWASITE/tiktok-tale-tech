@@ -21,6 +21,8 @@ type PreviewResult = {
   content_mix?: Record<string, number>;
   campaign_start_date?: string;
   campaign_end_date?: string;
+  target_post_count?: number | null;
+  plan_warning?: string | null;
 };
 
 export function usePreviewSchedule() {
