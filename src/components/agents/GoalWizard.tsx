@@ -252,6 +252,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const { defaultAutonomyLevel } = useOrganizationSettings();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
+  const { goals: allGoals } = useAgentGoals();
+  const parentGoalOptions = useMemo(
+    () => allGoals.filter(g => g.period_type && g.period_type !== 'custom' && (!initialData || g.id !== initialData.id)),
+    [allGoals, initialData]
+  );
   
   // Step 0: Mục tiêu
   const [name, setName] = useState('');
