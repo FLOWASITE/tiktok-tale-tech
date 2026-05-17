@@ -27,6 +27,7 @@ interface FunctionCategoryGroupProps {
   categoryConfig?: CategoryConfig;
   groupModelOverride?: string | null;
   getEffectiveModel?: (functionName: string, config?: { modelOverride: string | null } | null) => { model: string; source: 'individual' | 'group' | 'default' };
+  highlightTerms?: string[];
 }
 
 // Fallback config for hardcoded categories (legacy support)
