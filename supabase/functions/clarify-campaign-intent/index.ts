@@ -58,6 +58,9 @@ Deno.serve(async (req) => {
 
     const channelList = (Array.isArray(channels) ? channels : []).join(", ") || "chưa chọn";
 
+    // ─── Heuristic name-quality check (mirror of src/lib/campaignNameQuality.ts) ───
+    const nameQuality = analyzeName(title);
+
     // Expanded 7-criteria completeness
     const hasDetailedTitle = (title?.length || 0) > 15;
     const hasDescription = (description?.length || 0) > 20;
@@ -68,8 +71,8 @@ Deno.serve(async (req) => {
     const hasPillars = pillars.length > 0;
     const completenessScore = [hasDetailedTitle, hasDescription, hasChannels, hasBrand, hasObjective, hasMessagesOrCta, hasPillars].filter(Boolean).length;
 
-    // Server-side fast-path: enough context → skip AI call
-    if (hasObjective && (hasMessagesOrCta || hasPillars) && (hasDetailedTitle || hasDescription)) {
+    // Server-side fast-path: enough context AND name has meaning → skip AI call
+    if (nameQuality.status === "ok" && hasObjective && (hasMessagesOrCta || hasPillars) && (hasDetailedTitle || hasDescription)) {
       return new Response(
         JSON.stringify({
           ready: true,
