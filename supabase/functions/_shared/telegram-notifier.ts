@@ -333,6 +333,103 @@ export async function notifyApprovalNeeded(
   }
 }
 
+// =====================================================
+// P2: Goal lifecycle push for Telegram-initiated /generate.
+// Routes to the specific chat that issued /generate (stored in
+// agent_goals.clarification_context.telegram_notify.chat_id), with
+// per-(goal, event) dedup via the telegram_notifications table so
+// pipeline retries / background re-invocations don't double-message.
+// =====================================================
+export type GoalLifecycleEvent =
+  | "started"
+  | "strategy_ready"
+  | "awaiting_approval"
+  | "published"
+  | "failed";
+
+interface GoalNotifyPayload {
+  title?: string;
+  pipelinesCreated?: number;
+  errorMessage?: string;
+  detailUrl?: string;
+}
+
+// deno-lint-ignore no-explicit-any
+function readTelegramNotifyCtx(goal: any): { chatId: number; enabled: boolean } | null {
+  const ctx = goal?.clarification_context;
+  const tn = ctx && typeof ctx === "object" ? (ctx as any).telegram_notify : null;
+  if (!tn || tn.enabled === false) return null;
+  const chatId = Number(tn.chat_id);
+  if (!Number.isFinite(chatId) || chatId === 0) return null;
+  return { chatId, enabled: true };
+}
+
+function formatGoalLifecycle(event: GoalLifecycleEvent, p: GoalNotifyPayload): string {
+  const title = escapeMd((p.title || "campaign").slice(0, 80));
+  switch (event) {
+    case "started":
+      return `🚀 Đã khởi chạy *${title}*\nAI đang dựng chiến lược…`;
+    case "strategy_ready":
+      return `🧠 Chiến lược cho *${title}* đã sẵn sàng (${p.pipelinesCreated ?? 0} pipeline).\nDùng /status để xem chi tiết.`;
+    case "awaiting_approval":
+      return `🔔 *${title}* — có nội dung chờ duyệt.`;
+    case "published":
+      return `✅ *${title}* — đã đăng bài.`;
+    case "failed":
+      return `⚠️ *${title}* gặp lỗi.${p.errorMessage ? `\n_${escapeMd(p.errorMessage.slice(0, 200))}_` : ""}\nDùng /status để xem chi tiết hoặc /regenerate <goal_id> để thử lại.`;
+  }
+}
+
+export async function notifyGoalLifecycle(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  // deno-lint-ignore no-explicit-any
+  goal: any,
+  event: GoalLifecycleEvent,
+  payload: GoalNotifyPayload = {},
+): Promise<void> {
+  try {
+    if (!goal?.id || !goal?.organization_id) return;
+    const tn = readTelegramNotifyCtx(goal);
+    if (!tn) return;
+
+    // Dedup: insert (goal_id, event) — if it already exists, skip.
+    const { data: dedupRow, error: dedupErr } = await supabase
+      .from("telegram_notifications")
+      .insert({
+        goal_id: goal.id,
+        event,
+        chat_id: tn.chatId,
+        payload: payload as unknown as Record<string, unknown>,
+      })
+      .select("goal_id")
+      .maybeSingle();
+
+    if (dedupErr) {
+      // Unique violation == already sent. Silently skip.
+      const code = (dedupErr as { code?: string }).code;
+      if (code === "23505") return;
+      console.warn("[telegram-notifier] notifyGoalLifecycle dedup insert error:", dedupErr);
+      return;
+    }
+    if (!dedupRow) return;
+
+    const botToken = await getOrgBotToken(supabase, goal.organization_id);
+    if (!botToken) return;
+
+    const text = formatGoalLifecycle(event, payload);
+    const opts: SendOpts = { parse_mode: "Markdown", disable_web_page_preview: true };
+    if (payload.detailUrl) {
+      opts.reply_markup = {
+        inline_keyboard: [[{ text: "🔗 Mở chi tiết", url: payload.detailUrl }]],
+      };
+    }
+    await sendOne({ chatId: tn.chatId, botToken }, text, opts);
+  } catch (e) {
+    console.warn("[telegram-notifier] notifyGoalLifecycle error:", e);
+  }
+}
+
 // Notify the goal owner that their pipeline is done.
 export async function notifyPipelineCompleted(
   // deno-lint-ignore no-explicit-any

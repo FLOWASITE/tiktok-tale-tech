@@ -468,6 +468,10 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleCancel({ supabase, botConfig, chatId, telegramUserId }));
         break;
+      case "/regenerate":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleRegenerate({ supabase, botConfig, chatId, telegramUserId, arg: args }));
+        break;
       case "/link_group":
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleLinkGroup({ supabase, botConfig, chatId, chatType, telegramUserId }));
@@ -601,6 +605,8 @@ function helpText(): string {
     "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/campaigns — Xem 5 campaign mới nhất",
+    "/cancel — Hủy pipeline đang chạy (trong 1h)",
+    "/regenerate <id8> — Chạy lại 1 campaign cũ với cùng setup",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — Admin dùng trong group để kết nối với tổ chức",
     "/help — Xem danh sách này",
@@ -1497,13 +1503,23 @@ async function commitGenerateDraft(args: {
   botConfig: HandlerCtx["botConfig"];
   draft: GenerateDraft;
   mode: ApprovalMode;
+  startDateIso?: string;     // P2: campaign_start_date (YYYY-MM-DD)
+  timeOfDay?: string;        // P2: HH:mm hint stored in clarification_context
 }): Promise<void> {
-  const { supabase, botConfig, draft, mode } = args;
+  const { supabase, botConfig, draft, mode, startDateIso, timeOfDay } = args;
   const { chatId, userId, prompt, extracted, durationDays, endDateIso, targetPostCount,
     finalChannels, perChannelFreq, suggestReasoning, suggestAiPowered, brandId, brandName,
     brandTargetAudience, brandPositioning, brandToneOfVoice, primaryPersona, topicPool } = draft;
 
   const todayIso = new Date().toISOString().split("T")[0];
+  const startIso = startDateIso || todayIso;
+  // Re-compute end date if user shifted start.
+  const computedEndIso = (() => {
+    if (!startDateIso) return endDateIso;
+    const d = new Date(`${startDateIso}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + Math.max(1, durationDays - 1));
+    return d.toISOString().split("T")[0];
+  })();
 
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
@@ -1516,8 +1532,8 @@ async function commitGenerateDraft(args: {
       target_channels: finalChannels,
       frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
       campaign_duration_days: durationDays,
-      campaign_start_date: todayIso,
-      campaign_end_date: endDateIso,
+      campaign_start_date: startIso,
+      campaign_end_date: computedEndIso,
       brand_template_id: brandId || null,
       autonomy_level: botConfig.defaultAutonomyLevel,
       approval_mode: mode,
@@ -1537,6 +1553,9 @@ async function commitGenerateDraft(args: {
         tone_of_voice: brandToneOfVoice,
         primary_persona: primaryPersona,
         topic_pool: topicPool.length > 0 ? topicPool : undefined,
+        // P2: lifecycle push routing + schedule hint
+        telegram_notify: { enabled: true, chat_id: chatId },
+        time_of_day: timeOfDay,
       },
     })
     .select("id, name")
@@ -1712,15 +1731,116 @@ async function handleGenerateModeCallback(args: {
   await rawAnswerCallback(botConfig.botToken, cbId,
     mode === "auto" ? "✅ Auto-approve" : "📝 Review plan first");
 
-  // Edit picker message to show progress
+  // P2: persist chosen mode on the draft, then ask the user WHEN to start.
+  draft.chosenMode = mode;
+
+  const scheduleKb = {
+    inline_keyboard: [
+      [
+        { text: "🚀 Bắt đầu ngay", callback_data: `gen:when:now:${draft.id}` },
+        { text: "📅 Mai 9h", callback_data: `gen:when:tmr9:${draft.id}` },
+      ],
+      [
+        { text: "📅 Mai 14h", callback_data: `gen:when:tmr14:${draft.id}` },
+        { text: "📅 +3 ngày 9h", callback_data: `gen:when:d3:${draft.id}` },
+      ],
+      [{ text: "❌ Hủy", callback_data: `gen:cancel:${draft.id}` }],
+    ],
+  };
+
   if (messageId) {
     try {
       await rawEditMessageText(botConfig.botToken, chatId, messageId,
-        `✅ Mode: ${mode === "auto" ? "Auto-approve" : "Review plan first"}\nĐang khởi chạy goal "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"…`);
+        `✅ Mode: ${mode === "auto" ? "Auto-approve" : "Review plan first"}\n\n📅 *Bắt đầu khi nào?*`,
+        { parse_mode: "Markdown", reply_markup: scheduleKb });
+    } catch { /* ignore */ }
+  } else {
+    await sendMessage(botConfig.botToken, chatId,
+      "📅 Bắt đầu khi nào?", { reply_markup: scheduleKb });
+  }
+}
+
+// =====================================================
+// P2: /generate schedule callback
+// gen:when:now|tmr9|tmr14|d3:<draftId>
+// =====================================================
+async function handleGenerateWhenCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  pruneGenerateDrafts();
+
+  const m = /^gen:when:(now|tmr9|tmr14|d3):([a-z0-9]+)$/i.exec(data);
+  if (!m) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
+    return;
+  }
+
+  const slot = m[1].toLowerCase();
+  const draftId = m[2].toLowerCase();
+  const draft = generateDrafts.get(draftId);
+  if (!draft) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "❌ Draft đã hết hạn. Gõ /generate lại.", true);
+    if (messageId) {
+      try {
+        await rawEditMessageText(botConfig.botToken, chatId, messageId,
+          "❌ Phiên /generate đã hết hạn (>10 phút). Gõ /generate lại.");
+      } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  if (draft.telegramUserId && fromTgId !== draft.telegramUserId) {
+    await rawAnswerCallback(botConfig.botToken, cbId, "Chỉ người gõ /generate mới chọn được lịch.", true);
+    return;
+  }
+
+  // Resolve start_date + time_of_day (VN time → store as UTC date).
+  // Use Asia/Ho_Chi_Minh wall-clock then take YYYY-MM-DD of that wall time.
+  const now = new Date();
+  const vnNow = new Date(now.getTime() + 7 * 60 * 60 * 1000); // shift to VN wall clock
+  let startDateIso = vnNow.toISOString().split("T")[0];
+  let timeOfDay = `${String(vnNow.getUTCHours()).padStart(2,"0")}:${String(vnNow.getUTCMinutes()).padStart(2,"0")}`;
+  let label = "ngay";
+
+  if (slot === "now") {
+    // keep startDateIso = today VN
+    label = "ngay bây giờ";
+  } else if (slot === "tmr9") {
+    const d = new Date(vnNow.getTime() + 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "09:00";
+    label = `mai (${startDateIso}) 9h`;
+  } else if (slot === "tmr14") {
+    const d = new Date(vnNow.getTime() + 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "14:00";
+    label = `mai (${startDateIso}) 14h`;
+  } else if (slot === "d3") {
+    const d = new Date(vnNow.getTime() + 3 * 24 * 60 * 60 * 1000);
+    startDateIso = d.toISOString().split("T")[0];
+    timeOfDay = "09:00";
+    label = `+3 ngày (${startDateIso}) 9h`;
+  }
+
+  await rawAnswerCallback(botConfig.botToken, cbId, `📅 ${label}`);
+
+  if (messageId) {
+    try {
+      await rawEditMessageText(botConfig.botToken, chatId, messageId,
+        `📅 Bắt đầu: ${label}\nĐang khởi chạy goal "${draft.extracted.suggested_name || draft.prompt.slice(0, 60)}"…`);
     } catch { /* ignore */ }
   }
 
-  await commitGenerateDraft({ supabase, botConfig, draft, mode });
+  const mode: ApprovalMode = draft.chosenMode || "approve_plan";
+  await commitGenerateDraft({ supabase, botConfig, draft, mode, startDateIso, timeOfDay });
 }
 
 
@@ -2926,7 +3046,13 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  // P1 /generate mode picker: gen:mode:auto|plan:<draftId>  |  gen:cancel:<draftId>
+  // P1 /generate mode picker + P2 schedule picker:
+  //   gen:mode:auto|plan:<draftId> | gen:cancel:<draftId>
+  //   gen:when:now|tmr9|tmr14|d3:<draftId>
+  if (data.startsWith("gen:when:") && chatId && fromTgId) {
+    await handleGenerateWhenCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
   if (data.startsWith("gen:") && chatId && fromTgId) {
     await handleGenerateModeCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
     return;
@@ -3589,7 +3715,142 @@ async function handleCancel(
 
 
 // =====================================================
-// /examples — example prompt library
+// P2: /regenerate <goal_id|prefix>
+// Clone an existing agent_goal's clarification_context + channels and
+// trigger a fresh pipeline (start_date = today). Useful to retry a failed
+// campaign or run a new cycle of a successful one without retyping the prompt.
+// =====================================================
+async function handleRegenerate(
+  ctx: HandlerCtx & { telegramUserId?: number; arg?: string },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, arg } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId,
+      "Chưa kết nối. Gõ /start để liên kết tài khoản trước.");
+    return;
+  }
+
+  const idPrefix = (arg || "").trim();
+  if (!idPrefix) {
+    // Show last 5 goals for picker convenience
+    const { data: recent } = await supabase
+      .from("agent_goals")
+      .select("id, name, created_at")
+      .eq("organization_id", botConfig.organizationId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    const list = (recent ?? []) as Array<{ id: string; name: string; created_at: string }>;
+    if (list.length === 0) {
+      await sendMessage(botConfig.botToken, chatId,
+        "Chưa có goal nào để regenerate. Gõ /generate để tạo mới.");
+      return;
+    }
+    const lines = list.map((g) =>
+      `• \`${g.id.slice(0, 8)}\` — ${escMdNotif(g.name.slice(0, 60))}`
+    ).join("\n");
+    await sendMessage(botConfig.botToken, chatId,
+      `*Cú pháp:* \`/regenerate <id 8 ký tự>\`\n\n*5 goal gần đây:*\n${lines}`,
+      { parse_mode: "Markdown" });
+    return;
+  }
+
+  // Resolve goal by full UUID or 8-char prefix
+  let query = supabase
+    .from("agent_goals")
+    .select("*")
+    .eq("organization_id", botConfig.organizationId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (idPrefix.length >= 32) {
+    query = query.eq("id", idPrefix);
+  } else {
+    query = query.ilike("id", `${idPrefix}%`);
+  }
+  const { data: matches, error: qErr } = await query;
+  if (qErr) {
+    console.error("[handleRegenerate] query failed:", qErr);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không tra được goal.");
+    return;
+  }
+  const src = (matches ?? [])[0];
+  if (!src) {
+    await sendMessage(botConfig.botToken, chatId,
+      `❌ Không tìm thấy goal khớp \`${escMdNotif(idPrefix)}\`. Gõ /regenerate (không tham số) để xem danh sách.`,
+      { parse_mode: "Markdown" });
+    return;
+  }
+
+  // Clone with fresh dates + same context (override telegram_notify chat)
+  const todayIso = new Date().toISOString().split("T")[0];
+  const durationDays = src.campaign_duration_days || 14;
+  const endDate = new Date();
+  endDate.setUTCDate(endDate.getUTCDate() + Math.max(1, durationDays - 1));
+  const endIso = endDate.toISOString().split("T")[0];
+
+  const srcCtx = (src.clarification_context && typeof src.clarification_context === "object")
+    ? { ...(src.clarification_context as Record<string, unknown>) }
+    : {};
+  (srcCtx as Record<string, unknown>).telegram_notify = { enabled: true, chat_id: chatId };
+  (srcCtx as Record<string, unknown>).regenerated_from = src.id;
+
+  const { data: cloned, error: insErr } = await supabase
+    .from("agent_goals")
+    .insert({
+      name: `${src.name} (regen)`.slice(0, 120),
+      description: src.description,
+      organization_id: src.organization_id,
+      created_by: binding.userId,
+      target_topics: src.target_topics || [],
+      target_channels: src.target_channels || [],
+      frequency: src.frequency || null,
+      campaign_duration_days: durationDays,
+      campaign_start_date: todayIso,
+      campaign_end_date: endIso,
+      brand_template_id: src.brand_template_id || null,
+      autonomy_level: src.autonomy_level || botConfig.defaultAutonomyLevel,
+      approval_mode: src.approval_mode || "approve_plan",
+      is_active: true,
+      is_paused: false,
+      clarification_context: srcCtx,
+    })
+    .select("id, name")
+    .single();
+
+  if (insErr || !cloned) {
+    console.error("[handleRegenerate] insert failed:", insErr);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không clone được goal.");
+    return;
+  }
+
+  // Trigger pipeline (best-effort; lifecycle notify will ping back on completion)
+  try {
+    const r: any = await supabase.functions.invoke("agent-pipeline", {
+      body: { action: "trigger_from_goal", goal_id: cloned.id },
+    });
+    if (r?.error) {
+      console.warn("[handleRegenerate] pipeline trigger error:", r.error);
+    }
+  } catch (e) {
+    console.warn("[handleRegenerate] pipeline invoke threw:", e);
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `🔁 Đã clone từ \`${src.id.slice(0, 8)}\`.\n*Goal mới:* ${escMdNotif(cloned.name)}\nAI đang khởi chạy lại — bạn sẽ nhận push khi xong.\n\nDùng /status để xem tiến trình.`,
+    { parse_mode: "Markdown" },
+  );
+}
+
+
+
 // =====================================================
 async function handleExamples(ctx: HandlerCtx): Promise<void> {
   const { supabase, botConfig, chatId } = ctx;
@@ -4277,6 +4538,8 @@ interface GenerateDraft {
   topicPool: Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }>;
   createdAt: number;
   pickerMessageId?: number;
+  // P2: chosen approval mode (set after user taps mode picker, used by schedule callback).
+  chosenMode?: ApprovalMode;
 }
 const generateDrafts = new Map<string, GenerateDraft>();
 const GENERATE_DRAFT_TTL_MS = 10 * 60 * 1000;
