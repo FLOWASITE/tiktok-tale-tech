@@ -384,8 +384,21 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
       </div>
 
       {/* View Toggle */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{plans.length} kế hoạch · {campaignData.length} chiến dịch</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">{plans.length} kế hoạch · {campaignData.length} chiến dịch</p>
+          {campaignData.length > 0 && (
+            <button
+              className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              onClick={() => {
+                if (selectedGoalIds.size === campaignData.length) clearSelection();
+                else setSelectedGoalIds(new Set(campaignData.map(c => c.goal.id)));
+              }}
+            >
+              {selectedGoalIds.size === campaignData.length && campaignData.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
+          )}
+        </div>
         <div className="flex items-center border rounded-lg overflow-hidden">
           <button
             className={cn('flex items-center gap-1 px-2.5 py-1 text-[10px] transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
