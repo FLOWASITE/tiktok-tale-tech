@@ -808,6 +808,42 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }
   };
 
+  // On-demand: ask AI for 3 suggested names from current brief, used by the inline alert
+  const fetchNameSuggestions = async () => {
+    if (suggestingNames) return;
+    setSuggestingNames(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
+        body: {
+          title: name.trim() || 'untitled',
+          description: description.trim() || undefined,
+          industry: currentBrand?.industry || undefined,
+          channels: selectedChannels,
+          brand_name: currentBrand?.brand_name || undefined,
+          objectives: objectives.map(id => OBJECTIVES.find(o => o.id === id)?.label || id),
+          primary_objective: selectedObj?.label,
+          key_messages: keyMessages,
+          primary_cta: primaryCta.trim() || undefined,
+          pillars: Object.keys(pillarAllocation),
+        },
+      });
+      if (error) throw error;
+      if (Array.isArray(data?.suggested_names) && data.suggested_names.length > 0) {
+        setNameIssue({
+          issue: data.name_issue || 'vague',
+          reason: data.name_issue_reason || nameQuality.reason || 'Đặt tên cụ thể hơn để AI hiểu đúng.',
+          suggestions: data.suggested_names.slice(0, 3),
+        });
+      } else {
+        toast.info('AI chưa có gợi ý tốt hơn', { description: 'Hãy bổ sung mô tả ngắn để AI hiểu hơn.' });
+      }
+    } catch (e: any) {
+      toast.error('Không lấy được gợi ý', { description: String(e?.message || e) });
+    } finally {
+      setSuggestingNames(false);
+    }
+  };
+
   const finalSubmit = async (context: Record<string, string> | null) => {
     const baseContext = context || clarificationContext || {};
     const briefContext: Record<string, any> = { ...baseContext };
