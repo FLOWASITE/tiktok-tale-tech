@@ -1970,6 +1970,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                               ? currentBrand.industry[0]
                               : (currentBrand?.industry as string | undefined),
                             organization_id: currentOrganization?.id,
+                            campaign_duration_days: effectiveDuration,
+                            target_post_count: estimatedPosts > 0 ? estimatedPosts : undefined,
+                            audience: (currentBrand as any)?.target_audience || undefined,
+                            available_connections: availableConnections.length > 0 ? availableConnections : undefined,
                           });
                           const aiIds = result.channels.map(c => c.id);
                           setSelectedChannels(prev => Array.from(new Set([...prev, ...aiIds])));
@@ -1982,7 +1986,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                           });
                           setAiChannelIds(new Set(aiIds));
                           setAiChannelReasoning(result.reasoning || '');
-                          toast.success('AI đã gợi ý kênh', { description: result.reasoning });
+                          setAiChannelPowered(!!result.ai_powered);
+                          toast.success(result.ai_powered ? '🧠 AI đã phân tích & gợi ý kênh' : 'Đã gợi ý kênh (rule-based)', { description: result.reasoning });
                         } catch (err: any) {
                           const msg = String(err?.message || '');
                           if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
