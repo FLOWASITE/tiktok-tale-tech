@@ -1973,9 +1973,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
                 {/* Hero metric strip */}
                 <div className="flex items-stretch gap-1.5 flex-wrap">
-                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
-                    <p className="text-base font-bold text-primary tabular-nums leading-none">{estimatedPosts}</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết</p>
+                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10" title={isEstimate ? 'Ước tính theo kênh × tần suất × thời gian' : 'Số bài thực tế trong lịch chi tiết'}>
+                    <p className="text-base font-bold text-primary tabular-nums leading-none">{displayPosts}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết{isEstimate ? ' (ước tính)' : ''}</p>
                   </div>
                   <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-base font-bold text-primary tabular-nums leading-none">{selectedChannels.length}</p>
