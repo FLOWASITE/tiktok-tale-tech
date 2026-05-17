@@ -1,90 +1,133 @@
-# Tối ưu bước Xác nhận — AI Campaign Wizard
 
-## Vấn đề hiện tại
+# Multi-Objective Campaign (Phương án A)
 
-1. **Clarify hỏi thừa**: `clarify-campaign-intent` chỉ nhận `title + description + industry + channels + brand_name` → bỏ qua hoàn toàn `objective`, `pillar_allocation`, `key_messages`, `primaryCta`, `kpi_targets`, `audience` đã có ở Step 1-2. AI luôn hỏi "chủ đề cụ thể", "đối tượng" dù user đã chọn rồi.
-2. **Layout dài**: 4 block dọc (Preview metrics → Brand → Campaign link → Summary) phải scroll >1 màn hình mobile mới thấy nút **Khởi chạy** → user nghĩ bị kẹt.
-3. **Mất context**: Khi clarification mở, toàn bộ summary biến mất → user không còn thấy cài đặt đã nhập.
+Cho phép user chọn **tối đa 3 mục tiêu** trong Step 1 của GoalWizard, auto-pin **Primary** (cái đầu tiên chọn, có thể đổi), inject weight **Primary 70% / Secondary 30%** vào prompt AI campaign strategy. Chặn combo xung đột bằng `useStrategyValidation`.
 
-## Giải pháp
+## Scope
 
-### A. Smart Clarification — gửi đủ context
+3 files: 1 frontend, 2 edge functions. Backward-compatible với data cũ (single `objective` string).
 
-**File**: `src/components/agents/GoalWizard.tsx` (`handleConfirmStep`)
+## 1. `src/components/agents/GoalWizard.tsx` — Frontend
 
-Bổ sung payload gửi `clarify-campaign-intent`:
+### State refactor
+Thay:
 ```ts
-{
-  title, description, industry, channels, brand_name,
-  // NEW context
-  objective: selectedObj?.label,
-  key_messages: keyMessages,
-  primary_cta: primaryCta,
-  pillars: Object.keys(pillarAllocation),
-  kpi_targets: kpiTargets,
-  total_posts_target: totalPostsTarget,
-  duration_days: effectiveDuration,
+const [selectedObjective, setSelectedObjective] = useState<string | null>(null);
+```
+Bằng:
+```ts
+const [objectives, setObjectives] = useState<string[]>([]); // max 3, [0] = primary
+```
+Helper:
+- `primaryObjective = objectives[0] ?? null`
+- `selectedObj = OBJECTIVES.find(o => o.id === primaryObjective)` (giữ tên cũ để tránh sửa các chỗ dùng `selectedObj.kpis`, `selectedObj.label`)
+- Replace mọi `selectedObjective` → `primaryObjective` (cho industrySuggestions, ctaSuggestions, label hiển thị)
+
+### Toggle handler
+```ts
+const toggleObjective = (id: string) => {
+  setObjectives(prev => {
+    if (prev.includes(id)) return prev.filter(x => x !== id);  // bỏ chọn
+    if (prev.length >= 3) {
+      toast.warning('Tối đa 3 mục tiêu / chiến dịch');
+      return prev;
+    }
+    return [...prev, id];
+  });
+  setKpiTargets({}); // reset KPI khi đổi
+};
+const setPrimary = (id: string) => {
+  setObjectives(prev => prev.includes(id) ? [id, ...prev.filter(x => x !== id)] : prev);
+};
+```
+
+### UI (lines 774-825)
+Card hiển thị:
+- Click chưa chọn → thêm vào list (auto primary nếu là đầu tiên)
+- Click đã chọn nhưng KHÔNG phải primary → set làm primary
+- Click khi đã primary → bỏ chọn
+- Badge "★ Chính" trên primary card (nền primary), badge "Phụ" trên secondary (muted)
+- Hint dưới label: *"Chọn tối đa 3 mục tiêu. Mục tiêu chính nhận 70% trọng số nội dung."*
+
+KPI section: chỉ render KPI của **primary objective** (giữ logic cũ với `selectedObj`).
+
+### Validation
+- `canNext (step 0)`: `name.trim() && objectives.length >= 1`
+- Conflict guard (warning, không block): nếu chứa cả `awareness` + `revenue` → show alert *"Awareness + Revenue thường khó đạt cùng campaign. Cân nhắc tách 2 chiến dịch."*
+
+### Payload
+- `finalSubmit` (lines 496-512):
+  ```ts
+  if (objectives.length > 0) {
+    briefContext.objectives = objectives;               // ['awareness','engagement']
+    briefContext.primary_objective = objectives[0];     // 'awareness'
+    briefContext.objective = objectives[0];             // backward-compat (single string)
+    briefContext.objective_weights = { primary: 0.7, secondary: 0.3 };
+  }
+  ```
+- `handleConfirmStep` (line 470): gửi `objectives` array + `primary_objective` thay vì `objective: selectedObj?.label` đơn lẻ. Smart-skip check: `hasObjective = objectives.length > 0`.
+
+### Edit mode (line 338-353)
+Khi `initialData.clarification_context.objectives` tồn tại → rehydrate; nếu chỉ có `objective` (legacy) → wrap thành `[objective]`.
+
+## 2. `supabase/functions/clarify-campaign-intent/index.ts`
+
+- Đọc thêm `objectives: string[]` + `primary_objective: string`. Giữ `objective` cũ làm fallback.
+- Trong `strategicContext`: hiển thị `- Objectives: ${primary} (primary, 70%), ${secondaries.join(', ')} (secondary, 30%)`.
+- Server fast-path completeness: dùng `objectives.length > 0 || objective` thay vì chỉ `objective`.
+- Prompt nhắc AI: *"Campaign có 1 primary objective + tối đa 2 secondary. Không hỏi lại objective/audience."*
+
+## 3. `supabase/functions/generate-campaign-strategy/index.ts` — Core AI weight injection
+
+Trong `buildStrategyPrompt` (line 18-110):
+
+### Extract trong `ctx` (line 39)
+```ts
+const objectives = Array.isArray(ctx.objectives) ? ctx.objectives as string[] : [];
+const primaryObjective = typeof ctx.primary_objective === 'string'
+  ? ctx.primary_objective
+  : (objectives[0] || (typeof ctx.objective === 'string' ? ctx.objective : ''));
+const secondaryObjectives = objectives.slice(1);
+```
+
+### Filter clarificationStr (line 33)
+Thêm `objectives`, `primary_objective`, `objective_weights` vào filter list để không leak raw vào audience context.
+
+### Thêm `objectivesSection` (sau briefSection ~line 59)
+```ts
+let objectivesSection = '';
+if (primaryObjective) {
+  objectivesSection = `\nCAMPAIGN OBJECTIVES (weighted):
+- PRIMARY: ${primaryObjective} → drives 70% of pieces (tone, CTA strength, content_role distribution)
+- SECONDARY: ${secondaryObjectives.length ? secondaryObjectives.join(', ') + ' → 30% as supporting angles' : '(none)'}
+
+OBJECTIVE WEIGHTING RULES:
+- ~70% of pieces must directly serve the PRIMARY objective in their hook + CTA.
+- ~30% may serve secondary objectives as bridge content (awareness → engagement → conversion).
+- If primary = awareness/engagement → tilt content_role toward seed/sprout.
+- If primary = leads/revenue → tilt content_role toward harvest.
+- NEVER let secondary objectives dilute the primary message.\n`;
 }
 ```
 
-**File**: `supabase/functions/clarify-campaign-intent/index.ts`
+Inject vào template body (sau `${briefSection}`).
 
-- Đọc thêm fields trên, đưa vào prompt dưới mục "Strategic context already provided".
-- Cập nhật rule: nếu đã có objective + (key_messages || primary_cta || pillars) → **default `ready: true`**, chỉ hỏi khi title <15 char và description rỗng.
-- Hạ max questions xuống **2** (thay vì 3) để giảm friction.
-- Tăng `completenessScore` từ 4 lên 7 criteria (thêm objective, pillars, key_messages); ready khi score ≥5.
+### Update Rule 3 (line 83-87)
+Adjust content_role distribution dynamically:
+- primary in [awareness, engagement] → seed 50% / sprout 35% / harvest 15%
+- primary in [traffic, leads] → seed 30% / sprout 35% / harvest 35%
+- primary = revenue → seed 25% / sprout 30% / harvest 45%
+- primary = retention → seed 20% / sprout 50% / harvest 30%
 
-Frontend client-side guard: nếu `completenessScore >= 5` (tính ngay trong `handleConfirmStep`) → **skip gọi edge function**, đi thẳng `finalSubmit(null)`. Tiết kiệm 1 round-trip cho 70% trường hợp.
-
-### B. Compact Layout — 1 màn hình, sticky CTA
-
-**File**: `src/components/agents/GoalWizard.tsx` (block `step === confirmStep`)
-
-Cấu trúc mới (top → bottom):
-
-```text
-┌─ Hero strip (3 metric pills horizontal) ─────────┐
-│  📝 12 bài   📡 5 kênh   📅 14 ngày   📅 20/5→3/6│
-└──────────────────────────────────────────────────┘
-┌─ Card 2 cột ─────────────────────────────────────┐
-│ ✦ Mục tiêu: Awareness    │ 🎨 Brand: Aesop       │
-│ 💬 3 thông điệp chính    │ 🎯 CTA: Mua ngay      │
-│ 🏷 Kênh: [chips compact] │ 🔗 Campaign: Q2-2026  │
-└──────────────────────────────────────────────────┘
-┌─ Collapsible "Cài đặt nâng cao" (default closed)─┐
-│  • Chế độ AI: Approve each [đổi]                 │
-│  • Smart Auto-Approve thresholds                 │
-│  • Ngân sách, pillar split                       │
-└──────────────────────────────────────────────────┘
-```
-
-- **Hero metric pills**: thay grid-cols-3 lớn bằng 1 hàng ngang `flex gap-2`, mỗi pill `h-8` chứa icon + số + label nhỏ.
-- **Card 2 cột** (`grid-cols-2 gap-3`): gộp objective + key_messages + channels (cột trái) với brand + CTA + campaign link (cột phải). Bỏ label "Brand Template" rời rạc.
-- **Collapsible nâng cao**: dùng shadcn `<Collapsible>` cho "Chế độ AI / Auto-Approve / Ngân sách" → ẩn theo default, mở khi cần đổi.
-- **Sticky footer** (đã có) giữ nguyên — nhưng vì content gọn còn ~1 viewport nên nút **Khởi chạy** luôn nhìn thấy không cần scroll.
-
-### C. Clarification inline — không nuốt toàn bộ panel
-
-Khi `showClarification = true`:
-- Giữ Hero metric pills + Card 2 cột **hiển thị bên trên** (read-only).
-- `ClarificationStep` render trong 1 alert card phía dưới với heading "AI cần xác nhận 1-2 điểm" + nút "Bỏ qua, dùng mặc định" rõ ràng.
-- Không còn cảnh user thấy mỗi block clarification trống trải.
+Encode as text rule in prompt (AI sẽ tuân theo).
 
 ## Out of scope
 
-- Không đổi state shape `selectedChannels` / `briefContext`.
-- Không đổi `agent-pipeline` / `agent-creator-v2` backend.
-- Không đổi Step 1-3 (Mục tiêu / Chiến lược / Kênh).
-- Không đổi flow `isGenerating` (saving → generating → done/error).
+- Không đổi DB schema (data lưu trong `agent_goals.clarification_context` JSONB sẵn có)
+- Không sửa `agent-creator-v2` mapping (line 425) — vẫn dùng `content_role` từ strategy output
+- Không sửa `agent-pipeline` (clarification_context pass-through nguyên vẹn)
+- Không animation mới — giữ Soft Luxury hiện tại
 
-## Files thay đổi
+## Verification
 
-1. `src/components/agents/GoalWizard.tsx` — payload clarify + layout xác nhận + client-side smart skip
-2. `supabase/functions/clarify-campaign-intent/index.ts` — đọc thêm fields + prompt mới + threshold ready
-3. `src/components/agents/ClarificationStep.tsx` — bỏ icon banner lớn, tinh gọn cho inline mode
-
-## Kết quả kỳ vọng
-
-- **~70% trường hợp** vào thẳng generate, không phải trả lời clarification.
-- Bước Xác nhận **fit trong 1 viewport 707×662** (kích thước user đang dùng) — không scroll thấy CTA.
-- Khi AI hỏi, user vẫn thấy mọi cài đặt đã nhập → dễ tự tin bấm "Bỏ qua".
+Sau khi triển khai, em sẽ kiểm: (1) build TS pass, (2) chọn 1/2/3 objectives → UI badge đúng, (3) đổi primary bằng click lại → reorder, (4) submit + check `clarification_context` payload có đủ 4 field mới, (5) inspect prompt log `generate-campaign-strategy` thấy `OBJECTIVE WEIGHTING RULES` block.

@@ -24,7 +24,10 @@ Deno.serve(async (req) => {
     let industry = body.industry || "";
 
     // NEW: strategic context already provided in earlier wizard steps
-    const objective: string = body.objective || "";
+    const objectivesArr: string[] = Array.isArray(body.objectives) ? body.objectives : [];
+    const primaryObjective: string = body.primary_objective || objectivesArr[0] || body.objective || "";
+    const secondaryObjectives: string[] = objectivesArr.slice(1);
+    const objective: string = primaryObjective; // backward-compat
     const keyMessages: string[] = Array.isArray(body.key_messages) ? body.key_messages : [];
     const primaryCta: string = body.primary_cta || "";
     const pillars: string[] = Array.isArray(body.pillars) ? body.pillars : [];
@@ -79,7 +82,8 @@ Deno.serve(async (req) => {
     }
 
     const strategicContext = [
-      objective && `- Objective: ${objective}`,
+      objective && `- Primary objective: ${objective} (70% weight)`,
+      secondaryObjectives.length > 0 && `- Secondary objectives: ${secondaryObjectives.join(", ")} (30% weight)`,
       keyMessages.length > 0 && `- Key messages: ${keyMessages.join(" | ")}`,
       primaryCta && `- Primary CTA: ${primaryCta}`,
       pillars.length > 0 && `- Content pillars: ${pillars.join(", ")}`,
