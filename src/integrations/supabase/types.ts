@@ -4794,7 +4794,7 @@ export type Database = {
       content_schedules: {
         Row: {
           channel: string
-          content_id: string
+          content_id: string | null
           created_at: string | null
           created_by: string | null
           external_post_id: string | null
@@ -4810,7 +4810,7 @@ export type Database = {
         }
         Insert: {
           channel: string
-          content_id: string
+          content_id?: string | null
           created_at?: string | null
           created_by?: string | null
           external_post_id?: string | null
@@ -4826,7 +4826,7 @@ export type Database = {
         }
         Update: {
           channel?: string
-          content_id?: string
+          content_id?: string | null
           created_at?: string | null
           created_by?: string | null
           external_post_id?: string | null
