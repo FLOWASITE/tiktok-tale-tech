@@ -801,6 +801,90 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
               </div>
 
+              {/* Auto-suggest toggle */}
+              <TooltipProvider delayDuration={200}>
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="auto-obj" className="text-xs font-medium cursor-pointer">
+                      Để AI chọn mục tiêu giúp tôi
+                    </Label>
+                    <Switch
+                      id="auto-obj"
+                      checked={autoMode}
+                      disabled={suggestObjectives.isPending || (!name.trim() && !description.trim())}
+                      onCheckedChange={async (checked) => {
+                        setAutoMode(checked);
+                        if (!checked) {
+                          // Clear AI-set fields, keep user-overridden ones
+                          setObjectives(prev => prev.filter(id => !aiObjectiveIds.has(id)));
+                          setKpiTargets(prev => {
+                            const next = { ...prev };
+                            aiKpiKeys.forEach(k => { delete next[k]; });
+                            return next;
+                          });
+                          setAiObjectiveIds(new Set());
+                          setAiKpiKeys(new Set());
+                          setAiReasoning('');
+                          return;
+                        }
+                        try {
+                          const result = await suggestObjectives.mutateAsync({
+                            title: name,
+                            description,
+                            channels: selectedChannels,
+                            brand_template_id: brandTemplateId || currentBrand?.id,
+                            brand_name: currentBrand?.brand_name,
+                            industry: Array.isArray(currentBrand?.industry)
+                              ? currentBrand.industry[0]
+                              : (currentBrand?.industry as string | undefined),
+                            organization_id: currentOrganization?.id,
+                          });
+                          const aiIds = result.objectives.slice(0, 3);
+                          setObjectives(aiIds);
+                          setAiObjectiveIds(new Set(aiIds));
+                          // Merge KPI: only fill empty fields
+                          setKpiTargets(prev => {
+                            const next = { ...prev };
+                            const filled: string[] = [];
+                            Object.entries(result.kpis).forEach(([k, v]) => {
+                              if (next[k] === undefined || next[k] === 0) {
+                                next[k] = v;
+                                filled.push(k);
+                              }
+                            });
+                            setAiKpiKeys(new Set(filled));
+                            return next;
+                          });
+                          setAiReasoning(result.reasoning || '');
+                          toast.success('AI đã gợi ý mục tiêu', { description: result.reasoning });
+                        } catch (err: any) {
+                          const msg = String(err?.message || '');
+                          if (msg.includes('429')) toast.error('AI quá tải, thử lại sau');
+                          else if (msg.includes('402')) toast.error('Hết credit AI, nạp thêm để dùng tiếp');
+                          else toast.error('AI gợi ý thất bại', { description: msg });
+                          setAutoMode(false);
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    AI sẽ phân tích tên + mô tả + brand để chọn 1 mục tiêu Chính + 1-2 phụ và đề xuất KPI. Bạn có thể chỉnh sau.
+                  </p>
+                  {suggestObjectives.isPending && (
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Đang phân tích brief…
+                    </div>
+                  )}
+                  {aiReasoning && !suggestObjectives.isPending && (
+                    <p className="text-[10px] text-muted-foreground italic mt-1.5">
+                      <Sparkles className="w-2.5 h-2.5 inline mr-1 text-primary" />{aiReasoning}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {/* Objective Cards — multi-select max 3, [0] = primary */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -818,6 +902,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     const idx = objectives.indexOf(obj.id);
                     const isSelected = idx >= 0;
                     const isPrimary = idx === 0;
+                    const isAiPick = aiObjectiveIds.has(obj.id);
                     return (
                       <button
                         key={obj.id}
@@ -829,7 +914,12 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                             if (prev.length >= 3) { toast.warning('Tối đa 3 mục tiêu / chiến dịch'); return prev; }
                             return [...prev, obj.id];                                 // add new
                           });
-                          setKpiTargets({});
+                          // User-overridden → drop AI flag for this id
+                          setAiObjectiveIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(obj.id);
+                            return next;
+                          });
                         }}
                         className={cn(
                           "relative flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
@@ -840,7 +930,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       >
                         <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", obj.color)} />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <p className="text-xs font-medium leading-tight">{obj.label}</p>
                             {isPrimary && (
                               <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded bg-primary text-primary-foreground">
@@ -849,6 +939,18 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                             )}
                             {isSelected && !isPrimary && (
                               <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">Phụ</span>
+                            )}
+                            {isAiPick && isSelected && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-0.5 text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                                    <Sparkles className="w-2 h-2" />AI
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[220px] text-[10px]">
+                                  {aiReasoning || 'AI đề xuất dựa trên brief của bạn'}
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{obj.description}</p>
@@ -866,6 +968,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                 )}
               </div>
+              </TooltipProvider>
 
               {/* KPI Targets — show when objective selected */}
               {selectedObj && (
