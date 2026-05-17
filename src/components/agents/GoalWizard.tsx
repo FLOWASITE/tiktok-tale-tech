@@ -559,6 +559,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setCampaignId(initialData.campaign_id || undefined);
       setCampaignDurationDays(initialData.campaign_duration_days || 14);
       setCampaignStartDate(initialData.campaign_start_date || new Date().toISOString().split('T')[0]);
+      setPeriodType((initialData as any).period_type || 'custom');
+      setPeriodLabel((initialData as any).period_label || null);
+      setParentGoalId((initialData as any).parent_goal_id || null);
       setApprovalMode(initialData.approval_mode || 'approve_plan');
       // Rehydrate objectives from clarification_context (multi or legacy single)
       const ctx = (initialData as any).clarification_context || {};
