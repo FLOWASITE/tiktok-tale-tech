@@ -333,6 +333,15 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
 
+  // Campaign name quality
+  const nameQuality: NameQualityResult = useMemo(() => analyzeCampaignName(name), [name]);
+  const [nameIssue, setNameIssue] = useState<{
+    issue: 'vague' | 'irrelevant' | 'gibberish';
+    reason: string;
+    suggestions: string[];
+  } | null>(null);
+  const [suggestingNames, setSuggestingNames] = useState(false);
+
   // Generating state
   const [generatingStatus, setGeneratingStatus] = useState<GeneratingStatus>('idle');
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
