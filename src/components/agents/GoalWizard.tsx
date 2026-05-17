@@ -1153,6 +1153,59 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   />
                 </div>
 
+                {/* ─── Name quality inline alert ─── */}
+                {name.trim().length >= 3 && nameQuality.status !== 'ok' && (
+                  <div className={cn(
+                    "rounded-md border px-2.5 py-2 space-y-1.5",
+                    nameQuality.status === 'gibberish'
+                      ? "border-destructive/30 bg-destructive/5"
+                      : "border-amber-500/30 bg-amber-500/5"
+                  )}>
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className={cn(
+                        "w-3.5 h-3.5 mt-0.5 shrink-0",
+                        nameQuality.status === 'gibberish' ? "text-destructive" : "text-amber-600 dark:text-amber-400"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] leading-snug">
+                          <span className="font-medium">
+                            {nameQuality.status === 'gibberish' ? 'Tên chưa rõ nghĩa.' : 'Tên hơi chung chung.'}
+                          </span>{' '}
+                          <span className="text-muted-foreground">
+                            {nameQuality.reason || 'Nên thêm sản phẩm, đối tượng hoặc thời điểm để AI hiểu đúng.'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    {nameIssue?.suggestions?.length ? (
+                      <div className="flex flex-wrap gap-1 pl-5">
+                        {nameIssue.suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => { setName(s); setNameIssue(null); }}
+                            className="text-[10px] px-2 py-1 rounded-full border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pl-5">
+                        <button
+                          type="button"
+                          onClick={fetchNameSuggestions}
+                          disabled={suggestingNames || (!name.trim() && !description.trim())}
+                          className="text-[10px] inline-flex items-center gap-1 text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                        >
+                          {suggestingNames ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                          {suggestingNames ? 'AI đang gợi ý…' : 'Đề xuất tên với AI'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="campaign-desc" className="text-xs font-medium">
