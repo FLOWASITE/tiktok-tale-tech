@@ -6,6 +6,7 @@ import { ProviderIndicator } from './ModelCard';
 import { FunctionTagBadges } from './FunctionTagBadges';
 import { InlineModelPicker } from './InlineModelPicker';
 import { Settings, Check, X, Clock, RotateCcw } from 'lucide-react';
+import { HighlightText } from './HighlightText';
 
 export interface AIFunction {
   name: string;
@@ -24,6 +25,7 @@ interface FunctionCardProps {
   onEdit: () => void;
   onQuickModelChange?: (model: string | null) => void;
   compact?: boolean;
+  highlightTerms?: string[];
 }
 
 const TYPE_BADGES: Record<AIFunctionType, { label: string; className: string }> = {
