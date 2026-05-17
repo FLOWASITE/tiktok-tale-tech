@@ -38,6 +38,9 @@ export function useAgentGoals() {
       campaign_duration_days?: number;
       campaign_start_date?: string;
       approval_mode?: string;
+      period_type?: 'month' | 'quarter' | 'year' | 'custom';
+      period_label?: string | null;
+      parent_goal_id?: string | null;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();
