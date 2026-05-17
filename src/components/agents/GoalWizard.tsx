@@ -1019,21 +1019,31 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
               <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
-              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
-                {AVAILABLE_CHANNELS.map(ch => {
-                  const selected = selectedChannels.includes(ch.id);
-                  return (
-                    <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
-                      "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
-                      selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    )}>
-                      <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
-                      <span className="text-xs font-medium">{ch.label}</span>
-                      {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
-                    </button>
-                  );
-                })}
-              </div>
+              {(['longform', 'social'] as const).map(group => {
+                const items = AVAILABLE_CHANNELS.filter(c => c.group === group);
+                return (
+                  <div key={group} className="space-y-1.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                      {group === 'longform' ? '🌐 Website & Long-form' : '💬 Mạng xã hội'}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {items.map(ch => {
+                        const selected = selectedChannels.includes(ch.id);
+                        return (
+                          <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
+                            "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
+                            selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                          )}>
+                            <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
+                            <span className="text-xs font-medium">{ch.label}</span>
+                            {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
