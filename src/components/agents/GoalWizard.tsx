@@ -235,6 +235,7 @@ interface GoalWizardProps {
     approval_mode?: string;
     brand_template_id?: string;
     clarification_context?: Record<string, string>;
+    pre_generated_plan?: SchedulePiece[];
   }) => Promise<GenerationResult>;
   onComplete: (result: GenerationResult) => void;
   initialData?: AgentGoal | null;
