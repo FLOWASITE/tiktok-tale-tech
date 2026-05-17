@@ -1070,131 +1070,125 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           {/* (Step "Tự động" removed — autonomy is now configured globally in Workspace Settings) */}
 
           {/* ═══ Step 4: Xác nhận ═══ */}
-          {!isGenerating && step === confirmStep && (
-            <div className="space-y-3">
-              {showClarification ? (
-                <ClarificationStep
-                  questions={clarificationQuestions || []}
-                  understanding={clarificationUnderstanding || undefined}
-                  onSubmit={handleClarificationSubmit}
-                  onSkip={handleClarificationSkip}
-                  isLoading={clarifying}
-                />
-              ) : (
-                <>
-                  {/* AI Preview Panel */}
-                  <div className="p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-medium">Dự kiến chiến dịch</span>
+          {!isGenerating && step === confirmStep && (() => {
+            const endDate = new Date(new Date(campaignStartDate).getTime() + effectiveDuration * 86400000).toISOString().split('T')[0];
+            const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
+            const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+            const weeks = Math.ceil(effectiveDuration / 7);
+            const estCarousels = selectedChannels
+              .filter(ch => visualChannelIds.includes(ch))
+              .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+            const approvalLabel = APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label;
+
+            return (
+              <div className="space-y-2.5">
+                {/* Hero metric strip */}
+                <div className="flex items-stretch gap-1.5">
+                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                    <p className="text-base font-bold text-primary tabular-nums leading-none">{estimatedPosts}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết</p>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                    <p className="text-base font-bold text-primary tabular-nums leading-none">{selectedChannels.length}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Kênh</p>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                    <p className="text-base font-bold text-primary tabular-nums leading-none">{effectiveDuration}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Ngày</p>
+                  </div>
+                  {estCarousels > 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                      <p className="text-base font-bold text-primary tabular-nums leading-none">{estCarousels}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Carousel</p>
                     </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center">📅 {campaignStartDate} → {endDate}</p>
 
-                    {/* Overview metrics */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="text-center p-2 rounded-md bg-background/60">
-                        <p className="text-lg font-bold text-primary tabular-nums">{estimatedPosts}</p>
-                        <p className="text-[9px] text-muted-foreground">Bài viết</p>
-                      </div>
-                      <div className="text-center p-2 rounded-md bg-background/60">
-                        <p className="text-lg font-bold text-primary tabular-nums">{selectedChannels.length}</p>
-                        <p className="text-[9px] text-muted-foreground">Kênh</p>
-                      </div>
-                      <div className="text-center p-2 rounded-md bg-background/60">
-                        <p className="text-lg font-bold text-primary tabular-nums">{effectiveDuration}</p>
-                        <p className="text-[9px] text-muted-foreground">Ngày</p>
+                {/* 2-column summary card */}
+                <div className="rounded-lg border bg-card p-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]">
+                  {selectedObj && (
+                    <div className="flex items-start gap-1.5">
+                      <selectedObj.icon className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", selectedObj.color)} />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Mục tiêu</p>
+                        <p className="font-medium truncate">{selectedObj.label}</p>
                       </div>
                     </div>
-
-                    {/* Content type breakdown */}
-                    {(() => {
-                      const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
-                      const videoChannelIds: string[] = []; // TikTok/YouTube đi qua Video Studio, không thuộc AI Campaign
-                      const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
-                      const weeks = Math.ceil(effectiveDuration / 7);
-
-                      const estCarousels = selectedChannels
-                        .filter(ch => visualChannelIds.includes(ch))
-                        .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
-
-                const estVideos = 0;
-
-                      const breakdownItems = [
-                        { icon: FileText, label: 'Nội dung đa kênh', count: estimatedPosts },
-                        { icon: Images, label: 'Carousel', count: estCarousels },
-                        { icon: Video, label: 'Video Script', count: estVideos },
-                      ].filter(item => item.count > 0);
-
-                      return breakdownItems.length > 0 ? (
-                        <div className="border-t border-primary/10 pt-2 space-y-1">
-                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Phân bổ nội dung</span>
-                          {breakdownItems.map(item => (
-                            <div key={item.label} className="flex items-center justify-between py-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <item.icon className="w-3 h-3 text-muted-foreground/70" />
-                                <span className="text-[11px] text-muted-foreground">{item.label}</span>
-                              </div>
-                              <span className="text-[11px] font-semibold tabular-nums">{item.count}</span>
-                            </div>
-                          ))}
+                  )}
+                  <div className="flex items-start gap-1.5">
+                    {currentBrand ? (
+                      <>
+                        <div className="w-3.5 h-3.5 mt-0.5 shrink-0 rounded flex items-center justify-center text-[8px] font-bold text-primary-foreground" style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}>
+                          {currentBrand.brand_name.charAt(0).toUpperCase()}
                         </div>
-                      ) : null;
-                    })()}
-
-                    {selectedObj && (
-                      <div className="flex items-center gap-1.5 text-[10px]">
-                        <selectedObj.icon className={cn("w-3 h-3", selectedObj.color)} />
-                        <span className="text-muted-foreground">Mục tiêu:</span>
-                        <span className="font-medium">{selectedObj.label}</span>
+                        <div className="min-w-0">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Brand</p>
+                          <p className="font-medium truncate">{currentBrand.brand_name}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Brand</p>
+                        <p className="text-muted-foreground italic">Chưa chọn</p>
                       </div>
                     )}
-                    {selectedChannels.length > 0 && (
+                  </div>
+                  {keyMessages.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Thông điệp ({keyMessages.length})</p>
+                      <div className="flex flex-wrap gap-1">
+                        {keyMessages.slice(0, 3).map((m, i) => <Badge key={i} variant="secondary" className="text-[9px] font-normal">{m}</Badge>)}
+                        {keyMessages.length > 3 && <Badge variant="outline" className="text-[9px]">+{keyMessages.length - 3}</Badge>}
+                      </div>
+                    </div>
+                  )}
+                  {primaryCta.trim() && (
+                    <div className="col-span-2 flex items-center gap-1.5">
+                      <Zap className="w-3 h-3 text-amber-500 shrink-0" />
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide">CTA:</p>
+                      <p className="font-medium truncate">{primaryCta}</p>
+                    </div>
+                  )}
+                  {selectedChannels.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Kênh phát hành</p>
                       <div className="flex flex-wrap gap-1">
                         {selectedChannels.map(ch => {
                           const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                          return <Badge key={ch} variant="outline" className="text-[9px] flex items-center gap-1"><ChannelIcon channel={info?.channelKey || 'website'} size={10} className={channelIconColors[info?.channelKey || 'website']} /> {info?.label}</Badge>;
+                          return <Badge key={ch} variant="outline" className="text-[9px] flex items-center gap-1 font-normal"><ChannelIcon channel={info?.channelKey || 'website'} size={10} className={channelIconColors[info?.channelKey || 'website']} /> {info?.label}</Badge>;
                         })}
                       </div>
-                    )}
-                    <p className="text-[9px] text-muted-foreground">
-                      📅 {campaignStartDate} → {new Date(new Date(campaignStartDate).getTime() + effectiveDuration * 86400000).toISOString().split('T')[0]}
-                    </p>
-                  </div>
-
-                  {/* Brand + Campaign Link */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">Brand Template</Label>
-                    <div className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
-                      {currentBrand ? (
-                        <>
-                          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground" style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}>
-                            {currentBrand.brand_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="text-xs font-medium">{currentBrand.brand_name}</span>
-                          <Badge variant="secondary" className="text-[9px] ml-auto">Đang dùng</Badge>
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Chưa chọn brand</span>
-                      )}
                     </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
-                    <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch liên kết..." className="text-sm" />
-                  </div>
+                  )}
+                </div>
 
-                  {/* Review Summary */}
-                  <div className="space-y-1.5 text-xs border-t pt-3">
-                    <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
-                    <div className="flex justify-between items-center py-1 border-b gap-2">
-                      <span className="text-muted-foreground">Chế độ AI</span>
-                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                        <span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span>
-                        {defaultAutonomyLevel && autonomyLevel === defaultAutonomyLevel ? (
-                          <Badge variant="outline" className="text-[9px] gap-0.5"><Bot className="w-2.5 h-2.5" />theo cài đặt chung</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[9px]">đã đổi riêng</Badge>
-                        )}
+                {/* Clarification — inline below summary, doesn't replace it */}
+                {showClarification && (
+                  <ClarificationStep
+                    questions={clarificationQuestions || []}
+                    understanding={clarificationUnderstanding || undefined}
+                    onSubmit={handleClarificationSubmit}
+                    onSkip={handleClarificationSkip}
+                    isLoading={clarifying}
+                  />
+                )}
+
+                {/* Advanced settings — collapsed by default */}
+                {!showClarification && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center justify-between w-full px-2.5 py-2 rounded-md border bg-muted/30 hover:bg-muted/50 transition-colors group">
+                      <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                        <Settings2 className="w-3 h-3 text-muted-foreground" />
+                        Cài đặt nâng cao
+                        <Badge variant="outline" className="text-[9px] font-normal">{approvalLabel}</Badge>
+                        {autoApproveEnabled && <Badge variant="secondary" className="text-[9px] gap-0.5"><Bot className="w-2.5 h-2.5" />Auto</Badge>}
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 mt-2 px-2.5 py-2 rounded-md border bg-card text-[11px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Chế độ AI</span>
                         <Select
                           value={approvalMode}
                           onValueChange={(v) => {
@@ -1202,8 +1196,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                             if (opt) { setApprovalMode(opt.value); setAutonomyLevel(opt.autonomy); }
                           }}
                         >
-                          <SelectTrigger className="h-6 w-auto text-[10px] px-2 gap-1 border-dashed">
-                            <SelectValue placeholder="Đổi" />
+                          <SelectTrigger className="h-7 w-auto text-[10px] px-2 gap-1">
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {APPROVAL_MODE_OPTIONS.map(o => (
@@ -1212,31 +1206,29 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-                    {totalBudget > 0 && (
-                      <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
-                    )}
-                    {keyMessages.length > 0 && (
-                      <div className="py-1 border-b">
-                        <span className="text-muted-foreground">Thông điệp</span>
-                        <div className="flex gap-1 flex-wrap mt-1">{keyMessages.map((m, i) => <Badge key={i} variant="secondary" className="text-[9px]">{m}</Badge>)}</div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Liên kết Chiến dịch (tùy chọn)</Label>
+                        <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch..." className="text-xs" />
                       </div>
-                    )}
-                    {autoApproveEnabled && (
-                      <div className="py-1 border-b">
-                        <span className="text-muted-foreground">Smart Auto-Approve</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <Badge variant="outline" className="text-[9px]">Quality ≥ {thresholdQuality}</Badge>
-                          <Badge variant="outline" className="text-[9px]">GEO ≥ {thresholdGeo}</Badge>
-                          <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
+                      {totalBudget > 0 && (
+                        <div className="flex justify-between"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
+                      )}
+                      {autoApproveEnabled && (
+                        <div>
+                          <span className="text-muted-foreground">Smart Auto-Approve</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <Badge variant="outline" className="text-[9px]">Quality ≥ {thresholdQuality}</Badge>
+                            <Badge variant="outline" className="text-[9px]">GEO ≥ {thresholdGeo}</Badge>
+                            <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Footer */}
