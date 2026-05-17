@@ -1275,7 +1275,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       </div>
                       <Wand2 className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold">AI tự chạy toàn bộ</p>
+                        <p className="text-xs font-semibold">AI tự chạy toàn bộ <span className="font-normal text-muted-foreground">(mặc định)</span></p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           AI chọn mục tiêu + kênh + chiến lược. Bạn chỉ review ở bước cuối.
                         </p>
