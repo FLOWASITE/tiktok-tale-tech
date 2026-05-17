@@ -255,6 +255,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Multi-objective: max 3, objectives[0] = primary
   const [objectives, setObjectives] = useState<string[]>([]);
   const [kpiTargets, setKpiTargets] = useState<Record<string, number>>({});
+  // AI mode picker (Step 0)
+  const [aiMode, setAiMode] = useState<'assist' | 'auto'>('assist');
   // Auto-suggest mode
   const [autoMode, setAutoMode] = useState(false);
   const [aiObjectiveIds, setAiObjectiveIds] = useState<Set<string>>(new Set());
