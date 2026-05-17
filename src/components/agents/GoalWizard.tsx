@@ -467,6 +467,27 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }
   }, [open, initialData, defaultAutonomyLevel]);
 
+  // Auto-trigger schedule preview when entering Step Xác nhận lần đầu
+  useEffect(() => {
+    if (
+      step === STEPS.length - 1 &&
+      !scheduleAutoTriggered &&
+      editableSchedule === null &&
+      selectedChannels.length > 0 &&
+      !previewSchedule.loading &&
+      generatingStatus === 'idle'
+    ) {
+      void triggerSchedulePreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // Mark stale when channels/frequency/duration thay đổi sau khi đã có schedule
+  useEffect(() => {
+    if (editableSchedule && editableSchedule.length > 0) setScheduleStale(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(selectedChannels), JSON.stringify(frequency), effectiveDuration, campaignStartDate]);
+
   // ─── Handlers ───
   const resetForm = () => {
     setStep(0);
