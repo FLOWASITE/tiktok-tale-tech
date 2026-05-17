@@ -220,12 +220,13 @@ function ChannelView({
 
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete,
+  pieces, isEditable, onEdit, onDelete, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
   const grouped = groupBy(sorted, p => p.scheduled_date || '__unscheduled__');
