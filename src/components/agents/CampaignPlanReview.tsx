@@ -443,7 +443,7 @@ function ListView({
 }
 
 // ─── Main Component ───
-export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanReviewProps) {
+export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }: CampaignPlanReviewProps) {
   const { updatePlan, approvePlan } = useCampaignPlans();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingPiece, setEditingPiece] = useState<CampaignContentPiece | null>(null);
