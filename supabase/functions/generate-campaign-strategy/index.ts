@@ -38,6 +38,8 @@ function buildStrategyPrompt(params: {
   startDate: string;
   pieceCount: { min: number; max: number };
   existingTitles: string[];
+  targetPostCount?: number | null;
+  perChannelTargets?: Record<string, number> | null;
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
