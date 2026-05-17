@@ -168,12 +168,13 @@ function PieceCard({
 
 // ─── Channel View ───
 function ChannelView({
-  pieces, isEditable, onEdit, onDelete,
+  pieces, isEditable, onEdit, onDelete, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const grouped = groupBy(sortedPieces(pieces), p => p.target_channel);
   const channels = Object.keys(grouped).sort((a, b) => {
@@ -205,6 +206,7 @@ function ChannelView({
                   isEditable={isEditable}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  renderSuggest={renderSuggest}
                 />
               ))}
             </div>
@@ -214,6 +216,7 @@ function ChannelView({
     </div>
   );
 }
+
 
 // ─── Timeline View ───
 function TimelineView({
