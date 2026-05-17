@@ -107,28 +107,39 @@ Strategic context already provided in earlier wizard steps:
 ${strategicContext}
 
 Brief completeness: ${completenessScore}/7 criteria met.
+Heuristic name quality: ${nameQuality.status}${nameQuality.reason ? ` (${nameQuality.reason})` : ""}.
 
-Evaluate if you have enough information to create high-quality, targeted content.
+## TASK 1 — Evaluate the campaign title
+Decide if the title is one of:
+- "ok": meaningful AND clearly related to description/brand/objective.
+- "vague": real words but too generic, missing product/audience/timing/angle (e.g. "Chiến dịch marketing", "Bài viết tháng 4").
+- "irrelevant": title talks about something different from description/brand/industry/objective (e.g. title "Khuyến mãi mùa hè" but description is "Webinar B2B AI").
+- "gibberish": random characters, placeholder, or repeated tokens (e.g. "asdf asdf", "test 123", "aaaaaa").
+
+If title is NOT "ok", you MUST suggest exactly 3 alternative names in the SAME LANGUAGE as the description/brand/industry (fallback: same language as title). Each suggestion must be 4–12 words, specific (mention product, audience, timing, or angle), and tied to the description/objective.
+
+## TASK 2 — Decide if you have enough info to create high-quality content
 The user has already gone through 3 wizard steps — DO NOT ask things they already specified above.
 
-IMPORTANT RULES:
-- If completeness >= 5 → respond ready: true.
-- If objective + (key messages OR pillars) are set → respond ready: true (audience can be inferred from industry + objective).
-- Only ask when the title is vague (<15 chars) AND description is missing AND no objective/messages/pillars.
-- Maximum 2 questions (not 3).
-- Each question must have exactly 3 suggested answers.
-- NEVER ask about: objective, audience, CTA, key messages, pillars, channels, duration — those are already collected.
-- Only ask about: missing topic specificity, missing brand differentiator, missing tone preference IF those are truly absent.
+RULES:
+- If completeness >= 5 AND title is "ok" → ready: true.
+- If objective + (key messages OR pillars) are set AND title is "ok" → ready: true.
+- Only ask when title is "ok" but topic specificity, brand differentiator, or tone preference is truly missing.
+- Maximum 2 questions. Each with exactly 3 suggestions.
+- NEVER ask about: objective, audience, CTA, key messages, pillars, channels, duration — already collected.
 
-If ready, respond with ONLY this JSON:
-{ "ready": true, "understanding": "1-sentence summary in same language as campaign title" }
+## Output JSON shape (return ONLY valid JSON, no markdown)
 
-If you genuinely need more info, respond with ONLY this JSON:
-{ "ready": false, "questions": [
-  { "question": "question text", "why": "reason", "suggestions": ["option1", "option2", "option3"] }
-]}
+If title is NOT "ok":
+{ "ready": false, "name_issue": "vague" | "irrelevant" | "gibberish", "name_issue_reason": "1 short sentence in same language as title", "suggested_names": ["...", "...", "..."] }
 
-Respond in the SAME LANGUAGE as the campaign title. Return ONLY valid JSON, no markdown.`;
+If title is "ok" AND you have enough info:
+{ "ready": true, "name_quality": "ok", "understanding": "1-sentence summary in same language as title" }
+
+If title is "ok" but you need clarification:
+{ "ready": false, "name_quality": "ok", "questions": [ { "question": "...", "why": "...", "suggestions": ["a","b","c"] } ] }
+
+Respond in the SAME LANGUAGE as the campaign title/description.`;
 
     const aiResult = await callAI({
       functionName: "clarify-campaign-intent",
