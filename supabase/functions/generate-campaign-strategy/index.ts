@@ -343,6 +343,24 @@ Deno.serve(async (req) => {
       if (entries.length > 0) normalizedPerChannel = Object.fromEntries(entries);
     }
 
+    // Normalize topic_pool (light validation; cap at 60 entries)
+    let normalizedPool: Array<{ title: string; hook?: string; key_message?: string; pillar?: string; category?: string; scores?: Record<string, number> }> | null = null;
+    if (Array.isArray(topic_pool) && topic_pool.length > 0) {
+      const cleaned = topic_pool
+        .filter((t: any) => t && typeof t === 'object' && typeof t.title === 'string' && t.title.trim().length > 0)
+        .slice(0, 60)
+        .map((t: any) => ({
+          title: String(t.title).trim().slice(0, 400),
+          hook: typeof t.hook === 'string' ? t.hook.trim().slice(0, 240) : undefined,
+          key_message: typeof t.key_message === 'string' ? t.key_message.trim().slice(0, 240) : undefined,
+          pillar: typeof t.pillar === 'string' ? t.pillar.trim().slice(0, 80) : undefined,
+          category: typeof t.category === 'string' ? t.category.trim().slice(0, 80) : undefined,
+          scores: t.scores && typeof t.scores === 'object' ? t.scores : undefined,
+        }));
+      if (cleaned.length > 0) normalizedPool = cleaned;
+    }
+    console.log(`[generate-campaign-strategy] topic_pool size: ${normalizedPool?.length || 0}`);
+
     const pieceCount = calculatePieceCount(durationDays, normalizedTarget);
 
     let planData: { plan: any[]; strategy_summary: string; content_mix: Record<string, number> };
