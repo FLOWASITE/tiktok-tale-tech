@@ -15,9 +15,12 @@ import {
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
+import { PieceTopicSuggestPopover } from './PieceTopicSuggestPopover';
+import type { PieceTopicSuggestion, SuggestPieceTopicsInput } from '@/hooks/agents/useSuggestPieceTopics';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import type { ReactNode } from 'react';
 
 type ViewMode = 'channel' | 'timeline' | 'list';
 
@@ -45,6 +48,7 @@ const CHANNEL_LIST = ['facebook', 'instagram', 'tiktok', 'linkedin', 'email', 'z
 interface CampaignPlanReviewProps {
   plan: CampaignContentPlan;
   goalName: string;
+  brandTemplateId?: string | null;
   onClose?: () => void;
 }
 
@@ -88,13 +92,14 @@ function statusBadge(status: string) {
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete,
+  onEdit, onDelete, renderSuggest,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
   showChannel?: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
@@ -120,8 +125,11 @@ function PieceCard({
           </Badge>
         )}
 
-        {/* Title */}
-        <p className="text-sm font-medium leading-tight line-clamp-2">{piece.title}</p>
+        {/* Title + suggest */}
+        <div className="flex items-start gap-1">
+          <p className="text-sm font-medium leading-tight line-clamp-2 flex-1">{piece.title}</p>
+          {isEditable && renderSuggest?.(piece)}
+        </div>
 
         {/* Key message */}
         {piece.key_message && (
@@ -160,12 +168,13 @@ function PieceCard({
 
 // ─── Channel View ───
 function ChannelView({
-  pieces, isEditable, onEdit, onDelete,
+  pieces, isEditable, onEdit, onDelete, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const grouped = groupBy(sortedPieces(pieces), p => p.target_channel);
   const channels = Object.keys(grouped).sort((a, b) => {
@@ -197,6 +206,7 @@ function ChannelView({
                   isEditable={isEditable}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  renderSuggest={renderSuggest}
                 />
               ))}
             </div>
@@ -207,14 +217,16 @@ function ChannelView({
   );
 }
 
+
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete,
+  pieces, isEditable, onEdit, onDelete, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
   const grouped = groupBy(sorted, p => p.scheduled_date || '__unscheduled__');
@@ -262,6 +274,7 @@ function TimelineView({
                       >
                         <ChannelIcon channel={piece.target_channel} size="sm" />
                         <p className="text-sm font-medium flex-1 truncate">{piece.title}</p>
+                        {isEditable && renderSuggest?.(piece)}
                         {role && (
                           <Badge variant="outline" className={cn('text-[9px] h-4 shrink-0', role.color)}>
                             {role.emoji} {role.label}
@@ -297,12 +310,13 @@ function TimelineView({
 
 // ─── List View (default, polished) ───
 function ListView({
-  pieces, isEditable, onEdit, onDelete,
+  pieces, isEditable, onEdit, onDelete, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
 
@@ -332,11 +346,14 @@ function ListView({
                 <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
                   {piece.piece_number}
                 </span>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium truncate leading-tight">{piece.title}</p>
-                  {piece.key_message && (
-                    <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
-                  )}
+                <div className="min-w-0 space-y-0.5 flex items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate leading-tight">{piece.title}</p>
+                    {piece.key_message && (
+                      <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
+                    )}
+                  </div>
+                  {isEditable && renderSuggest?.(piece)}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <ChannelIcon channel={piece.target_channel} size="sm" />
@@ -380,6 +397,7 @@ function ListView({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
+                      {isEditable && renderSuggest?.(piece)}
                       {statusBadge(piece.status)}
                     </div>
                     {piece.key_message && (
@@ -425,7 +443,7 @@ function ListView({
 }
 
 // ─── Main Component ───
-export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanReviewProps) {
+export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }: CampaignPlanReviewProps) {
   const { updatePlan, approvePlan } = useCampaignPlans();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingPiece, setEditingPiece] = useState<CampaignContentPiece | null>(null);
@@ -511,6 +529,41 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     approvePlan.mutate(plan.id);
   };
 
+  const handleApplySuggestion = (pieceNumber: number, s: PieceTopicSuggestion) => {
+    const updated = pieces.map(p =>
+      p.piece_number === pieceNumber
+        ? { ...p, title: s.title, key_message: s.key_message || p.key_message }
+        : p,
+    );
+    setLocalPieces(updated);
+    updatePlan.mutate({ id: plan.id, plan_data: updated as any });
+  };
+
+  const renderSuggest = (piece: CampaignContentPiece) => (
+    <PieceTopicSuggestPopover
+      variant="icon-xs"
+      input={{
+        piece: {
+          angle: piece.angle,
+          content_role: piece.content_role,
+          target_channel: piece.target_channel,
+          title: piece.title,
+          key_message: piece.key_message ?? undefined,
+          pillar: (piece as any).pillar,
+        } as SuggestPieceTopicsInput['piece'],
+        brand_template_id: brandTemplateId || undefined,
+        organization_id: plan.organization_id,
+        campaign_title: goalName,
+        existing_titles: pieces
+          .filter(p => p.piece_number !== piece.piece_number)
+          .map(p => p.title)
+          .filter(Boolean),
+        clarification_context: plan.clarification_context || undefined,
+      }}
+      onPick={(s) => handleApplySuggestion(piece.piece_number, s)}
+    />
+  );
+
   return (
     <div className="space-y-4">
       {/* Plan Header */}
@@ -591,13 +644,13 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
 
       {/* Content Views */}
       {viewMode === 'channel' && (
-        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'timeline' && (
-        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'list' && (
-        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} />
+        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
       )}
 
       {/* Edit Piece Dialog */}

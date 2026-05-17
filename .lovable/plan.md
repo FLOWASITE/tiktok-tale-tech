@@ -1,86 +1,64 @@
-# Auto AI chọn Social/Channel hợp lý
+## Bối cảnh
 
-Mở rộng pattern Auto-AI (đã có ở Objectives) sang Step 2 "Kênh" của GoalWizard. AI sẽ phân tích brief + objectives + brand industry để gợi ý bộ kênh hợp lý + tần suất đăng cho từng kênh, user có thể override.
+Kế hoạch campaign (`generate-campaign-strategy`) hiện tạo title trong 1 lượt LLM chung — title hay bị chung chung, không sát brand/industry vì model phải làm quá nhiều việc cùng lúc (angle + role + channel + schedule + title). User muốn: với mỗi piece, có thể **xem 3–5 gợi ý chủ đề** sát brand và **chọn 1** để thay title.
 
-## 1. UX
+## Mục tiêu
 
-Step 2 thêm toggle phía trên grid kênh:
+Trong `CampaignPlanReview`, mỗi piece có nút **"Gợi ý chủ đề khác"** → mở popover hiển thị 3–5 suggestion (title + 1 dòng angle/hook) do AI tạo riêng cho piece đó dựa trên: brand voice + industry + pillar + angle + role + key_message + dedup với titles đã có trong plan. Click 1 gợi ý → cập nhật `title` (và optional `key_message`) của piece, lưu vào `campaign_content_plans.plan_data`.
 
-```text
-┌────────────────────────────────────────────────────────┐
-│  ✨ Để AI tự chọn kênh hợp lý        [ Toggle  ⚪ ]    │
-│  AI sẽ chọn kênh + tần suất dựa trên mục tiêu & brand  │
-└────────────────────────────────────────────────────────┘
+Không đụng pipeline thực thi, không sửa schema.
+
+## Phạm vi
+
+**Mới**
+- `supabase/functions/suggest-piece-topics/index.ts` — edge function nhận `{ piece, brand_template_id, organization_id, existing_titles[], campaign_title, clarification_context }` → return `{ suggestions: [{ title, hook, key_message }] }` (3–5 items). Dùng `callAIWithMetrics`, model nhỏ (gemini-3-flash-preview), prompt tập trung 1 piece duy nhất, inject brand voice + industry + pillar.
+- `src/hooks/agents/useSuggestPieceTopics.ts` — TanStack mutation wrapper.
+- `src/components/agents/PieceTopicSuggestPopover.tsx` — popover UI: loading skeleton, 3–5 card chọn được, nút "Tạo lại". Click apply → callback `onPick(suggestion)`.
+
+**Sửa**
+- `src/components/agents/CampaignPlanReview.tsx` — mỗi piece card (3 layout: card/list/timeline) thêm nút icon `Sparkles` cạnh title. Mở popover → khi pick → cập nhật `localPieces[i].title` (+ optional `key_message`) → `updatePlan.mutate`.
+
+## Chi tiết kỹ thuật
+
+### Edge function `suggest-piece-topics`
+- Auth: JWT bắt buộc (Lovable Cloud default).
+- Input validate: piece object (angle, content_role, target_channel, content_type, pillar?, key_message?), `brand_template_id` optional.
+- Fetch `brand_templates` → `brand_name`, `industry`, `tone_of_voice`, `brand_positioning`, `target_audience`.
+- Prompt structure (English instruction → Vietnamese output, theo pattern Prompt Localization):
+  - Role: SEA content strategist.
+  - Context: brand, industry, pillar, campaign title, angle, role, channel, key_message.
+  - Constraint: 3–5 titles, KHÁC `existing_titles`, mỗi title kèm `hook` (1 câu) và `key_message` ngắn. Bám brand voice. Không click-bait.
+  - Output: structured tool-calling `return_topic_suggestions({ suggestions: [{title, hook, key_message}] })`.
+- Error: 429/402 trả về codes chuẩn để FE hiển thị toast.
+
+### Popover UI
+- Trigger: button ghost size `xs` icon Sparkles, tooltip "Gợi ý chủ đề khác".
+- Content: width 360, header "Gợi ý cho góc: {angle}", list 3–5 card click-to-pick (title bold + hook muted), footer "Tạo lại" + "Đóng".
+- Loading: 4 skeleton row.
+- Theo Soft Luxury: neutral gray ring, không gradient màu.
+
+### Apply logic trong `CampaignPlanReview`
+```ts
+const handleApplySuggestion = (pieceNumber, s) => {
+  const updated = pieces.map(p => p.piece_number === pieceNumber
+    ? { ...p, title: s.title, key_message: s.key_message || p.key_message }
+    : p);
+  setLocalPieces(updated);
+  updatePlan.mutate({ id: plan.id, plan_data: updated as any });
+};
 ```
 
-Khi bật:
-- Loading 1-2s → các kênh AI chọn sẽ có badge ✨ + border accent + auto-tick
-- Mỗi kênh AI chọn hiện tần suất gợi ý (vd: "AI: 3/tuần") thay vì default weekly
-- Hiện 1 dòng lý do ngắn: *"Brand mỹ phẩm + mục tiêu Awareness → ưu tiên Instagram, Facebook, TikTok (visual-first)."*
-- User vẫn click toggle off / bỏ chọn / thêm kênh khác bình thường — badge ✨ vẫn giữ ở kênh AI đã chọn để phân biệt
+## Ngoài phạm vi
 
-Khi tắt: về trạng thái thủ công, giữ những kênh user đã tick (không reset).
+- Không sửa `generate-campaign-strategy` (giữ flow tạo plan ban đầu).
+- Không thêm bulk "Regenerate all titles" (có thể làm sau nếu user muốn).
+- Không động vào `agent_pipelines` đã chạy — chỉ edit khi plan ở trạng thái `planned`/chưa approve.
+- Không thay đổi schema DB.
 
-## 2. AI Logic (edge function `suggest-channels`)
+## Bước triển khai
 
-Input:
-- `title`, `description`, `objectives` (primary + secondary), `brand_template_id`, `organization_id`
-
-AI làm:
-1. Đọc brand industry, mục tiêu, mô tả
-2. Map theo heuristic + LLM:
-   - **Visual industry** (beauty, fashion, food, travel) → Instagram, Pinterest, TikTok, Facebook
-   - **B2B / professional** (SaaS, consulting, finance) → LinkedIn, Website, Email, Medium
-   - **Local service** (clinic, restaurant) → Facebook, Google Maps, Zalo OA
-   - **Content/thought leadership** → Website/Blog, LinkedIn, Threads, Email
-3. Map theo objective:
-   - `awareness` → +social reach (FB, IG, TikTok-like)
-   - `traffic` / `leads` → +long-form (website, blog, email)
-   - `engagement` → +community (Threads, FB, IG)
-   - `revenue` → +Shopify/website + retargeting channel
-4. Trả về:
-   ```json
-   {
-     "channels": [
-       { "id": "instagram", "frequency": "3/week", "reason": "visual-first" },
-       { "id": "facebook",  "frequency": "weekly", "reason": "broad reach" },
-       { "id": "website",   "frequency": "weekly", "reason": "SEO long-form" }
-     ],
-     "reasoning": "Brand beauty + mục tiêu Awareness → ưu tiên kênh visual social."
-   }
-   ```
-
-Fallback (khi LLM fail): rule-based theo industry keyword + objective, giống pattern `suggest-objectives`.
-
-Giới hạn: tối đa 5 kênh để tránh dàn trải.
-
-## 3. Frontend
-
-`src/hooks/agents/useSuggestChannels.ts` — mirror `useSuggestObjectives`.
-
-`GoalWizard.tsx`:
-- Thêm state: `autoChannelMode`, `aiChannelIds: Set<string>`, `aiChannelReasoning: string`
-- Khi toggle ON: gọi hook → set `selectedChannels`, `frequency`, lưu `aiChannelIds` để render badge ✨
-- Khi user tick/untick: chỉ update `selectedChannels`, không xoá `aiChannelIds` (badge vẫn hiện để phân biệt)
-- Step 2 render: badge ✨ + reasoning box (giống objectives auto mode)
-
-## 4. Technical details
-
-**Files mới:**
-- `supabase/functions/suggest-channels/index.ts` — copy structure từ `suggest-objectives`
-- `src/hooks/agents/useSuggestChannels.ts`
-
-**Files sửa:**
-- `src/components/agents/GoalWizard.tsx` — thêm toggle + state + render badge ở Step 2 (lines 1224-1255)
-
-**Không đổi:**
-- Schema DB, `agent_pipelines` table, generate-campaign-strategy
-- Logic `estimatedPosts` (vẫn dùng `frequency` map, chỉ là AI fill sẵn giá trị)
-
-**Pattern reuse:** giống hệt `suggest-objectives` (toggle + badge + reasoning + fallback heuristic), giảm code mới và đảm bảo UX nhất quán.
-
-## 5. Out of scope
-
-- Không tự động connect social account chưa kết nối (chỉ gợi ý ID, user vẫn cần connect ở Brand settings)
-- Không thay đổi logic tính số bài (đã sửa ở turn trước)
-- Không sửa Step 1 (chiến lược) hay Step 3 (tự động)
+1. Tạo `supabase/functions/suggest-piece-topics/index.ts` + verify_jwt mặc định.
+2. Tạo hook `useSuggestPieceTopics`.
+3. Tạo component `PieceTopicSuggestPopover`.
+4. Wire vào 3 layout (card/list/timeline) trong `CampaignPlanReview` cạnh title; chỉ hiện khi `isEditable && !isApproved`.
+5. Test thủ công: tạo 1 campaign mới → mở plan review → click Sparkles → pick → title đổi và DB cập nhật.

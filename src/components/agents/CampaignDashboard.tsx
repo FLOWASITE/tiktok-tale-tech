@@ -210,6 +210,7 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
         <CampaignPlanReview
           plan={currentPlan}
           goalName={selectedPlan.goalName}
+          brandTemplateId={goals.find(g => g.id === currentPlan.goal_id)?.brand_template_id || undefined}
           onClose={() => setSelectedPlan(null)}
         />
       </div>
