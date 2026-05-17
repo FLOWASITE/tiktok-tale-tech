@@ -2137,7 +2137,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                               <div className="h-full bg-primary/70" style={{ width: `${pct}%` }} />
                             </div>
                             <span className="w-8 text-right text-[10px] font-medium tabular-nums">{pct}%</span>
-                            <span className="w-12 text-right text-[10px] text-muted-foreground tabular-nums">~{Math.round(estimatedPosts * pct / 100)} bài</span>
+                            <span className="w-12 text-right text-[10px] text-muted-foreground tabular-nums">~{Math.round(displayPosts * pct / 100)} bài</span>
                           </div>
                         ))}
                       </div>
