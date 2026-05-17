@@ -1612,9 +1612,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
           {/* ═══ Step 4: Xác nhận ═══ */}
           {!isGenerating && step === confirmStep && (() => {
-            const endDate = new Date(new Date(campaignStartDate).getTime() + effectiveDuration * 86400000).toISOString().split('T')[0];
+            const startMs = new Date(campaignStartDate).getTime();
+            const endDate = new Date(startMs + effectiveDuration * 86400000).toISOString().split('T')[0];
             const visualChannelIds = ['instagram', 'facebook', 'pinterest', 'threads'];
             const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+            const freqLabel: Record<string, string> = { daily: 'Mỗi ngày', '3/week': '3/tuần', '2/week': '2/tuần', weekly: 'Hàng tuần' };
             const estCarousels = selectedChannels
               .filter(ch => visualChannelIds.includes(ch))
               .reduce((sum, ch) => {
@@ -1622,33 +1624,94 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 return sum + Math.max(1, Math.round(effectiveDuration * perDay));
               }, 0);
             const approvalLabel = APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label;
+            const postsPerWeek = effectiveDuration > 0 ? Math.round((estimatedPosts / effectiveDuration) * 7) : 0;
+            const weeks = Math.floor(effectiveDuration / 7);
+            const remDays = effectiveDuration % 7;
+            const durationLabel = weeks > 0 ? `${weeks} tuần${remDays > 0 ? ` ${remDays} ngày` : ''}` : `${effectiveDuration} ngày`;
+            const fmtDate = (s: string) => {
+              const d = new Date(s);
+              return `${d.getDate()}/${d.getMonth() + 1}`;
+            };
+            const formatBudgetShort = (n: number) => {
+              if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}tỷ`;
+              if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}tr`;
+              if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+              return String(n);
+            };
+            const getChannelPosts = (ch: string) => {
+              const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+              return Math.max(1, Math.round(effectiveDuration * perDay));
+            };
+            const weekMarkers = Math.max(1, Math.min(weeks, 12));
+            const usedAI = autoMode || autoChannelMode || autoStrategyMode;
+            const hasBudget = totalBudget > 0;
+            const hasPillars = Object.keys(pillarAllocation).length > 0;
+            const hasKpis = Object.keys(kpiTargets).filter(k => kpiTargets[k] > 0).length > 0;
 
             return (
               <div className="space-y-2.5">
+                {/* Campaign title + description */}
+                {(name.trim() || description.trim()) && (
+                  <div className="space-y-0.5">
+                    {name.trim() && <h3 className="text-sm font-semibold text-foreground truncate">{name}</h3>}
+                    {description.trim() && <p className="text-[11px] text-muted-foreground line-clamp-2">{description}</p>}
+                  </div>
+                )}
+
                 {/* Hero metric strip */}
-                <div className="flex items-stretch gap-1.5">
-                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                <div className="flex items-stretch gap-1.5 flex-wrap">
+                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-base font-bold text-primary tabular-nums leading-none">{estimatedPosts}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">Bài viết</p>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-base font-bold text-primary tabular-nums leading-none">{selectedChannels.length}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">Kênh</p>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                  <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-base font-bold text-primary tabular-nums leading-none">{effectiveDuration}</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">Ngày</p>
                   </div>
                   {estCarousels > 0 && (
-                    <div className="flex-1 flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                    <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-primary/5 border border-primary/10">
                       <p className="text-base font-bold text-primary tabular-nums leading-none">{estCarousels}</p>
                       <p className="text-[9px] text-muted-foreground mt-0.5">Carousel</p>
                     </div>
                   )}
+                  {postsPerWeek > 0 && (
+                    <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-muted/40 border border-border">
+                      <p className="text-base font-bold text-foreground tabular-nums leading-none">{postsPerWeek}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Bài/tuần</p>
+                    </div>
+                  )}
+                  {hasBudget && (
+                    <div className="flex-1 min-w-[60px] flex flex-col items-center justify-center py-1.5 rounded-md bg-muted/40 border border-border">
+                      <p className="text-base font-bold text-foreground tabular-nums leading-none">{formatBudgetShort(totalBudget)}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Ngân sách</p>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground text-center">📅 {campaignStartDate} → {endDate}</p>
 
-                {/* 2-column summary card */}
+                {/* Timeline mini-bar */}
+                <div className="rounded-md border bg-card px-2.5 py-2">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
+                    <span className="font-medium text-foreground tabular-nums">{fmtDate(campaignStartDate)}</span>
+                    <span className="text-[9px] uppercase tracking-wide">{durationLabel}</span>
+                    <span className="font-medium text-foreground tabular-nums">{fmtDate(endDate)}</span>
+                  </div>
+                  <div className="relative h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/60 to-primary" />
+                  </div>
+                  {weeks > 0 && weeks <= 12 && (
+                    <div className="flex justify-between mt-1 px-0.5">
+                      {Array.from({ length: weekMarkers + 1 }).map((_, i) => (
+                        <span key={i} className="text-[8px] text-muted-foreground/60 tabular-nums">W{i}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Mục tiêu & Brand */}
                 <div className="rounded-lg border bg-card p-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]">
                   {selectedObj && (
                     <div className="flex items-start gap-1.5">
@@ -1682,34 +1745,157 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       </div>
                     )}
                   </div>
-                  {keyMessages.length > 0 && (
-                    <div className="col-span-2">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Thông điệp ({keyMessages.length})</p>
-                      <div className="flex flex-wrap gap-1">
-                        {keyMessages.slice(0, 3).map((m, i) => <Badge key={i} variant="secondary" className="text-[9px] font-normal">{m}</Badge>)}
-                        {keyMessages.length > 3 && <Badge variant="outline" className="text-[9px]">+{keyMessages.length - 3}</Badge>}
-                      </div>
-                    </div>
-                  )}
-                  {primaryCta.trim() && (
-                    <div className="col-span-2 flex items-center gap-1.5">
-                      <Zap className="w-3 h-3 text-amber-500 shrink-0" />
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide">CTA:</p>
-                      <p className="font-medium truncate">{primaryCta}</p>
-                    </div>
-                  )}
-                  {selectedChannels.length > 0 && (
-                    <div className="col-span-2">
-                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-1">Kênh phát hành</p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedChannels.map(ch => {
-                          const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                          return <Badge key={ch} variant="outline" className="text-[9px] flex items-center gap-1 font-normal"><ChannelIcon channel={info?.channelKey || 'website'} size={10} className={channelIconColors[info?.channelKey || 'website']} /> {info?.label}</Badge>;
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+                {/* Chiến lược nội dung */}
+                {(keyMessages.length > 0 || primaryCta.trim() || hasBudget || hasPillars) && (
+                  <div className="rounded-lg border bg-card p-2.5 space-y-2.5 text-[11px]">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Chiến lược nội dung
+                    </p>
+
+                    {keyMessages.length > 0 && (
+                      <div>
+                        <p className="text-[9px] text-muted-foreground mb-1">Thông điệp ({keyMessages.length})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {keyMessages.slice(0, 4).map((m, i) => <Badge key={i} variant="secondary" className="text-[9px] font-normal">{m}</Badge>)}
+                          {keyMessages.length > 4 && <Badge variant="outline" className="text-[9px]">+{keyMessages.length - 4}</Badge>}
+                        </div>
+                      </div>
+                    )}
+
+                    {primaryCta.trim() && (
+                      <div className="flex items-center gap-1.5">
+                        <Zap className="w-3 h-3 text-amber-500 shrink-0" />
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-wide">CTA:</span>
+                        <span className="font-medium truncate">{primaryCta}</span>
+                      </div>
+                    )}
+
+                    {hasBudget && (
+                      <div className="space-y-1.5 pt-1 border-t border-border/60">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Ngân sách</p>
+                          <p className="text-[10px] font-semibold tabular-nums">{totalBudget.toLocaleString('vi-VN')} đ</p>
+                        </div>
+                        {([
+                          { key: 'content', label: 'Content', pct: budgetAllocation.content },
+                          { key: 'ads', label: 'Ads', pct: budgetAllocation.ads },
+                          { key: 'kol', label: 'KOL', pct: budgetAllocation.kol },
+                        ] as const).map(row => row.pct > 0 && (
+                          <div key={row.key} className="flex items-center gap-2">
+                            <span className="w-12 text-[10px] text-muted-foreground shrink-0">{row.label}</span>
+                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full bg-primary" style={{ width: `${row.pct}%` }} />
+                            </div>
+                            <span className="w-8 text-right text-[10px] font-medium tabular-nums">{row.pct}%</span>
+                            <span className="w-16 text-right text-[10px] text-muted-foreground tabular-nums">{formatBudgetShort(Math.round(totalBudget * row.pct / 100))}đ</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {hasPillars && (
+                      <div className="space-y-1 pt-1 border-t border-border/60">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Content Pillars</p>
+                        {Object.entries(pillarAllocation).map(([pillar, pct]) => pct > 0 && (
+                          <div key={pillar} className="flex items-center gap-2">
+                            <span className="flex-1 min-w-0 text-[10px] truncate">{pillar}</span>
+                            <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full bg-primary/70" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="w-8 text-right text-[10px] font-medium tabular-nums">{pct}%</span>
+                            <span className="w-12 text-right text-[10px] text-muted-foreground tabular-nums">~{Math.round(estimatedPosts * pct / 100)} bài</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Kênh & Tần suất */}
+                {selectedChannels.length > 0 && (
+                  <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
+                      <Radio className="w-3 h-3" /> Kênh & Tần suất
+                    </p>
+                    <div className="space-y-1">
+                      {selectedChannels.map(ch => {
+                        const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
+                        const freq = frequency[ch] || 'weekly';
+                        const posts = getChannelPosts(ch);
+                        return (
+                          <div key={ch} className="flex items-center gap-2 text-[11px] py-0.5">
+                            <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
+                            <span className="flex-1 min-w-0 truncate font-medium">{info?.label || ch}</span>
+                            <Badge variant="outline" className="text-[9px] font-normal h-4 px-1.5">{freqLabel[freq]}</Badge>
+                            <span className="text-[10px] text-muted-foreground tabular-nums w-14 text-right">~{posts} bài</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* KPI Targets */}
+                {hasKpis && (
+                  <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" /> KPI Mục tiêu
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {Object.entries(kpiTargets).filter(([, v]) => v > 0).map(([key, val]) => {
+                        const allKpis = OBJECTIVES.flatMap(o => o.kpis);
+                        const meta = allKpis.find(k => k.key === key);
+                        return (
+                          <div key={key} className="flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-muted/30 border border-border/60">
+                            <span className="text-[10px] text-muted-foreground truncate">{meta?.label || key}</span>
+                            <span className="text-[11px] font-semibold tabular-nums">{val.toLocaleString('vi-VN')}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Reasoning panel */}
+                {usedAI && (aiReasoning || aiChannelReasoning || aiStrategyReasoning) && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5">
+                    <p className="text-[10px] font-medium flex items-center gap-1 text-primary">
+                      <Sparkles className="w-3 h-3" /> AI đã đề xuất
+                    </p>
+                    <div className="space-y-1 text-[10px] leading-relaxed">
+                      {aiReasoning && (
+                        <div className="flex gap-1.5">
+                          <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                          <p className="text-muted-foreground"><span className="font-medium text-foreground">Mục tiêu:</span> {aiReasoning}</p>
+                        </div>
+                      )}
+                      {aiChannelReasoning && (
+                        <div className="flex gap-1.5">
+                          <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                          <p className="text-muted-foreground"><span className="font-medium text-foreground">Kênh:</span> {aiChannelReasoning}</p>
+                        </div>
+                      )}
+                      {aiStrategyReasoning && (
+                        <div className="flex gap-1.5">
+                          <Check className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                          <p className="text-muted-foreground"><span className="font-medium text-foreground">Chiến lược:</span> {aiStrategyReasoning}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Clarification understanding callout */}
+                {!showClarification && clarificationUnderstanding && (
+                  <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-2.5 py-1.5 flex items-start gap-1.5">
+                    <Brain className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      <span className="font-medium text-foreground">AI hiểu: </span>{clarificationUnderstanding}
+                    </p>
+                  </div>
+                )}
 
                 {/* Clarification — inline below summary, doesn't replace it */}
                 {showClarification && (
@@ -1722,9 +1908,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   />
                 )}
 
-                {/* Advanced settings — collapsed by default */}
+                {/* Advanced settings — open by default if auto-approve is on */}
                 {!showClarification && (
-                  <Collapsible>
+                  <Collapsible defaultOpen={autoApproveEnabled}>
                     <CollapsibleTrigger className="flex items-center justify-between w-full px-2.5 py-2 rounded-md border bg-muted/30 hover:bg-muted/50 transition-colors group">
                       <div className="flex items-center gap-1.5 text-[11px] font-medium">
                         <Settings2 className="w-3 h-3 text-muted-foreground" />
@@ -1758,9 +1944,6 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                         <Label className="text-[10px] text-muted-foreground">Liên kết Chiến dịch (tùy chọn)</Label>
                         <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch..." className="text-xs" />
                       </div>
-                      {totalBudget > 0 && (
-                        <div className="flex justify-between"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
-                      )}
                       {autoApproveEnabled && (
                         <div>
                           <span className="text-muted-foreground">Smart Auto-Approve</span>
