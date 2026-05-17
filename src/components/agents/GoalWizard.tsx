@@ -331,6 +331,25 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
+  // Fetch connected channels for current brand → pass as available_connections
+  const { connections: brandConnections } = useSocialConnections({
+    brandTemplateId: brandTemplateId || currentBrand?.id,
+    organizationId: currentOrganization?.id,
+  });
+  const availableConnections = useMemo(() => {
+    if (!brandConnections) return [];
+    return Array.from(new Set(
+      brandConnections
+        .filter((c) => c.is_active)
+        .map((c) => {
+          const p = c.platform;
+          if (p === 'google_business') return 'google_maps';
+          if (p === 'wordpress_com') return 'wordpress';
+          return p;
+        })
+    ));
+  }, [brandConnections]);
+
   // Clarification
   const [clarifying, setClarifying] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
