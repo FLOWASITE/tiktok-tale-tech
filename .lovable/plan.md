@@ -1,106 +1,107 @@
-## Mục tiêu
-Biến khối "Lịch nội dung chi tiết" ở Step Xác nhận thành **Content Schedule Studio** thực thụ: AI sinh topic thật cho từng slot, có giờ đăng + loại content, hai view (List/Calendar), edit đầy đủ, filter + stats + export, và plan đã edit được dùng trực tiếp khi tạo campaign (không bị AI sinh lại).
+## Vấn đề hiện tại của Content Schedule Studio
 
-## Kiến trúc
+1. **Quá dày, chữ quá nhỏ** — text-[9px] đến text-[11px] khắp nơi, control h-5 (20px) → khó đọc, khó bấm, không đạt accessibility tap-target (44px khuyến nghị).
+2. **List row 1 dòng nhồi 6 control** (date · time · channel · pillar · title · actions) → ở viewport 707px bị tràn/cắt: 56+64+96+60+title+2×20 = ~330px fixed, title chỉ còn ~340px nhưng padding+gap ăn thêm → title truncate sớm.
+3. **Calendar view grid-cols-7 cố định** ở 707px → mỗi ô ~95px, chip text-[8px] vẫn truncate; trên mobile thực (≤640px) cực tệ.
+4. **Màu pillar dùng raw Tailwind** (`bg-blue-500/10`, `text-violet-700`) — vi phạm design token rule (Soft Luxury neutral gray).
+5. **Stats strip nghèo info** — chỉ "X bài · Y kênh · Z pillar" dạng text trần, không có visual distribution; cảnh báo overload chỉ là badge số.
+6. **Header bar** — 3 icon-only button cạnh nhau (refresh/export/view toggle) không nhãn → khó hiểu intent.
+7. **Actions opacity-0 → group-hover** không hoạt động trên touch (mobile 707px chính xác là touch range).
+8. **Filter row** không cho biết đang filter gì (chỉ thấy Select); không hiển thị số kết quả sau filter.
+9. **Empty/loading state** quá tối giản, không thông tin tiến trình.
+10. **Không có drag-drop calendar** như spec gốc; chip click chỉ chuyển sang list view.
 
-### Backend
-Tái dùng `generate-campaign-strategy` (đã trả ra schema `pieces[]` đầy đủ: `piece_number, title, angle, content_type, target_channel, content_role, scheduled_date, format, key_message, estimated_length`). Thêm 2 thay đổi nhỏ:
-1. **Preview mode** — accept query/body flag `preview: true` → trả pieces nhưng KHÔNG insert `campaign_content_plans` vào DB.
-2. **Pre-generated plan mode** — nếu request gửi `pre_generated_plan: Piece[]` → bỏ qua AI call, validate schema, dùng pieces này tạo plan record.
+## Mục tiêu refactor (frontend-only, không đụng backend/data shape)
 
-Thêm fields output đã có ngầm: `recommended_time` (HH:mm) và `format` (đã có). Bổ sung trong prompt: yêu cầu AI suggest giờ vàng theo platform (FB 19:30, IG 20:00, LinkedIn 09:00, Threads 12:00, Pinterest 21:00, blog 09:30…).
+Áp dụng **Soft Luxury**: neutral gray, generous spacing, typography hierarchy rõ; readable trên 707px.
 
-### Frontend
-Component mới `src/components/agents/ContentScheduleStudio.tsx`:
+### A. Density & typography
+- Bỏ text-[9/10/11px] → chuẩn về `text-xs` (12px) cho data dày, `text-sm` (14px) cho title, `text-[11px]` chỉ cho meta phụ.
+- Control height: từ h-5 → h-7 (28px) cho inline; h-8 cho primary action.
+- Padding row từ py-1 → py-2; gap 1.5 → gap-2.
 
-**Props**: `pieces, onChange, onRegenerate, onAIRewriteRow, channels[], pillars[], startDate, duration, isGenerating`
+### B. List row layout (responsive)
+Đổi từ flex 1-dòng → **2-dòng card mỏng**:
+```
+Row:
+  [pillar dot] Title (truncate)            [⋯ menu]
+  Thu 12/3 · 19:30 · Facebook · educate
+```
+- Title dòng trên, rõ ràng, full width trừ menu button.
+- Meta dòng dưới (date · time · channel · pillar) dưới dạng text inline, click vào meta → popover edit (1 popover gom date+time+channel+pillar thay vì 4 control luôn-hiện).
+- Edit title: click title → inline edit.
+- Actions (✨ rewrite, 🗑 delete, ⧉ duplicate): gộp vào DropdownMenu `⋯` (luôn hiện, không hover-only) → touch-friendly.
+- Overload day → border-l-2 màu warning thay vì bg.
 
-**Bộ phận**:
-1. **Header bar** — title + count + 3 nút:
-   - View toggle: `List | Calendar` (Tabs)
-   - `↻ AI sinh lại` (call edge function full lại)
-   - `⬇ Export` (Popover: CSV / Markdown / Copy clipboard)
-2. **Filter row** — chips: Channel multi-select, Pillar multi-select, Content type (post/carousel/video), Date range slider; nút "Clear".
-3. **Stats strip** (sticky) — 4 mini cards: Total bài · Channels distribution (mini bar) · Pillar distribution (mini bar) · Cảnh báo (ngày >3 bài highlighted đỏ).
-4. **List view** — table dense với columns: Date · Time · Channel · Type · Pillar · Title · Actions (⋯).
-   - Cell title: click → inline input edit. Enter save / Esc cancel.
-   - Cell date: click → DatePicker popover.
-   - Cell time: click → time input.
-   - Cell channel/pillar/type: click → Select popover.
-   - Actions menu: ✨ "AI viết lại dòng này" · 🗑 Xoá · 📋 Duplicate.
-   - Nút "+ Thêm bài" cuối mỗi nhóm tuần.
-5. **Calendar view** — grid 7 cột (T2..CN), mỗi ô = 1 ngày, list chip mini (channel icon + title 1 dòng truncate, màu theo pillar). Click chip → mở edit drawer. Click ô trống → "+ Thêm bài vào ngày này". Quá 3 chip → "+N more" mở day-detail popover. Hỗ trợ kéo-thả chip giữa ô (HTML5 drag) → đổi `scheduled_date`.
-6. **Empty/loading states** — skeleton rows khi generating; empty state với CTA "Tạo lịch bằng AI".
+### C. Stats strip nâng cấp
+- 3 mini card ngang đều nhau (Total · Channels · Pillars).
+- Mỗi card có **mini stacked-bar 6px** thể hiện distribution (%) — màu neutral gray với accent.
+- Cảnh báo overload thành dòng riêng dưới khi có vấn đề: "⚠ 2 ngày có >3 bài: 12/3, 18/3" (clickable → filter ngày đó).
 
-### Tích hợp vào GoalWizard
-1. Thêm state:
-   - `editableSchedule: Piece[] | null`
-   - `scheduleStudioOpen: boolean` (mặc định true ở Step 4)
-   - `aiScheduleStatus: 'idle' | 'generating' | 'ready' | 'error'`
-2. **Auto-trigger 1 lần** khi user vào Step 4 lần đầu nếu `editableSchedule == null` và `selectedChannels.length > 0 && pillars set`:
-   - Gọi `generate-campaign-strategy` với `preview: true` + đầy đủ context (brand, objectives, channels, frequency, pillarAllocation, keyMessages, primaryCta, duration, startDate, kpiTargets).
-   - Loading state: thay khối schedule cũ bằng skeleton + tiến trình "AI đang sinh 24 bài…".
-   - Nếu lỗi (402/429/timeout) → fallback về deterministic schedule cũ + toast lỗi + nút "Thử lại".
-3. **Khi user back về Step trước rồi sửa channels/pillars** → đánh dấu `editableSchedule` stale (badge "Cần làm mới" + nút "↻ Sinh lại").
-4. **Submit** (`handleSubmit`): nếu `editableSchedule` có → gửi `pre_generated_plan: editableSchedule` vào generate-campaign-strategy → server skip AI, insert luôn.
+### D. Header gọn
+- Title "Lịch nội dung" + badge count giữ nguyên kích thước hợp lý (text-sm).
+- View toggle (List/Calendar) chuyển sang segmented control rõ ràng có nhãn ngắn ("Danh sách" | "Lịch") trên ≥640px, icon-only khi <640px.
+- Refresh/Export gộp vào 1 DropdownMenu "Hành động" với label, tránh icon-soup.
 
-### Hook mới
-`src/hooks/agents/usePreviewSchedule.ts` — wrap mutation `generate-campaign-strategy` với `preview: true`.
-`src/hooks/agents/useRewritePiece.ts` — gọi `suggest-piece-topics` (đã có) cho 1 row, trả `{title, hook, key_message}`.
+### E. Filter row
+- Hiển thị "X / Y bài" số kết quả sau filter (vs total).
+- Filter chips active hiển thị inline (e.g. badge "Kênh: Facebook ✕") thay vì chỉ Select.
+- Nút "+ Thêm bài" tách thành primary action riêng (variant outline, không lẫn filter).
 
-## Export logic (client-side)
-- **CSV** — UTF-8 BOM + columns: Ngày, Giờ, Thứ, Kênh, Loại, Pillar, Tiêu đề, Key Message, Angle.
-- **Markdown** — bảng MD group theo tuần.
-- **Copy** — same markdown vào clipboard, toast confirm.
+### F. Calendar view
+- Trên ≤640px: tự động fallback về **list grouped theo ngày** (không grid 7 cột).
+- Trên >640px: giữ grid 7 cột nhưng tăng min-h ô từ 60→80px, chip text từ [8px]→[11px], hiện tối đa 3 chip thay vì 2.
+- Header thứ: "T2..CN" → "Th 2 ... CN" với border-b mảnh.
+- Ngày ngoài range: bg neutral muted, không opacity-50 (đỡ trông "hỏng").
+- Chip ngày: pillar dot + channel icon + title; click → popover edit nhanh tại chỗ (không chuyển view).
 
-## Stats logic
-- `pieceByChannel: Map<channel, count>` → mini bar dài tỉ lệ.
-- `pieceByPillar` tương tự.
-- `overloadDays`: Map<dateStr, count> → day có >3 bài highlight đỏ trong cả List header tuần lẫn Calendar ô.
-- `gaps`: ngày không có bài giữa các bài → cảnh báo "5 ngày trống liên tiếp".
+### G. Empty & loading state
+- Loading: skeleton 5 row giả lập layout thật + thanh tiến trình text "AI đang phân bổ 24 bài qua 4 kênh…".
+- Empty: icon lớn hơn + 2 CTA (Tạo bằng AI / Thêm thủ công).
+- Error: hiển thị error message rõ + nút "Thử lại".
 
-## File changes
-**New**
-- `src/components/agents/ContentScheduleStudio.tsx` (main editor, ~600 lines)
-- `src/components/agents/schedule/ScheduleListView.tsx` (~250 lines)
-- `src/components/agents/schedule/ScheduleCalendarView.tsx` (~200 lines)
-- `src/components/agents/schedule/ScheduleStatsBar.tsx` (~80 lines)
-- `src/components/agents/schedule/ScheduleExportMenu.tsx` (~120 lines)
-- `src/hooks/agents/usePreviewSchedule.ts`
-- `src/hooks/agents/useRewritePiece.ts`
-- `src/lib/scheduleExport.ts` (CSV/MD builder)
+### H. Token & theme compliance
+- Bỏ tất cả `bg-blue-500/10`, `text-violet-700`… → dùng tokens:
+  - Pillar color = pillar **dot 8px** với HSL token mới (`--pillar-educate`, `--pillar-inspire`, `--pillar-sell`, `--pillar-entertain`) khai báo trong `index.css`.
+  - Pillar badge dùng `bg-muted text-muted-foreground` + dot bên trái.
+- Border, hover dùng `bg-accent/50`, `border-border`.
+
+## File thay đổi
 
 **Edit**
-- `src/components/agents/GoalWizard.tsx` — bỏ khối schedule cũ (~190 lines vừa thêm), thay bằng `<ContentScheduleStudio>` + state + auto-trigger effect + submit logic.
-- `supabase/functions/generate-campaign-strategy/index.ts` — thêm `preview` + `pre_generated_plan` branch + giờ vàng trong prompt + validation pre_generated_plan với Zod.
+- `src/components/agents/ContentScheduleStudio.tsx` — refactor toàn bộ JSX theo A–G; tách render row thành sub-component nội bộ `<ScheduleRow>`; tách `<DayCell>` cho calendar; thêm hook `useMediaQuery('(min-width: 640px)')` để switch list/grid fallback.
+- `src/index.css` — thêm 4 CSS variable `--pillar-*` (HSL neutral với hue nhẹ, không bão hòa) + util class `.pillar-dot`.
+- `src/components/agents/GoalWizard.tsx` — chỉ chỉnh wrapper khoảng cách Step 4 nếu cần (max-h container, nền section) để studio mới có chỗ thở.
 
-**Test**
-- `supabase/functions/generate-campaign-strategy/__tests__/preview-mode.test.ts` — verify preview không insert + pre_generated_plan insert thẳng.
-
-## Edge cases
-- `selectedChannels` đổi sau khi đã có schedule → diff: pieces của channel bị bỏ chọn → mark "Sẽ bị xoá" (gạch ngang) + nút "Áp dụng" để cleanup. Channel mới thêm → không tự thêm bài, user phải bấm "AI bổ sung kênh mới".
-- Edit ngày ra ngoài `[startDate, endDate]` → warning toast nhưng vẫn cho phép.
-- Drag-drop trên mobile (viewport 707px) → disable, hiển thị nút "Đổi ngày" trong actions menu.
-- Export khi chưa generate → disabled với tooltip.
+**Không đổi**
+- Backend `generate-campaign-strategy`, hooks `usePreviewSchedule` / `useRewritePiece`, `scheduleExport.ts`, data shape `SchedulePiece`.
 
 ## Out of scope
-- Không sync real-time tới Calendar page khác (chỉ persist khi submit campaign).
-- Không support reorder trong cùng ngày (chỉ swap ngày).
-- Không AI rewrite hàng loạt (chỉ per-row hoặc full); muốn rewrite nhiều thì bấm "↻ AI sinh lại".
+- Drag-drop calendar (vẫn defer như spec gốc).
+- AI rewrite bulk.
+- Đổi luồng wiring trong GoalWizard.
 
-## UX flow mới
+## UX sau refactor (707px viewport)
 ```
-Step 4 mở
-  ↓
-[Auto] gọi generate-campaign-strategy {preview:true}
-  ↓ ~3-8s với skeleton
-Hiện ContentScheduleStudio (List view mặc định)
-  ↓
-User filter / sửa / kéo-thả / + thêm / xoá
-  ↓
-Bấm "Tạo Campaign"
-  ↓
-Submit với pre_generated_plan = editableSchedule
-  ↓
-Server insert plan ngay, không AI lại
+┌───────────────────────────────────────────────┐
+│ 📅 Lịch nội dung  [24 bài]   [Danh sách▾] [⋯]│
+├───────────────────────────────────────────────┤
+│ ┌──────┬──────┬──────┐                       │
+│ │24 bài│4 kênh│3 pllr│                       │
+│ │▇▇▇▇▇▇│▇▇▇░░│▇▇░░░│                        │
+│ └──────┴──────┴──────┘                       │
+│ ⚠ 2 ngày có >3 bài: 12/3, 18/3                │
+├───────────────────────────────────────────────┤
+│ Filter: [Mọi kênh▾][Mọi pillar▾][Mọi loại▾]  │
+│ Hiện 24 / 24 bài            [+ Thêm bài]      │
+├───────────────────────────────────────────────┤
+│ Tuần 1 (1/3 – 7/3)                    6 bài  │
+│ ┌─────────────────────────────────────────┐  │
+│ │● Cách chăm da sau lăn kim         [⋯]   │  │
+│ │  Th 2 1/3 · 19:30 · Facebook · educate  │  │
+│ ├─────────────────────────────────────────┤  │
+│ │● 5 lầm tưởng về botox            [⋯]   │  │
+│ │  Th 4 3/3 · 20:00 · Instagram · inspire │  │
+│ └─────────────────────────────────────────┘  │
+└───────────────────────────────────────────────┘
 ```
