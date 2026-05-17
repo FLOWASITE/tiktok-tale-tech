@@ -346,11 +346,14 @@ function ListView({
                 <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
                   {piece.piece_number}
                 </span>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium truncate leading-tight">{piece.title}</p>
-                  {piece.key_message && (
-                    <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
-                  )}
+                <div className="min-w-0 space-y-0.5 flex items-start gap-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate leading-tight">{piece.title}</p>
+                    {piece.key_message && (
+                      <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
+                    )}
+                  </div>
+                  {isEditable && renderSuggest?.(piece)}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <ChannelIcon channel={piece.target_channel} size="sm" />
