@@ -9,6 +9,10 @@ export interface SuggestChannelsInput {
   brand_name?: string;
   industry?: string;
   organization_id?: string;
+  campaign_duration_days?: number;
+  target_post_count?: number;
+  audience?: string;
+  available_connections?: string[];
 }
 
 export interface SuggestedChannel {
@@ -20,6 +24,7 @@ export interface SuggestedChannel {
 export interface SuggestChannelsResult {
   channels: SuggestedChannel[];
   reasoning: string;
+  ai_powered?: boolean;
 }
 
 export function useSuggestChannels() {
