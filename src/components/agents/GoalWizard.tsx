@@ -1096,7 +1096,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                         .filter(ch => visualChannelIds.includes(ch))
                         .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
 
-                án const estVideos = 0;
+                const estVideos = 0;
 
                       const breakdownItems = [
                         { icon: FileText, label: 'Nội dung đa kênh', count: estimatedPosts },
