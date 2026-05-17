@@ -2290,6 +2290,16 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                             Cần làm mới
                           </Badge>
                         )}
+                        {editableSchedule && editableSchedule.length > 0 && topicPoolUsed.length > 0 && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-primary/30 text-primary bg-primary/5" title={`Chủ đề chọn từ Topic AI (${topicPoolUsed.length} ứng viên)`}>
+                            🧠 Topic AI
+                          </Badge>
+                        )}
+                        {editableSchedule && editableSchedule.length > 0 && !previewSchedule.loading && topicPoolUsed.length === 0 && scheduleAutoTriggered && (
+                          <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-normal border-muted-foreground/30 text-muted-foreground" title="Không lấy được Topic AI — AI tự sinh chủ đề">
+                            AI tự sinh
+                          </Badge>
+                        )}
                       </div>
                       {(scheduleStale || scheduleError) && (
                         <Button
