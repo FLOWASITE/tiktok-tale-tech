@@ -92,13 +92,14 @@ function statusBadge(status: string) {
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete,
+  onEdit, onDelete, renderSuggest,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
   showChannel?: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
@@ -124,8 +125,11 @@ function PieceCard({
           </Badge>
         )}
 
-        {/* Title */}
-        <p className="text-sm font-medium leading-tight line-clamp-2">{piece.title}</p>
+        {/* Title + suggest */}
+        <div className="flex items-start gap-1">
+          <p className="text-sm font-medium leading-tight line-clamp-2 flex-1">{piece.title}</p>
+          {isEditable && renderSuggest?.(piece)}
+        </div>
 
         {/* Key message */}
         {piece.key_message && (
