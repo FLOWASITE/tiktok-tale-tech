@@ -282,9 +282,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [editableSchedule, setEditableSchedule] = useState<SchedulePiece[] | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleAutoTriggered, setScheduleAutoTriggered] = useState(false);
+  const [scheduleStale, setScheduleStale] = useState(false);
   const previewSchedule = usePreviewSchedule();
-
-  // triggerSchedulePreview defined later as plain function (after deps declared)
 
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
