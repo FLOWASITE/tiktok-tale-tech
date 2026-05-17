@@ -156,7 +156,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="font-semibold text-sm">{fn.name}</h4>
+            <h4 className="font-semibold text-sm"><HighlightText text={fn.name} terms={highlightTerms || []} /></h4>
             <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", typeBadge.className)}>
               {typeBadge.label}
             </Badge>
