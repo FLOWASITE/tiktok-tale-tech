@@ -1047,6 +1047,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       period_type: periodType,
       period_label: periodLabel,
       parent_goal_id: parentGoalId,
+      content_mix: contentMix,
     };
 
     // Start generating flow inside dialog
