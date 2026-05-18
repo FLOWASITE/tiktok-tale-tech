@@ -233,12 +233,13 @@ function ChannelView({
 
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
@@ -248,6 +249,7 @@ function TimelineView({
     if (b === '__unscheduled__') return -1;
     return new Date(a).getTime() - new Date(b).getTime();
   });
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div className="space-y-1">
@@ -283,11 +285,16 @@ function TimelineView({
                     return (
                       <div
                         key={piece.piece_number}
-                        className="group flex items-center gap-2 p-2 rounded-md border bg-card hover:border-primary/30 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onOpen(piece)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+                        title="Mở Content Studio"
+                        className="group flex items-center gap-2 p-2 rounded-md border bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
                       >
                         <ChannelIcon channel={piece.target_channel} size="sm" />
                         <p className="text-sm font-medium flex-1 truncate">{piece.title}</p>
-                        {isEditable && renderSuggest?.(piece)}
+                        {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                         {role && (
                           <Badge variant="outline" className={cn('text-[9px] h-4 shrink-0', role.color)}>
                             {role.emoji} {role.label}
@@ -299,15 +306,16 @@ function TimelineView({
                         </Badge>
                         {statusBadge(piece.status)}
                         {isEditable && (
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={stop}>
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                               <Pencil className="w-2.5 h-2.5" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                               <Trash2 className="w-2.5 h-2.5 text-destructive" />
                             </Button>
                           </div>
                         )}
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                       </div>
                     );
                   })}
