@@ -16,6 +16,14 @@ import {
 import { getPieceTarget } from '@/lib/campaignPieceNav';
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
+import { useCampaignPlanPipelines } from '@/hooks/useCampaignPlanPipelines';
+import {
+  derivePieceStatus,
+  PIECE_STATUS_VISUAL,
+  summarizePieceStatuses,
+  type DerivedPieceState,
+} from '@/lib/campaignPieceStatus';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
 import { PieceTopicSuggestPopover } from './PieceTopicSuggestPopover';
 import type { PieceTopicSuggestion, SuggestPieceTopicsInput } from '@/hooks/agents/useSuggestPieceTopics';
