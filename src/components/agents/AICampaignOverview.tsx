@@ -32,6 +32,7 @@ interface AICampaignOverviewProps {
   pipelines: AgentPipeline[];
   plans: CampaignContentPlan[];
   onNavigateToPipeline?: (goalId: string) => void;
+  afterStatsSlot?: React.ReactNode;
 }
 
 const STAGE_COLORS: Record<string, string> = {
