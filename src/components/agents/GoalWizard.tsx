@@ -39,6 +39,8 @@ import ContentScheduleStudio from './ContentScheduleStudio';
 import { usePreviewSchedule } from '@/hooks/agents/usePreviewSchedule';
 import type { SchedulePiece } from '@/lib/scheduleExport';
 import { analyzeCampaignName, type NameQualityResult } from '@/lib/campaignNameQuality';
+import { PeriodScopePicker } from './PeriodScopePicker';
+import { useAgentGoals } from '@/hooks/useAgentGoals';
 
 // ─── Constants ───
 
@@ -212,6 +214,9 @@ type GoalSubmitData = {
   campaign_duration_days?: number;
   campaign_start_date?: string;
   approval_mode?: string;
+  period_type?: 'month' | 'quarter' | 'year' | 'custom';
+  period_label?: string | null;
+  parent_goal_id?: string | null;
 };
 
 type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
@@ -250,6 +255,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const { defaultAutonomyLevel } = useOrganizationSettings();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
+  const { goals: allGoals } = useAgentGoals();
+  const parentGoalOptions = useMemo(
+    () => allGoals.filter(g => g.period_type && g.period_type !== 'custom' && (!initialData || g.id !== initialData.id)),
+    [allGoals, initialData]
+  );
   
   // Step 0: Mục tiêu
   const [name, setName] = useState('');
@@ -281,6 +291,10 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [customDuration, setCustomDuration] = useState('');
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [totalPostsTarget, setTotalPostsTarget] = useState<number | ''>('');
+  // Period scope (Tháng / Quý / Năm / Tự chọn) + parent campaign
+  const [periodType, setPeriodType] = useState<'month' | 'quarter' | 'year' | 'custom'>('custom');
+  const [periodLabel, setPeriodLabel] = useState<string | null>(null);
+  const [parentGoalId, setParentGoalId] = useState<string | null>(null);
 
   // Content Schedule Studio state
   const [editableSchedule, setEditableSchedule] = useState<SchedulePiece[] | null>(null);
@@ -545,6 +559,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setCampaignId(initialData.campaign_id || undefined);
       setCampaignDurationDays(initialData.campaign_duration_days || 14);
       setCampaignStartDate(initialData.campaign_start_date || new Date().toISOString().split('T')[0]);
+      setPeriodType((initialData as any).period_type || 'custom');
+      setPeriodLabel((initialData as any).period_label || null);
+      setParentGoalId((initialData as any).parent_goal_id || null);
       setApprovalMode(initialData.approval_mode || 'approve_plan');
       // Rehydrate objectives from clarification_context (multi or legacy single)
       const ctx = (initialData as any).clarification_context || {};
@@ -602,6 +619,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setPillarAllocation({});
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
+    setPeriodType('custom'); setPeriodLabel(null); setParentGoalId(null);
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel(defaultAutonomyLevel || 'full_auto'); setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel || 'full_auto'] || 'full_auto');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
@@ -977,6 +995,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
+      period_type: periodType,
+      period_label: periodLabel,
+      parent_goal_id: parentGoalId,
     };
 
     // Start generating flow inside dialog
@@ -1742,10 +1763,27 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 </div>
               </div>
 
+              {/* Period scope (Tháng/Quý/Năm/Tự chọn) + parent campaign */}
+              <PeriodScopePicker
+                value={periodType}
+                onChange={(type, range) => {
+                  setPeriodType(type);
+                  setPeriodLabel(range.label);
+                  if (type !== 'custom') {
+                    setCampaignStartDate(range.startDate);
+                    setCampaignDurationDays(range.durationDays);
+                    setCustomDuration('');
+                  }
+                }}
+                parentGoalId={parentGoalId}
+                onParentChange={setParentGoalId}
+                parentOptions={parentGoalOptions}
+              />
+
               {/* Duration & Posts Target */}
               <div className="space-y-3">
                 <Label className="text-xs">Thời lượng chiến dịch</Label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className={cn("grid grid-cols-3 gap-1.5", periodType !== 'custom' && 'opacity-50 pointer-events-none')}>
                   {DURATION_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
@@ -1760,7 +1798,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     </button>
                   ))}
                 </div>
-                {campaignDurationDays === 0 && (
+                {campaignDurationDays === 0 && periodType === 'custom' && (
                   <div className="flex items-center gap-2">
                     <Input type="number" value={customDuration} onChange={e => setCustomDuration(e.target.value)} placeholder="Số ngày" className="text-sm w-24 h-8" min={3} max={365} />
                     <span className="text-xs text-muted-foreground">ngày</span>
@@ -1769,7 +1807,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Bắt đầu:</Label>
-                    <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-full" />
+                    <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-full" disabled={periodType !== 'custom'} />
                   </div>
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Số bài:</Label>
@@ -1784,7 +1822,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                     />
                   </div>
                 </div>
-                <p className="text-[9px] text-muted-foreground">Nhập số bài viết mong muốn để AI phân bổ lịch đăng phù hợp. Bỏ trống = AI tự tính.</p>
+                <p className="text-[9px] text-muted-foreground">
+                  {periodType === 'custom'
+                    ? 'Nhập số bài viết mong muốn để AI phân bổ lịch đăng phù hợp. Bỏ trống = AI tự tính.'
+                    : 'Ngày bắt đầu & số ngày tự động theo phạm vi đã chọn.'}
+                </p>
               </div>
 
               {/* Budget */}

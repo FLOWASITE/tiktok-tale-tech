@@ -526,11 +526,27 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
+                        {goal.parent_goal_id && (
+                          <span className="text-muted-foreground/50 text-xs" title="Campaign con">↳</span>
+                        )}
                         <p className="text-sm font-semibold">{goal.name}</p>
                         <Badge variant="outline" className={cn('text-[9px] h-4 gap-0.5', statusConf.color)}>
                           <StatusIcon className="w-2.5 h-2.5" />
                           {statusConf.label}
                         </Badge>
+                        {goal.period_label && goal.period_type !== 'custom' && (
+                          <Badge variant="outline" className="text-[9px] h-4 bg-muted/40">
+                            {goal.period_label}
+                          </Badge>
+                        )}
+                        {goal.parent_goal_id && (() => {
+                          const parent = goals.find(g => g.id === goal.parent_goal_id);
+                          return parent ? (
+                            <Badge variant="outline" className="text-[9px] h-4 text-muted-foreground">
+                              thuộc: {parent.name}
+                            </Badge>
+                          ) : null;
+                        })()}
                       </div>
 
                       {totalPieces > 0 && (

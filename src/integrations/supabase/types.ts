@@ -1458,6 +1458,9 @@ export type Database = {
           is_paused: boolean
           name: string
           organization_id: string
+          parent_goal_id: string | null
+          period_label: string | null
+          period_type: string
           target_channels: string[] | null
           target_topics: string[] | null
           updated_at: string
@@ -1480,6 +1483,9 @@ export type Database = {
           is_paused?: boolean
           name: string
           organization_id: string
+          parent_goal_id?: string | null
+          period_label?: string | null
+          period_type?: string
           target_channels?: string[] | null
           target_topics?: string[] | null
           updated_at?: string
@@ -1502,6 +1508,9 @@ export type Database = {
           is_paused?: boolean
           name?: string
           organization_id?: string
+          parent_goal_id?: string | null
+          period_label?: string | null
+          period_type?: string
           target_channels?: string[] | null
           target_topics?: string[] | null
           updated_at?: string
@@ -1533,6 +1542,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_goals_parent_goal_fk"
+            columns: ["parent_goal_id"]
+            isOneToOne: false
+            referencedRelation: "agent_goals"
             referencedColumns: ["id"]
           },
         ]

@@ -38,6 +38,9 @@ export function useAgentGoals() {
       campaign_duration_days?: number;
       campaign_start_date?: string;
       approval_mode?: string;
+      period_type?: 'month' | 'quarter' | 'year' | 'custom';
+      period_label?: string | null;
+      parent_goal_id?: string | null;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();
@@ -49,6 +52,9 @@ export function useAgentGoals() {
           created_by: user?.id,
           campaign_id: goal.campaign_id || null,
           clarification_context: goal.clarification_context || null,
+          period_type: goal.period_type || 'custom',
+          period_label: goal.period_label ?? null,
+          parent_goal_id: goal.parent_goal_id ?? null,
         } as any)
         .select()
         .single();
