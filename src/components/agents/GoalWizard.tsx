@@ -430,6 +430,44 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }, 0);
   }, [selectedChannels, frequency, effectiveDuration]);
 
+  // Per-channel posts count (matches the heuristic used in the preview UI)
+  const channelPostsMap = useMemo(() => {
+    const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+    const out: Record<string, number> = {};
+    selectedChannels.forEach(ch => {
+      const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+      out[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
+    });
+    return out;
+  }, [selectedChannels, frequency, effectiveDuration]);
+
+  // Auto-fill / re-sync contentMix when channels, frequency, or duration change.
+  // - new channel: seed with defaultContentMix
+  // - existing channel whose total changed: re-seed defaults
+  // - removed channel: handled in toggleChannel
+  useEffect(() => {
+    setContentMix(prev => {
+      let changed = false;
+      const next: Record<string, ContentMixCell> = {};
+      selectedChannels.forEach(ch => {
+        const total = channelPostsMap[ch] ?? 0;
+        const cur = prev[ch];
+        if (!cur) {
+          next[ch] = defaultContentMix(ch, total);
+          changed = true;
+        } else if (sumMix(cur) !== total) {
+          next[ch] = defaultContentMix(ch, total);
+          changed = true;
+        } else {
+          next[ch] = cur;
+        }
+      });
+      // Drop entries for unselected channels
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [selectedChannels, channelPostsMap]);
+
   // ─── Schedule Studio: build context + trigger preview ───
   const buildPreviewClarification = (): Record<string, any> => {
     const ctx: Record<string, any> = {};
