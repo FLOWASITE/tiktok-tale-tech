@@ -77,7 +77,7 @@ const PILLAR_LABELS: Record<string, string> = {
 
 const PAST_APPROVAL_STAGES = ['publish', 'analyze'];
 
-export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeline }: AICampaignOverviewProps) {
+export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeline, afterStatsSlot }: AICampaignOverviewProps) {
   const [selectedGoalId, setSelectedGoalId] = useState<string>('all');
   const { campaigns } = useCampaigns();
 
