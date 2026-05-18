@@ -680,13 +680,22 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
           </div>
 
           {/* Progress bar */}
-          {plan.status === 'executing' && (
+          {(plan.status === 'executing' || summary.doneCount + summary.failed + summary.awaiting_approval + summary.generating + summary.publishing + summary.queued > 0) && (
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Tiến độ</span>
+                <span>Tiến độ thực tế</span>
                 <span>{completedCount}/{pieces.length}</span>
               </div>
               <Progress value={progressPercent} className="h-1.5" />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground pt-0.5">
+                {summary.published > 0 && <span className="text-emerald-600">● {summary.published} đã đăng</span>}
+                {summary.publishing > 0 && <span className="text-indigo-600">● {summary.publishing} đang đăng</span>}
+                {summary.awaiting_approval > 0 && <span className="text-amber-600">● {summary.awaiting_approval} chờ duyệt</span>}
+                {summary.generating > 0 && <span className="text-blue-600">● {summary.generating} đang tạo</span>}
+                {summary.queued > 0 && <span className="text-slate-600">● {summary.queued} trong hàng đợi</span>}
+                {summary.failed > 0 && <span className="text-destructive">● {summary.failed} lỗi</span>}
+                {summary.not_started > 0 && <span>● {summary.not_started} chưa bắt đầu</span>}
+              </div>
             </div>
           )}
 
@@ -714,13 +723,13 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
 
       {/* Content Views */}
       {viewMode === 'channel' && (
-        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
       {viewMode === 'timeline' && (
-        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
       {viewMode === 'list' && (
-        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
 
       {/* Edit Piece Dialog */}
