@@ -1,0 +1,1053 @@
+{
+  "count": 247,
+  "all_secrets": [
+    "AI_ENCRYPTION_KEY",
+    "CREATOMATE_API_KEY",
+    "CREDENTIAL_ENCRYPTION_KEY",
+    "ELEVENLABS_API_KEY",
+    "FACEBOOK_WEBHOOK_VERIFY_TOKEN",
+    "FIRECRAWL_API_KEY",
+    "FLOWA_DEFAULT_BOT_TOKEN",
+    "FLOWA_DEFAULT_BOT_USERNAME",
+    "FLOWA_DEFAULT_BOT_WEBHOOK_SECRET",
+    "FLOWA_SUPERADMIN_USER_IDS",
+    "FRONTEND_URL",
+    "GEMINIGEN_API_KEY",
+    "KIE_API_KEY",
+    "LOVABLE_API_KEY",
+    "NINE_ROUTER_API_KEY",
+    "OPENROUTER_API_KEY",
+    "PAYMENT_WEBHOOK_SECRET",
+    "PAYOS_API_KEY",
+    "PAYOS_CHECKSUM_KEY",
+    "PAYOS_CLIENT_ID",
+    "PERPLEXITY_API_KEY",
+    "PINTEREST_CLIENT_ID",
+    "PINTEREST_CLIENT_SECRET",
+    "POYO_API_KEY",
+    "PUBLIC_BLOG_DOMAIN",
+    "SHOPIFY_CLIENT_ID",
+    "SHOPIFY_CLIENT_SECRET",
+    "SITE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_URL",
+    "TELEGRAM_LINK_SECRET",
+    "TELEGRAM_MINIAPP_URL",
+    "TELEGRAM_WEBHOOK_SECRET",
+    "TWITTER_CONSUMER_KEY",
+    "TWITTER_CONSUMER_SECRET",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VNPAY_ENV",
+    "VNPAY_HASH_SECRET",
+    "VNPAY_TMN_CODE",
+    "WIX_APP_ID",
+    "WIX_APP_SECRET",
+    "X_CALLBACK_URL",
+    "X_CLIENT_ID",
+    "X_CLIENT_SECRET"
+  ],
+  "functions": {
+    "admin-cache-invalidate": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "admin-manage-user": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "admin-storage-manager": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "agent-approve": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "agent-creator-v2": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "agent-orchestrator-analytics": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "agent-pipeline": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "agent-quality": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "ai-edit-channel": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "analyze-character-image": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "analyze-dashboard-insights": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "analyze-product-image": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "analyze-regulation-impact": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "analyze-script": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "apply-regulation-propagation": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "auth-gateway": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL"
+    ],
+    "auto-crawl-regulations": [
+      "FIRECRAWL_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "auto-suggest-connections": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "backfill-content-embeddings": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "batch-generate-embeddings": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "blogger-oauth-callback": [
+      "FRONTEND_URL",
+      "SUPABASE_URL"
+    ],
+    "bluesky-oauth-callback": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "bluesky-oauth-start": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "campaign-notifications": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "categorize-industries": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "channel-publisher": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL"
+    ],
+    "chat-conversations": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "chat-topics": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "clarify-campaign-intent": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "cleanup-old-images": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "cleanup-old-media": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "connect-meta-ads": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "connect-pinterest-sandbox": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "connect-social": [
+      "AI_ENCRYPTION_KEY",
+      "PINTEREST_CLIENT_ID",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET",
+      "X_CALLBACK_URL"
+    ],
+    "connect-website": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "connect-wordpress": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "create-org-member": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "create-organization": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "create-payos-payment": [
+      "PAYOS_API_KEY",
+      "PAYOS_CHECKSUM_KEY",
+      "PAYOS_CLIENT_ID",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "create-vnpay-payment": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "VNPAY_ENV",
+      "VNPAY_HASH_SECRET",
+      "VNPAY_TMN_CODE"
+    ],
+    "decompose-image-request": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "delete-carousel-image": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "delete-orphan-industries": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "edit-image-background": [
+      "KIE_API_KEY",
+      "LOVABLE_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "embed-content": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "encrypt-api-key": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "enrich-industry-profiles": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "enrich-keyword-serp": [
+      "FIRECRAWL_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "enrich-personas": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "extract-broll-keywords": [
+      "LOVABLE_API_KEY"
+    ],
+    "extract-knowledge-entities": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "extract-regulation-content": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "facebook-attach-page": [],
+    "facebook-list-session-pages": [],
+    "facebook-oauth-callback": [
+      "AI_ENCRYPTION_KEY",
+      "FRONTEND_URL",
+      "SUPABASE_URL"
+    ],
+    "facebook-reset-app-permissions": [],
+    "facebook-webhook": [
+      "FACEBOOK_WEBHOOK_VERIFY_TOKEN",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "fetch-meta-ad-insights": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "fetch-news-url": [
+      "FIRECRAWL_API_KEY"
+    ],
+    "fetch-openrouter-models": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "firecrawl-trends": [],
+    "generate-ad-copy": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-bgm": [
+      "ELEVENLABS_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-brand-guideline": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-brand-image": [
+      "GEMINIGEN_API_KEY",
+      "KIE_API_KEY",
+      "LOVABLE_API_KEY",
+      "NINE_ROUTER_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-brand-voice": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-campaign-strategy": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-carousel-image": [
+      "GEMINIGEN_API_KEY",
+      "KIE_API_KEY",
+      "LOVABLE_API_KEY",
+      "NINE_ROUTER_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-carousel-images-batch": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-carousel": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-character-image": [
+      "GEMINIGEN_API_KEY",
+      "KIE_API_KEY",
+      "LOVABLE_API_KEY",
+      "NINE_ROUTER_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-character": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-core-content": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-embedding": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-hooks": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-journey-messaging": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-knowledge-embeddings": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-missing-profiles": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-multichannel": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "VITE_SUPABASE_PUBLISHABLE_KEY"
+    ],
+    "generate-music": [
+      "ELEVENLABS_API_KEY"
+    ],
+    "generate-product-image": [
+      "GEMINIGEN_API_KEY",
+      "KIE_API_KEY",
+      "LOVABLE_API_KEY",
+      "NINE_ROUTER_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-report-insights": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-sample-text": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-scene-thumbnail": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-script": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-seo-landing": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-sitemap": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-storyboard": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-subtitles": [
+      "ELEVENLABS_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-video-prompt": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-video": [
+      "GEMINIGEN_API_KEY",
+      "LOVABLE_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "generate-voiceover": [
+      "ELEVENLABS_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "geo-generate-prompts": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "geo-generate-schema": [],
+    "geo-scan-brand": [
+      "LOVABLE_API_KEY",
+      "OPENROUTER_API_KEY",
+      "PERPLEXITY_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "geo-score-content": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "geo-track-competitors": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "google-business-oauth-callback": [
+      "FRONTEND_URL",
+      "SUPABASE_URL"
+    ],
+    "gsc-oauth-callback": [
+      "FRONTEND_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "gsc-oauth-start": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "gsc-sync-metrics": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "health-check": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "help-article-search": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "help-chatbot": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "import-brand-from-fanpage": [],
+    "import-brand-from-website": [
+      "FIRECRAWL_API_KEY",
+      "LOVABLE_API_KEY"
+    ],
+    "improve-script": [
+      "LOVABLE_API_KEY"
+    ],
+    "instagram-oauth-callback": [
+      "SITE_URL",
+      "SUPABASE_URL"
+    ],
+    "instagram-webhooks": [
+      "SITE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "keyword-bulk-import": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "keyword-research-save": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "keyword-research-v2": [
+      "FIRECRAWL_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "keyword-research": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "kpi-ai": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "learn-from-edits": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "learn-from-feedback": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "linkedin-oauth-callback": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_URL"
+    ],
+    "manage-social-platform-settings": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "migrate-industry-templates": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "migrate-to-knowledge-graph": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "notify-telegram": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "optimize-ad-copy": [],
+    "optimize-social-text": [],
+    "overlay-brand-logo": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "overlay-logo-canvas": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "overlay-text-canvas": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "parse-regulation-document": [
+      "FIRECRAWL_API_KEY",
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "payment-webhook": [
+      "PAYMENT_WEBHOOK_SECRET",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "payos-webhook": [
+      "PAYOS_CHECKSUM_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "pinterest-list-boards": [],
+    "pinterest-oauth-callback": [
+      "CREDENTIAL_ENCRYPTION_KEY",
+      "PINTEREST_CLIENT_ID",
+      "PINTEREST_CLIENT_SECRET",
+      "SUPABASE_URL"
+    ],
+    "predict-ad-performance": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "publish-blog": [
+      "PUBLIC_BLOG_DOMAIN",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "publish-blogger": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "publish-bluesky": [
+      "SUPABASE_URL"
+    ],
+    "publish-facebook": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "publish-google-business": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "publish-instagram": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "publish-linkedin": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "publish-pinterest": [],
+    "publish-shopify-blog": [],
+    "publish-threads": [
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "publish-tiktok": [],
+    "publish-twitter": [
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET"
+    ],
+    "publish-website": [
+      "AI_ENCRYPTION_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "publish-wordpress": [],
+    "publish-zalo": [
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "refresh-all-pinterest-tokens": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "refresh-all-wix-tokens": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "refresh-blogger-token": [],
+    "refresh-bluesky-token": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "refresh-facebook-token": [],
+    "refresh-google-business-token": [],
+    "refresh-instagram-token": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "refresh-linkedin-token": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "refresh-pinterest-token": [
+      "PINTEREST_CLIENT_ID",
+      "PINTEREST_CLIENT_SECRET"
+    ],
+    "refresh-threads-token": [],
+    "refresh-tiktok-token": [],
+    "refresh-wix-token": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "WIX_APP_ID",
+      "WIX_APP_SECRET"
+    ],
+    "refresh-x-token": [
+      "X_CLIENT_ID",
+      "X_CLIENT_SECRET"
+    ],
+    "refresh-zalo-token": [],
+    "regenerate-carousel-caption": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "regenerate-profiles": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "render-job-poller": [
+      "CREATOMATE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "render-video-creatomate": [
+      "CREATOMATE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "reparse-regulations": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "reparse-with-quality": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "reveal-platform-credential": [],
+    "sales-chatbot": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "score-ad-creative": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "semantic-search": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "seo-auto-cluster-orphans": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "seo-rank-tracker": [
+      "FIRECRAWL_API_KEY",
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "seo-serp-enrich": [
+      "FIRECRAWL_API_KEY",
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "shopify-app-uninstalled-webhook": [
+      "SHOPIFY_CLIENT_SECRET",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "shopify-oauth-callback": [
+      "FRONTEND_URL",
+      "SHOPIFY_CLIENT_ID",
+      "SHOPIFY_CLIENT_SECRET",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "shopify-oauth-start": [
+      "SHOPIFY_CLIENT_ID",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "social-diagnostics": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-ad-fix": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-channels": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-cluster-topics": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-industry": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-internal-links": [],
+    "suggest-objectives": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-piece-topics": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-products-from-website": [
+      "FIRECRAWL_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-prompt-rewrite": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-strategy": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "suggest-usp": [],
+    "summarize-conversation": [],
+    "sync-ad-performance": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "sync-external-links": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "sync-social-engagement": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET"
+    ],
+    "telegram-bot-admin": [
+      "FLOWA_DEFAULT_BOT_TOKEN",
+      "FLOWA_DEFAULT_BOT_USERNAME",
+      "FLOWA_DEFAULT_BOT_WEBHOOK_SECRET",
+      "FLOWA_SUPERADMIN_USER_IDS",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL",
+      "TELEGRAM_MINIAPP_URL",
+      "TELEGRAM_WEBHOOK_SECRET"
+    ],
+    "telegram-daily-digest": [],
+    "telegram-link-token": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL",
+      "TELEGRAM_LINK_SECRET"
+    ],
+    "telegram-miniapp-chat": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "telegram-rereg-all": [
+      "SUPABASE_URL",
+      "TELEGRAM_WEBHOOK_SECRET"
+    ],
+    "telegram-send-test": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "telegram-webapp-auth": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "telegram-webhook": [
+      "LOVABLE_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "TELEGRAM_MINIAPP_URL",
+      "TELEGRAM_WEBHOOK_SECRET"
+    ],
+    "test-ai-connection": [],
+    "test-blogger-connection": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-blogger-credentials": [],
+    "test-bluesky-connection": [],
+    "test-facebook-connection": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-facebook-credentials": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-google-business-connection": [
+      "SUPABASE_URL"
+    ],
+    "test-google-business-credentials": [],
+    "test-google-signin-credentials": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-gsc-connection": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-gsc-credentials": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-instagram-connection": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-instagram-credentials": [
+      "SUPABASE_URL"
+    ],
+    "test-linkedin-connection": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-linkedin-credentials": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-pinterest-connection": [],
+    "test-pinterest-credentials": [],
+    "test-shopify-connection": [],
+    "test-shopify-credentials": [
+      "SHOPIFY_CLIENT_ID",
+      "SHOPIFY_CLIENT_SECRET"
+    ],
+    "test-threads-connection": [],
+    "test-threads-credentials": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-tiktok-connection": [],
+    "test-tiktok-credentials": [],
+    "test-twitter-connection": [
+      "AI_ENCRYPTION_KEY",
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET",
+      "X_CLIENT_ID",
+      "X_CLIENT_SECRET"
+    ],
+    "test-twitter-credentials": [
+      "AI_ENCRYPTION_KEY",
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET"
+    ],
+    "test-website-connection": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-website-credentials": [
+      "AI_ENCRYPTION_KEY"
+    ],
+    "test-wordpress-com-connection": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "test-wordpress-connection": [],
+    "test-wordpress-credentials": [],
+    "test-zalo-connection": [],
+    "test-zalo-credentials": [],
+    "threads-oauth-callback": [
+      "AI_ENCRYPTION_KEY",
+      "FRONTEND_URL",
+      "SUPABASE_URL"
+    ],
+    "tiktok-image-proxy": [],
+    "tiktok-oauth-callback": [
+      "SUPABASE_URL"
+    ],
+    "topic-ai": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "validate-seamless-consistency": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "verify-payos-order": [
+      "PAYOS_API_KEY",
+      "PAYOS_CLIENT_ID",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "video-job-poller": [
+      "GEMINIGEN_API_KEY",
+      "POYO_API_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "vnpay-callback": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "VNPAY_HASH_SECRET"
+    ],
+    "warm-up-functions": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_URL"
+    ],
+    "wix-oauth-callback": [
+      "FRONTEND_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "WIX_APP_ID",
+      "WIX_APP_SECRET"
+    ],
+    "wix-oauth-start": [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL",
+      "WIX_APP_ID"
+    ],
+    "wordpress-com-oauth-callback": [
+      "FRONTEND_URL",
+      "SUPABASE_URL"
+    ],
+    "x-oauth-callback": [
+      "FRONTEND_URL",
+      "TWITTER_CONSUMER_KEY",
+      "TWITTER_CONSUMER_SECRET"
+    ],
+    "zalo-oauth-callback": [
+      "SUPABASE_URL"
+    ]
+  }
+}

@@ -1,0 +1,264 @@
+[map[storage_config:{
+    "buckets": [
+        {
+            "id": "audio-assets",
+            "name": "audio-assets",
+            "public": true,
+            "created_at": "2026-04-29T21:35:30.954114+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        },
+        {
+            "id": "brand-logos",
+            "name": "brand-logos",
+            "public": true,
+            "created_at": "2025-12-21T05:58:13.407501+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        },
+        {
+            "id": "carousel-images",
+            "name": "carousel-images",
+            "public": true,
+            "created_at": "2025-12-21T05:23:25.353522+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        },
+        {
+            "id": "character-references",
+            "name": "character-references",
+            "public": true,
+            "created_at": "2026-05-01T04:10:38.85787+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        },
+        {
+            "id": "product-references",
+            "name": "product-references",
+            "public": true,
+            "created_at": "2026-05-05T23:35:08.431262+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        },
+        {
+            "id": "video-renders",
+            "name": "video-renders",
+            "public": true,
+            "created_at": "2026-04-29T21:35:30.954114+00:00",
+            "file_size_limit": null,
+            "allowed_mime_types": null
+        }
+    ],
+    "policies": [
+        {
+            "cmd": "DELETE",
+            "qual": "(bucket_id = 'brand-logos'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can delete brand logos",
+            "with_check": null
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "(bucket_id = 'carousel-images'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can delete carousel images",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "(bucket_id = 'brand-logos'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can update brand logos",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "(bucket_id = 'carousel-images'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can update carousel images",
+            "with_check": null
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can upload brand logos",
+            "with_check": "(bucket_id = 'brand-logos'::text)"
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can upload carousel images",
+            "with_check": "(bucket_id = 'carousel-images'::text)"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'brand-logos'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can view brand logos",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'carousel-images'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Anyone can view carousel images",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'audio-assets'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Audio publicly readable",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'character-references'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Character references are publicly accessible",
+            "with_check": null
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "((bucket_id = 'character-references'::text) AND (auth.uid() IS NOT NULL))",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Org members can delete character references",
+            "with_check": null
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Org members can upload character references",
+            "with_check": "((bucket_id = 'character-references'::text) AND (auth.uid() IS NOT NULL))"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'video-renders'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Renders publicly readable",
+            "with_check": null
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "((bucket_id = 'audio-assets'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Users delete own audio",
+            "with_check": null
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "((bucket_id = 'video-renders'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Users delete own renders",
+            "with_check": null
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Users upload own audio",
+            "with_check": "((bucket_id = 'audio-assets'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))"
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "Users upload own renders",
+            "with_check": "((bucket_id = 'video-renders'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))"
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "(bucket_id = 'product-references'::text)",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "policyname": "product_refs_authenticated_delete",
+            "with_check": null
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "policyname": "product_refs_authenticated_insert",
+            "with_check": "(bucket_id = 'product-references'::text)"
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "(bucket_id = 'product-references'::text)",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "policyname": "product_refs_authenticated_update",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(bucket_id = 'product-references'::text)",
+            "roles": [
+                "public"
+            ],
+            "tablename": "objects",
+            "policyname": "product_refs_public_read",
+            "with_check": null
+        }
+    ]
+}]]

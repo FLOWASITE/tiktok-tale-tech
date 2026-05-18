@@ -1,174 +1,138 @@
-# Kế hoạch Self-host Supabase trên Server Vật Lý
+# Kế hoạch chuẩn bị Self-host (không cần server)
 
-## Bối cảnh đã chốt
-- **Phạm vi**: Self-host TOÀN BỘ Supabase stack (Postgres + PostgREST + GoTrue + Storage + Realtime + Edge Runtime + Kong)
-- **Lý do**: Data sovereignty - data ở VN
-- **Hạ tầng**: **Server vật lý của user** (on-premise)
-- **Timeline**: <2 tuần, downtime vài giờ chấp nhận được
-- **Frontend**: vẫn dùng Lovable.dev để dev → build → deploy lên hosting riêng
+Mục tiêu: Làm xong toàn bộ phần "code + config + dry-run" trong khi chờ server. Khi server sẵn sàng chỉ cần `git pull && docker compose up && pg_restore`.
+
+Thứ tự: **Phase 1 (Export) → Phase 2 (Refactor AI) → Phase 3 (Test Docker local)**. Phase 1 chạy trước vì an toàn nhất (read-only), Phase 2 cần Phase 1 làm baseline để verify, Phase 3 cần cả 2 phase trước.
 
 ---
 
-## 1. Yêu cầu phần cứng server vật lý
+## Phase 1 — Export & Version-Control Config (1-2 ngày)
 
-### Cấu hình tối thiểu (1 server, all-in-one)
-| Thành phần | Spec |
-|---|---|
-| CPU | 8 cores / 16 threads (Xeon E-2388G hoặc Ryzen 7 5800X trở lên) |
-| RAM | 64 GB ECC DDR4 |
-| Storage OS | 2× 500 GB NVMe RAID 1 (hệ điều hành + Docker) |
-| Storage DB | 2× 2 TB NVMe RAID 1 (Postgres data) |
-| Storage backup | 4× 4 TB HDD RAID 10 (backup + Storage bucket) |
-| Network | 2× 1 Gbps NIC (bonding), public IP tĩnh |
-| UPS | Tối thiểu 30 phút |
+Mục tiêu: Snapshot toàn bộ trạng thái Lovable Cloud hiện tại vào `/infra/snapshots/` để có thể restore deterministic.
 
-### Cấu hình khuyến nghị (2 server tách App/DB)
-- **App Server**: 8 core / 32 GB RAM / 500 GB NVMe (Kong, GoTrue, Storage, Realtime, Edge Runtime)
-- **DB Server**: 16 core / 128 GB RAM / 2 TB NVMe RAID 10 + 8 TB HDD backup
-- Kết nối nội bộ 10 Gbps switch
+### 1.1 Database schema + functions + triggers
+- Tạo script `infra/scripts/10-export-schema.sh` chạy `pg_dump --schema-only` (qua connection string read-only)
+- Output: `infra/snapshots/schema.sql` (commit vào git)
+- Bao gồm: 268 migrations đã apply, 90+ database functions (đã thấy trong context), RLS policies, triggers, materialized views
 
-### Yêu cầu phòng máy
-- Nhiệt độ 18-24°C, độ ẩm 40-60%
-- 2 đường điện độc lập + UPS + máy phát
-- 2 đường internet ISP khác nhau (Viettel + FPT) để failover
-- Public IP tĩnh + reverse DNS
-- Firewall cứng (pfSense/MikroTik) trước server
+### 1.2 pg_cron jobs
+- Viết `infra/scripts/11-export-cron-jobs.sql`: `SELECT * FROM cron.job` → JSON
+- Output: `infra/snapshots/cron-jobs.json`
+- Bao gồm: cron 2-min publishing, 30-min token refresh, daily cleanup, daily aggregate stats
 
----
+### 1.3 Storage buckets + policies
+- Viết script Deno query `storage.buckets` + `storage.objects` policies
+- Output: `infra/snapshots/storage-config.json` + `infra/snapshots/buckets-manifest.json` (list bucket names, public/private, size)
+- KHÔNG export file content (làm sau ở cutover thật)
 
-## 2. Stack phần mềm
+### 1.4 Auth providers + email templates
+- Query GoTrue config qua Supabase Management API
+- Output: `infra/snapshots/auth-providers.json` (21 OAuth providers + redirect URIs + scopes)
+- Output: `infra/snapshots/email-templates/` (signup, reset, magic-link, invite)
 
-### OS & Base
-- **Ubuntu Server 22.04 LTS** (hoặc Debian 12)
-- Docker 24+ & Docker Compose v2
-- Nginx (reverse proxy + SSL termination)
-- Certbot (Let's Encrypt SSL cho `api.flowa.one`, `db.flowa.one`)
-- Fail2ban + UFW firewall
-- Prometheus + Grafana (monitoring)
-- Restic (backup encrypted offsite)
+### 1.5 Edge function manifest + secrets requirements
+- Script scan `supabase/functions/*/index.ts` tìm tất cả `Deno.env.get(...)` calls
+- Output: `infra/snapshots/functions-manifest.json`: 250 functions × secrets cần có
+- Tạo `infra/.env.required` checklist (đã có `.env.example`, bổ sung secrets thiếu)
 
-### Supabase Stack (qua `supabase/docker`)
-- Postgres 15 + extensions: `pgvector`, `pg_cron`, `pg_net`, `pgsodium`, `pg_graphql`
-- PostgREST (REST API)
-- GoTrue (Auth)
-- Storage API (S3-compatible, MinIO backend hoặc local filesystem)
-- Realtime (WebSocket)
-- Edge Runtime (Deno - chạy 250 edge functions)
-- Kong API Gateway
-- Studio (web UI quản trị)
-- Vector (logs)
-- Imgproxy (image transformations)
+### 1.6 OAuth provider checklist
+- Tạo `infra/OAUTH-MIGRATION.md`: bảng 21 providers × console URL × redirect URI hiện tại × redirect URI mới (`api.flowa.one`) × bước update
+- Reference: Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, Bluesky, Pinterest, Wix, Shopify, WordPress.com, Telegram
+
+**Output Phase 1**: 1 thư mục `infra/snapshots/` ~ 5-20 MB commit vào git, có thể replay bất cứ lúc nào.
 
 ---
 
-## 3. Roadmap 14 ngày
+## Phase 2 — Refactor AI Provider triệt để (2-3 ngày)
 
-### **Tuần 1: Chuẩn bị hạ tầng & code (D1-D7)**
+Mục tiêu: Bỏ hoàn toàn dependency vào Lovable Gateway. Mọi AI call đi qua `_shared/ai-provider.ts` → OpenRouter / 9Router / DashScope direct.
 
-**D1-D2: Hạ tầng vật lý**
-- Cài Ubuntu 22.04, RAID, network bonding
-- Cấu hình firewall, SSH key-only, fail2ban
-- Cài Docker + Compose
-- Setup DNS: `api.flowa.one`, `studio.flowa.one` → IP server
-- Phát hành SSL cert qua Certbot
+### 2.1 Audit hard-coded gateway calls
+- `rg "ai.gateway.lovable.dev"` toàn repo → list ra functions còn bypass `callAI()`
+- Confirmed culprits cần fix:
+  - `supabase/functions/embed-content/index.ts` (gọi trực tiếp `/v1/embeddings`)
+  - Có thể còn `health-check`, các function streaming chat dùng `createLovableAiGatewayProvider`
+- Output: `infra/AI-MIGRATION-AUDIT.md` (function nào còn bypass, mức độ risk)
 
-**D3-D4: Triển khai Supabase stack**
-- Clone `supabase/docker`
-- Viết `docker-compose.override.yml`:
-  - Bật extensions (`pgvector`, `pg_cron`, `pg_net`)
-  - Config GoTrue cho 21+ OAuth providers (Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, …)
-  - Mount Storage volume
-  - Set JWT secret, anon key, service role key mới
-- Boot stack, verify health từng service
-- Cài Postgres extensions, tạo schema rỗng
+### 2.2 Migrate embeddings sang OpenAI/DashScope native
+- Hiện dùng `google/text-embedding-004` qua Lovable Gateway (768-dim) + truncate xuống 384
+- Đổi sang `openai/text-embedding-3-small` (1536-dim, support truncate API native xuống 384) HOẶC DashScope `text-embedding-v3` (1024-dim)
+- Cập nhật `_shared/ai-provider.ts` thêm helper `callEmbedding({ text, dims: 384 })`
+- Refactor `embed-content`, `match_blackboard_context` callers (DB function giữ nguyên vì chỉ cần vector 384-dim)
 
-**D5: Refactor AI Provider**
-- Sửa `supabase/functions/_shared/ai-provider.ts`: bỏ Lovable Gateway, route 100% qua OpenRouter + 9Router + DashScope direct
-- Test local với 3-5 edge functions critical (`generate-script`, `generate-carousel`, `topic-ai`)
-- Add secrets mới: `OPENROUTER_API_KEY`, `NINE_ROUTER_API_KEY`, `DASHSCOPE_API_KEY` vào `.env` của self-host
+### 2.3 Refactor streaming chat functions
+- Functions dùng `npm:ai` + `createLovableAiGatewayProvider` (vd `flowa-chat`, agent functions) → swap provider sang `createOpenAICompatible({ baseURL: openrouter })`
+- Giữ AI SDK API surface không đổi, chỉ swap baseURL/headers
+- Test với 3 functions critical trước: `generate-script`, `generate-carousel`, `flowa-chat`
 
-**D6: Edge Functions deploy pipeline**
-- Viết script `deploy-all-functions.sh` (loop 250 functions, `supabase functions deploy --project-ref local`)
-- Setup GitHub Actions: push → SSH deploy functions tự động
-- Test deploy 10 functions mẫu
+### 2.4 Mở rộng `isLovableGatewayDisabled` shim
+- Hiện shim chỉ reroute `lovable` provider
+- Bổ sung: detect `model.startsWith("google/")` → route qua OpenRouter (vì OpenRouter có Gemini)
+- Bổ sung warning log khi `SELF_HOSTED_MODE=true` mà còn function gọi gateway
 
-**D7: Cron jobs & Storage**
-- Export `pg_cron` jobs hiện tại từ Lovable Cloud (script `export-cron-jobs.ts`)
-- Export danh sách Storage buckets + policies
-- Apply lên self-host
+### 2.5 Test trên Lovable Cloud hiện tại (không break production)
+- Set 1 secret toggle `SELF_HOSTED_MODE=false` mặc định
+- Deploy refactor, verify mọi function vẫn pass khi flag off
+- Bật flag với 3 function pilot, đo error rate 24h
+- Document trong `infra/AI-CUTOVER-PLAN.md`
 
-### **Tuần 2: Migrate data & cutover (D8-D14)**
-
-**D8-D9: Dry-run migration**
-- `pg_dump -Fc` từ Lovable Cloud (schema only) → restore lên self-host → verify
-- `pg_dump -Fc` data (sample 10%) → restore → smoke test
-- Test auth flow, OAuth callbacks, edge functions, realtime
-
-**D10: OAuth re-registration**
-- Update redirect URI ở 21+ providers từ `*.supabase.co` → `api.flowa.one`
-- Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, Bluesky, …
-- Document từng provider (cần Console access)
-
-**D11: Full dry-run cutover**
-- Maintenance mode trên app
-- `pg_dump` full → restore → verify row counts
-- Migrate Storage bucket files (rsync hoặc `mc mirror`)
-- Đo thời gian thực tế
-
-**D12: Frontend deploy pipeline**
-- Build Vite production → deploy lên hosting riêng (Nginx trên cùng server hoặc Cloudflare Pages)
-- Update env: `VITE_SUPABASE_URL=https://api.flowa.one`, anon key mới
-- Test toàn bộ flows quan trọng
-
-**D13: CUTOVER (4-6h downtime)**
-- 02:00 - Bật maintenance mode
-- 02:15 - `pg_dump` full từ Lovable Cloud
-- 03:00 - Restore lên self-host
-- 04:00 - Migrate Storage files
-- 05:00 - Switch DNS `api.flowa.one` → self-host
-- 05:30 - Deploy frontend mới
-- 06:00 - Smoke test 20 flows critical
-- 07:00 - Mở lại traffic, tắt maintenance
-
-**D14: Monitoring & rollback plan**
-- Theo dõi Grafana 24h
-- Giữ Lovable Cloud sống thêm 7 ngày làm rollback
-- Document runbook cho team
+**Output Phase 2**: AI layer hoạt động ở 2 mode (gateway / direct), toggle bằng 1 ENV var, đã test trên production live.
 
 ---
 
-## 4. Backup & Disaster Recovery
+## Phase 3 — Docker Stack Local (1-2 ngày)
 
-- **Postgres**: `pg_dump` daily → Restic encrypt → backup offsite (rsync sang VPS Hà Nội/HCM khác)
-- **WAL archiving**: continuous archive sang second disk (PITR khả thi trong 7 ngày)
-- **Storage bucket**: rsync incremental hàng giờ → offsite
-- **Config**: git repo private cho `docker-compose.yml`, `.env.template`
-- **Test restore**: 1 lần/tháng (mandatory)
+Mục tiêu: Boot full Supabase stack trên Docker Desktop/WSL2/máy Mac của bạn, verify mọi service. Khi mang lên server vật lý chỉ là copy-paste.
+
+### 3.1 Hoàn thiện `docker-compose.override.yml`
+- Đã scaffold ở `infra/docker-compose.override.yml`
+- Bổ sung: pin version cụ thể cho từng image (postgres 15.6, postgrest 12.x, gotrue 2.x...)
+- Bổ sung: healthcheck cho từng service
+- Bổ sung: resource limits (CPU/memory) phù hợp laptop
+
+### 3.2 Init extensions + apply snapshot
+- `infra/init-extensions.sql` đã có (`pgvector`, `pg_cron`, `pg_net`...)
+- Bổ sung script `infra/scripts/20-bootstrap-local-db.sh`: 
+  1. `docker compose up -d db`
+  2. Apply `init-extensions.sql`
+  3. Apply `infra/snapshots/schema.sql` (từ Phase 1)
+  4. Seed 1 row sample mỗi table critical
+
+### 3.3 Smoke test stack
+- Script `infra/scripts/21-smoke-test.sh`:
+  - `curl localhost:8000/auth/v1/health` → 200
+  - `curl localhost:8000/rest/v1/organizations?apikey=...` → 200
+  - WebSocket test Realtime
+  - Deploy 1 edge function test (`health-check`) → curl
+- Output checklist pass/fail
+
+### 3.4 Test edge function deploy pipeline local
+- Script `infra/scripts/22-deploy-edge-functions-local.sh` (variant của 02): deploy lên `http://localhost:8000`
+- Pilot: deploy 10 functions sample, verify hoạt động
+- Document deps issues (Deno version, npm: imports work hay không)
+
+### 3.5 Test pg_dump → pg_restore loop
+- Lấy `pg_dump --data-only --table=organizations` từ Lovable Cloud (1 org sample)
+- Restore vào local stack
+- Verify data + RLS hoạt động đúng với JWT mới
+
+**Output Phase 3**: Full stack chạy được trên máy local, dry-run migration 1 table thành công.
 
 ---
 
-## 5. Rủi ro & mitigation
+## Phần CHƯA làm được (cần server vật lý)
+- Cài Ubuntu, RAID, network bonding (script `00-server-bootstrap.sh` đã sẵn)
+- Phát hành SSL Certbot cho `api.flowa.one`
+- Cutover production thật (script `06-migrate-cutover.sh` đã sẵn)
+- Migrate Storage files thật (rsync)
+- Update DNS
 
-| Rủi ro | Mitigation |
-|---|---|
-| Mất điện kéo dài | UPS 30 phút + máy phát + 2 đường điện |
-| Đứt internet | 2 ISP failover qua pfSense |
-| Hỏng disk | RAID 1/10 + hot spare |
-| Mất server vật lý (cháy, trộm) | Backup offsite hàng giờ + standby server tại location khác |
-| OAuth callbacks fail | Test từng provider trước cutover, giữ Lovable Cloud rollback 7 ngày |
-| Edge function thiếu deps | Pin Deno version giống Lovable Cloud (1.45+), test toàn bộ 250 functions |
-| pg_cron jobs sai timezone | Set `TZ=Asia/Ho_Chi_Minh` cho container Postgres |
-| Realtime WebSocket qua Nginx | Cấu hình proxy `Upgrade` headers đúng |
+→ Khi có server, theo `infra/CUTOVER.md` là xong.
 
 ---
 
-## 6. Câu hỏi cần user xác nhận
+## Tổng thời gian
+~5-7 ngày làm việc thuần (solo, parallel với công việc Flowa thường ngày). Khi server sẵn sàng, cutover thật chỉ mất 4-6h như plan cũ.
 
-1. **Server đã có sẵn chưa?** Spec hiện tại (CPU/RAM/Disk)?
-2. **Phòng máy ở đâu?** (văn phòng / colocation datacenter VN)
-3. **ISP nào?** (Viettel/FPT/VNPT) — cần public IP tĩnh
-4. **Domain `api.flowa.one`** đã sẵn sàng để trỏ DNS chưa?
-5. **Có team DevOps/sysadmin** để vận hành 24/7 hay solo?
-6. **Frontend deploy ở đâu** sau cutover: Nginx cùng server, Cloudflare Pages, hay VPS riêng?
-
-Sau khi user trả lời, sẽ bắt đầu **D5 - refactor `ai-provider.ts`** (việc duy nhất làm được trong repo này, các bước hạ tầng còn lại làm ngoài Lovable).
+## Bắt đầu từ đâu?
+Tôi đề xuất **start Phase 1.1 (export schema)** ngay — read-only, zero risk, có ngay file ích lợi.

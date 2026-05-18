@@ -1,0 +1,170 @@
+[
+  {
+    "jobid": 1,
+    "active": true,
+    "command": "SELECT public.cleanup_expired_cache()",
+    "jobname": "cleanup-expired-ai-cache",
+    "database": "postgres",
+    "schedule": "0 3 * * *"
+  },
+  {
+    "jobid": 2,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/campaign-notifications',\n    headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "campaign-notifications-hourly",
+    "database": "postgres",
+    "schedule": "0 * * * *"
+  },
+  {
+    "jobid": 3,
+    "active": true,
+    "command": "\n  SELECT\n    net.http_post(\n        url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/cleanup-old-images',\n        headers:='{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n        body:='{\"dryRun\": false, \"maxAgeDays\": 30, \"maxVersionsToKeep\": 3}'::jsonb\n    ) as request_id;\n  ",
+    "jobname": "cleanup-old-images-daily",
+    "database": "postgres",
+    "schedule": "0 3 * * *"
+  },
+  {
+    "jobid": 4,
+    "active": true,
+    "command": "\n  SELECT\n    extensions.http_post(\n      url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/warm-up-functions',\n      headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n      body := concat('{\"time\": \"', now(), '\"}')::jsonb\n    ) as request_id;\n  ",
+    "jobname": "warm-up-top-functions",
+    "database": "postgres",
+    "schedule": "*/4 * * * *"
+  },
+  {
+    "jobid": 5,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',\n    headers:='{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body:='{\"action\": \"check_scheduled_goals\"}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "agent-pipeline-check",
+    "database": "postgres",
+    "schedule": "0 * * * *"
+  },
+  {
+    "jobid": 7,
+    "active": true,
+    "command": "\n  select net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',\n    headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"action\": \"recover_stuck\"}'::jsonb\n  ) as request_id;\n  ",
+    "jobname": "recover-stuck-pipelines",
+    "database": "postgres",
+    "schedule": "*/5 * * * *"
+  },
+  {
+    "jobid": 9,
+    "active": true,
+    "command": "\n  select net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',\n    headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"action\": \"check_scheduled_publish\"}'::jsonb\n  ) as request_id;\n  ",
+    "jobname": "check-scheduled-publish",
+    "database": "postgres",
+    "schedule": "*/2 * * * *"
+  },
+  {
+    "jobid": 11,
+    "active": true,
+    "command": "SELECT public.recover_stuck_generation_tasks();",
+    "jobname": "recover-stuck-generation-tasks",
+    "database": "postgres",
+    "schedule": "*/5 * * * *"
+  },
+  {
+    "jobid": 12,
+    "active": true,
+    "command": " SELECT public.cleanup_telegram_processed_updates(); ",
+    "jobname": "cleanup-telegram-processed-updates",
+    "database": "postgres",
+    "schedule": "0 * * * *"
+  },
+  {
+    "jobid": 14,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/cleanup-old-media',\n    headers := '{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := jsonb_build_object('triggered_at', now()),\n    timeout_milliseconds := 120000\n  ) AS request_id;\n  ",
+    "jobname": "cleanup-old-media-daily",
+    "database": "postgres",
+    "schedule": "0 3 * * *"
+  },
+  {
+    "jobid": 15,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/sync-social-engagement',\n    headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body:='{}'::jsonb\n  );\n  ",
+    "jobname": "sync-social-engagement-6h",
+    "database": "postgres",
+    "schedule": "0 */6 * * *"
+  },
+  {
+    "jobid": 16,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/refresh-all-pinterest-tokens',\n    headers := '{\"Content-Type\": \"application/json\", \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"trigger\": \"cron\"}'::jsonb\n  );\n  ",
+    "jobname": "refresh-pinterest-tokens-every-30min",
+    "database": "postgres",
+    "schedule": "*/30 * * * *"
+  },
+  {
+    "jobid": 17,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/sync-social-engagement',\n    headers := '{\"Content-Type\":\"application/json\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"trigger\":\"cron-pinterest-daily\"}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "sync-pinterest-engagement-daily",
+    "database": "postgres",
+    "schedule": "15 3 * * *"
+  },
+  {
+    "jobid": 18,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/video-job-poller',\n    headers := '{\"Content-Type\":\"application/json\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "video-job-poller-30s",
+    "database": "postgres",
+    "schedule": "30 seconds"
+  },
+  {
+    "jobid": 19,
+    "active": true,
+    "command": " SELECT net.http_post(\n       url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/render-job-poller',\n       headers := '{\"Content-Type\":\"application/json\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n       body := '{}'::jsonb) AS request_id; ",
+    "jobname": "render-job-poller-30s",
+    "database": "postgres",
+    "schedule": "30 seconds"
+  },
+  {
+    "jobid": 20,
+    "active": true,
+    "command": "SELECT public.cleanup_expired_oauth_pending_states();",
+    "jobname": "cleanup-oauth-pending-states",
+    "database": "postgres",
+    "schedule": "0 * * * *"
+  },
+  {
+    "jobid": 23,
+    "active": true,
+    "command": "\n      SELECT net.http_post(\n        url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/refresh-all-wix-tokens',\n        headers:='{\"Content-Type\": \"application/json\", \"Authorization\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n        body:=concat('{\"time\": \"', now(), '\"}')::jsonb\n      ) AS request_id;\n      ",
+    "jobname": "refresh-all-wix-tokens",
+    "database": "postgres",
+    "schedule": "*/30 * * * *"
+  },
+  {
+    "jobid": 24,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/seo-rank-tracker',\n    headers := jsonb_build_object(\n      'Content-Type', 'application/json',\n      'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)\n    ),\n    body := jsonb_build_object('triggered_by', 'cron', 'limit', 200)\n  );\n  ",
+    "jobname": "seo-rank-tracker-weekly",
+    "database": "postgres",
+    "schedule": "0 2 * * 1"
+  },
+  {
+    "jobid": 25,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/gsc-sync-metrics',\n    headers:='{\"Content-Type\": \"application/json\", \"apikey\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body:='{\"days\": 7}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "gsc-daily-sync",
+    "database": "postgres",
+    "schedule": "0 3 * * *"
+  },
+  {
+    "jobid": 26,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',\n    headers := '{\"Content-Type\":\"application/json\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"action\":\"expire_approvals\"}'::jsonb\n  );\n  ",
+    "jobname": "agent-pipeline-expire-approvals-hourly",
+    "database": "postgres",
+    "schedule": "17 * * * *"
+  },
+  {
+    "jobid": 27,
+    "active": true,
+    "command": "\n  SELECT net.http_post(\n    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',\n    headers := '{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsbHlpcGl5dXB0a2licWlub3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNzE2NjMsImV4cCI6MjA4MTg0NzY2M30.mxEDfftc7aKZxQv63L4kLQpOtyyjtHaV18WEMWTp7-w\"}'::jsonb,\n    body := '{\"action\":\"poll_pending_creators\"}'::jsonb\n  ) AS request_id;\n  ",
+    "jobname": "agent-pipeline-poll-creators-2min",
+    "database": "postgres",
+    "schedule": "*/2 * * * *"
+  }
+]
