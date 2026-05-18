@@ -1,70 +1,174 @@
+# Kế hoạch Self-host Supabase trên Server Vật Lý
 
-## Mục tiêu
-Chuyển backend Flowa (DB + Auth + Storage + Realtime + 250 edge functions) từ **Lovable Cloud (Supabase managed)** sang **self-hosted Supabase stack** đặt server tại Việt Nam, để đáp ứng yêu cầu chủ quyền dữ liệu. Timeline: <2 tuần, chấp nhận downtime vài giờ trong cutover.
+## Bối cảnh đã chốt
+- **Phạm vi**: Self-host TOÀN BỘ Supabase stack (Postgres + PostgREST + GoTrue + Storage + Realtime + Edge Runtime + Kong)
+- **Lý do**: Data sovereignty - data ở VN
+- **Hạ tầng**: **Server vật lý của user** (on-premise)
+- **Timeline**: <2 tuần, downtime vài giờ chấp nhận được
+- **Frontend**: vẫn dùng Lovable.dev để dev → build → deploy lên hosting riêng
 
-## Quyết định kiến trúc cốt lõi
-- **Không dùng PostgREST trần** — phải có Auth (GoTrue), Storage, Realtime, Edge Runtime vì code hiện tại phụ thuộc trực tiếp (197 hooks dùng `supabase-js`, 250 edge functions, 129 RLS dùng `auth.uid()`, pgvector, pg_cron, realtime channels).
-- **Triển khai bằng `supabase/docker` (docker-compose chính thức)** — giữ nguyên 100% API surface (`supabase.from()`, `supabase.auth`, `supabase.functions.invoke`, `supabase.storage`, `.channel()`), code FE/edge functions gần như **không cần sửa**, chỉ đổi env URL/key.
-- **Không thể tiếp tục dùng Lovable Cloud sau cutover** — Lovable auto-deploy edge functions + migrations sẽ trỏ vào project cũ. Cần quyết định: (a) đóng băng Lovable, dev tiếp bằng Claude Code + manual deploy, hoặc (b) chạy song song Lovable (staging) + self-host (production), sync 1 chiều qua git+CI.
+---
 
-## Hạ tầng đề xuất (VN)
-- **VPS tier 1**: VNG Cloud / Viettel IDC / FPT Cloud — 1 node app + 1 node DB tách riêng
-  - **App node**: 8 vCPU / 16 GB RAM / 200 GB SSD — chạy Kong, GoTrue, PostgREST, Realtime, Storage, Edge Runtime, Studio
-  - **DB node**: 8 vCPU / 32 GB RAM / 500 GB NVMe — Postgres 15 + pgvector + pg_cron + pgaudit
-  - **Backup**: S3-compatible (VNG vStorage hoặc Wasabi VN) cho WAL + pgBackRest daily
-- Ubuntu 22.04, Docker + docker-compose, Caddy/Nginx reverse proxy với TLS (Let's Encrypt cho `api.flowa.one`, `studio.flowa.one`).
+## 1. Yêu cầu phần cứng server vật lý
 
-## Các thay đổi code cần làm
-1. **`.env`**: thay `VITE_SUPABASE_URL` → `https://api.flowa.one`, `VITE_SUPABASE_PUBLISHABLE_KEY` → anon key mới của self-host. File auto-gen — phải sửa qua build pipeline mới (không qua Lovable).
-2. **Edge functions secrets**: chuyển `LOVABLE_API_KEY` + tất cả secret (Facebook, Google, payOS, VNPay, DashScope, OpenAI, Telegram bot…) sang `.env` của Edge Runtime container.
-3. **`supabase/config.toml`**: giữ nguyên — `verify_jwt` flags vẫn hợp lệ với self-host.
-4. **Lovable AI Gateway**: KHÔNG còn dùng được sau khi rời Lovable. Phải đổi `_shared/ai-provider.ts` sang OpenRouter / OpenAI / Google trực tiếp, hoặc giữ 9Router self-hosted (đã có integration).
-5. **pg_cron jobs** (token refresh 30 phút, scheduled publish 2 phút, cleanup): export từ DB hiện tại bằng `SELECT * FROM cron.job`, re-apply trên self-host.
-6. **Storage buckets + policies**: export bucket list, re-create bằng migration trên self-host.
-7. **OAuth callback URLs**: 21+ provider (FB/IG/LinkedIn/TikTok/X/Threads/Zalo/GBP/Blogger/Bluesky/Pinterest/Shopify/Wix/WordPress…) phải update redirect URI sang domain mới ở từng dashboard.
-8. **Google OAuth (auth signin)**: cấu hình lại trong GoTrue env (`GOTRUE_EXTERNAL_GOOGLE_*`).
-
-## Migration data (downtime cutover)
-1. **Dry-run** trên DB rỗng: `pg_dump` schema-only từ Lovable Cloud → restore self-host → verify 388 migrations, 70+ functions, RLS, extensions (`vector`, `pg_trgm`, `pg_cron`, `pgcrypto`).
-2. **Test full data dump** (off-hours): `pg_dump --no-owner --no-privileges -Fc` → ước lượng size + thời gian restore.
-3. **Cutover window** (~2-4h, công bố trước cho user):
-   - T+0: bật maintenance mode trên FE (chặn write)
-   - T+5m: `pg_dump` final + dump Storage objects (S3 sync)
-   - T+30m-2h: `pg_restore` vào self-host DB, verify counts, vacuum/analyze, reindex IVF
-   - T+2h: deploy FE bản mới (env trỏ domain mới) lên hosting riêng (Vercel/Netlify/VNG), update DNS `app.flowa.one`
-   - T+3h: smoke test 11 luồng chính (login, generate, publish FB/IG, carousel, agent pipeline, payment)
-   - T+4h: tắt maintenance, monitor 24h
-4. **Rollback plan**: giữ Lovable Cloud chạy read-only 7 ngày, DNS có thể trỏ ngược nếu critical bug.
-
-## Frontend hosting
-Lovable không thể publish FE nếu backend rời Lovable Cloud (mất tích hợp). Đề xuất:
-- Build Vite production → host trên **VNG Cloud Object Storage + CDN** hoặc **Vercel** (FE static, không vi phạm chủ quyền dữ liệu vì data nằm ở backend VN).
-- CI/CD: GitHub Actions → build → upload → invalidate CDN.
-
-## Timeline 14 ngày
-| Ngày | Việc |
+### Cấu hình tối thiểu (1 server, all-in-one)
+| Thành phần | Spec |
 |---|---|
-| 1-2 | Mua/setup VPS VN, cài Docker, clone `supabase/docker`, cấu hình domain + TLS |
-| 3-4 | Dry-run migrations + extensions, fix extension version mismatch nếu có |
-| 5-6 | Setup secrets, deploy 250 edge functions thủ công (script `supabase functions deploy --project-ref local`), test 10 function chính |
-| 7 | Đổi `_shared/ai-provider.ts` bỏ Lovable Gateway, switch sang OpenRouter+9Router |
-| 8 | Setup pg_cron jobs, Storage buckets, OAuth redirect URIs |
-| 9-10 | Test data dump full + restore time measurement, setup pgBackRest |
-| 11 | Setup FE hosting + CI, build env mới, staging end-to-end |
-| 12 | UAT với data thật (clone) |
-| 13 | **Cutover** (off-hours, đêm Chủ nhật) |
-| 14 | Monitor, fix hotfix |
+| CPU | 8 cores / 16 threads (Xeon E-2388G hoặc Ryzen 7 5800X trở lên) |
+| RAM | 64 GB ECC DDR4 |
+| Storage OS | 2× 500 GB NVMe RAID 1 (hệ điều hành + Docker) |
+| Storage DB | 2× 2 TB NVMe RAID 1 (Postgres data) |
+| Storage backup | 4× 4 TB HDD RAID 10 (backup + Storage bucket) |
+| Network | 2× 1 Gbps NIC (bonding), public IP tĩnh |
+| UPS | Tối thiểu 30 phút |
 
-## Rủi ro chính
-- **Lovable AI Gateway lock-in**: phải refactor `ai-provider.ts` + đảm bảo có credit ở OpenRouter/OpenAI/Google đủ cho production traffic.
-- **Edge Runtime self-host hỗ trợ Deno nhưng có thể lệch version** với cloud runtime → một số `npm:` specifier có thể fail.
-- **Realtime self-host** cần config riêng (RLS-aware), test kỹ các hook `useAgentPipelines`, `useVideoGeneration`.
-- **pgvector IVF index** cần `ANALYZE` lại sau restore để query không chậm.
-- **Tách khỏi Lovable.dev workflow** — mất auto-deploy, mất type-gen tự động cho `src/integrations/supabase/types.ts`. Phải chạy `supabase gen types typescript` trong CI.
-- **Compliance VN**: Nghị định 53/2022 yêu cầu lưu trữ dữ liệu user VN tại VN — self-host VN giải quyết, nhưng FE log/analytics bên thứ 3 (nếu có) vẫn cần review.
+### Cấu hình khuyến nghị (2 server tách App/DB)
+- **App Server**: 8 core / 32 GB RAM / 500 GB NVMe (Kong, GoTrue, Storage, Realtime, Edge Runtime)
+- **DB Server**: 16 core / 128 GB RAM / 2 TB NVMe RAID 10 + 8 TB HDD backup
+- Kết nối nội bộ 10 Gbps switch
 
-## Cần xác nhận trước khi triển khai
-1. Chọn nhà cung cấp VPS VN cụ thể (VNG / Viettel / FPT)?
-2. Sau cutover còn dùng Lovable.dev để dev frontend không, hay chuyển hẳn sang Claude Code + git CI?
-3. Ngân sách hạ tầng/tháng (ước lượng 4-8 triệu VND cho 2 VPS + storage + backup)?
-4. Có domain `api.flowa.one` sẵn để trỏ về self-host chưa?
+### Yêu cầu phòng máy
+- Nhiệt độ 18-24°C, độ ẩm 40-60%
+- 2 đường điện độc lập + UPS + máy phát
+- 2 đường internet ISP khác nhau (Viettel + FPT) để failover
+- Public IP tĩnh + reverse DNS
+- Firewall cứng (pfSense/MikroTik) trước server
+
+---
+
+## 2. Stack phần mềm
+
+### OS & Base
+- **Ubuntu Server 22.04 LTS** (hoặc Debian 12)
+- Docker 24+ & Docker Compose v2
+- Nginx (reverse proxy + SSL termination)
+- Certbot (Let's Encrypt SSL cho `api.flowa.one`, `db.flowa.one`)
+- Fail2ban + UFW firewall
+- Prometheus + Grafana (monitoring)
+- Restic (backup encrypted offsite)
+
+### Supabase Stack (qua `supabase/docker`)
+- Postgres 15 + extensions: `pgvector`, `pg_cron`, `pg_net`, `pgsodium`, `pg_graphql`
+- PostgREST (REST API)
+- GoTrue (Auth)
+- Storage API (S3-compatible, MinIO backend hoặc local filesystem)
+- Realtime (WebSocket)
+- Edge Runtime (Deno - chạy 250 edge functions)
+- Kong API Gateway
+- Studio (web UI quản trị)
+- Vector (logs)
+- Imgproxy (image transformations)
+
+---
+
+## 3. Roadmap 14 ngày
+
+### **Tuần 1: Chuẩn bị hạ tầng & code (D1-D7)**
+
+**D1-D2: Hạ tầng vật lý**
+- Cài Ubuntu 22.04, RAID, network bonding
+- Cấu hình firewall, SSH key-only, fail2ban
+- Cài Docker + Compose
+- Setup DNS: `api.flowa.one`, `studio.flowa.one` → IP server
+- Phát hành SSL cert qua Certbot
+
+**D3-D4: Triển khai Supabase stack**
+- Clone `supabase/docker`
+- Viết `docker-compose.override.yml`:
+  - Bật extensions (`pgvector`, `pg_cron`, `pg_net`)
+  - Config GoTrue cho 21+ OAuth providers (Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, …)
+  - Mount Storage volume
+  - Set JWT secret, anon key, service role key mới
+- Boot stack, verify health từng service
+- Cài Postgres extensions, tạo schema rỗng
+
+**D5: Refactor AI Provider**
+- Sửa `supabase/functions/_shared/ai-provider.ts`: bỏ Lovable Gateway, route 100% qua OpenRouter + 9Router + DashScope direct
+- Test local với 3-5 edge functions critical (`generate-script`, `generate-carousel`, `topic-ai`)
+- Add secrets mới: `OPENROUTER_API_KEY`, `NINE_ROUTER_API_KEY`, `DASHSCOPE_API_KEY` vào `.env` của self-host
+
+**D6: Edge Functions deploy pipeline**
+- Viết script `deploy-all-functions.sh` (loop 250 functions, `supabase functions deploy --project-ref local`)
+- Setup GitHub Actions: push → SSH deploy functions tự động
+- Test deploy 10 functions mẫu
+
+**D7: Cron jobs & Storage**
+- Export `pg_cron` jobs hiện tại từ Lovable Cloud (script `export-cron-jobs.ts`)
+- Export danh sách Storage buckets + policies
+- Apply lên self-host
+
+### **Tuần 2: Migrate data & cutover (D8-D14)**
+
+**D8-D9: Dry-run migration**
+- `pg_dump -Fc` từ Lovable Cloud (schema only) → restore lên self-host → verify
+- `pg_dump -Fc` data (sample 10%) → restore → smoke test
+- Test auth flow, OAuth callbacks, edge functions, realtime
+
+**D10: OAuth re-registration**
+- Update redirect URI ở 21+ providers từ `*.supabase.co` → `api.flowa.one`
+- Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, Bluesky, …
+- Document từng provider (cần Console access)
+
+**D11: Full dry-run cutover**
+- Maintenance mode trên app
+- `pg_dump` full → restore → verify row counts
+- Migrate Storage bucket files (rsync hoặc `mc mirror`)
+- Đo thời gian thực tế
+
+**D12: Frontend deploy pipeline**
+- Build Vite production → deploy lên hosting riêng (Nginx trên cùng server hoặc Cloudflare Pages)
+- Update env: `VITE_SUPABASE_URL=https://api.flowa.one`, anon key mới
+- Test toàn bộ flows quan trọng
+
+**D13: CUTOVER (4-6h downtime)**
+- 02:00 - Bật maintenance mode
+- 02:15 - `pg_dump` full từ Lovable Cloud
+- 03:00 - Restore lên self-host
+- 04:00 - Migrate Storage files
+- 05:00 - Switch DNS `api.flowa.one` → self-host
+- 05:30 - Deploy frontend mới
+- 06:00 - Smoke test 20 flows critical
+- 07:00 - Mở lại traffic, tắt maintenance
+
+**D14: Monitoring & rollback plan**
+- Theo dõi Grafana 24h
+- Giữ Lovable Cloud sống thêm 7 ngày làm rollback
+- Document runbook cho team
+
+---
+
+## 4. Backup & Disaster Recovery
+
+- **Postgres**: `pg_dump` daily → Restic encrypt → backup offsite (rsync sang VPS Hà Nội/HCM khác)
+- **WAL archiving**: continuous archive sang second disk (PITR khả thi trong 7 ngày)
+- **Storage bucket**: rsync incremental hàng giờ → offsite
+- **Config**: git repo private cho `docker-compose.yml`, `.env.template`
+- **Test restore**: 1 lần/tháng (mandatory)
+
+---
+
+## 5. Rủi ro & mitigation
+
+| Rủi ro | Mitigation |
+|---|---|
+| Mất điện kéo dài | UPS 30 phút + máy phát + 2 đường điện |
+| Đứt internet | 2 ISP failover qua pfSense |
+| Hỏng disk | RAID 1/10 + hot spare |
+| Mất server vật lý (cháy, trộm) | Backup offsite hàng giờ + standby server tại location khác |
+| OAuth callbacks fail | Test từng provider trước cutover, giữ Lovable Cloud rollback 7 ngày |
+| Edge function thiếu deps | Pin Deno version giống Lovable Cloud (1.45+), test toàn bộ 250 functions |
+| pg_cron jobs sai timezone | Set `TZ=Asia/Ho_Chi_Minh` cho container Postgres |
+| Realtime WebSocket qua Nginx | Cấu hình proxy `Upgrade` headers đúng |
+
+---
+
+## 6. Câu hỏi cần user xác nhận
+
+1. **Server đã có sẵn chưa?** Spec hiện tại (CPU/RAM/Disk)?
+2. **Phòng máy ở đâu?** (văn phòng / colocation datacenter VN)
+3. **ISP nào?** (Viettel/FPT/VNPT) — cần public IP tĩnh
+4. **Domain `api.flowa.one`** đã sẵn sàng để trỏ DNS chưa?
+5. **Có team DevOps/sysadmin** để vận hành 24/7 hay solo?
+6. **Frontend deploy ở đâu** sau cutover: Nginx cùng server, Cloudflare Pages, hay VPS riêng?
+
+Sau khi user trả lời, sẽ bắt đầu **D5 - refactor `ai-provider.ts`** (việc duy nhất làm được trong repo này, các bước hạ tầng còn lại làm ngoài Lovable).
