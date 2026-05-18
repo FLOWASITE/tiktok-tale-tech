@@ -425,7 +425,7 @@ function ListView({
                   {piece.scheduled_date ? format(new Date(piece.scheduled_date), 'dd/MM') : '—'}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
-                  {statusBadge(piece.status)}
+                  {statusBadge(derivedFor(piece))}
                   {isEditable && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
                       <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
@@ -450,7 +450,7 @@ function ListView({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
                       {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
-                      {statusBadge(piece.status)}
+                      {statusBadge(derivedFor(piece))}
                     </div>
                     {piece.key_message && (
                       <p className="text-[11px] text-muted-foreground line-clamp-1">{piece.key_message}</p>
