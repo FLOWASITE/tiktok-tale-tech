@@ -2449,7 +2449,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                               )}
                               title={offBalance ? `Đang lệch: tổng mix = ${sumMix(mix)} / ${total}` : undefined}
                             >
-                              ~{total}
+                              {total}
                             </span>
                             {cell('post', support.post)}
                             {cell('carousel', support.carousel)}
