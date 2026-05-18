@@ -80,23 +80,30 @@ function sortedPieces(pieces: CampaignContentPiece[]) {
   });
 }
 
-function statusBadge(status: string) {
-  const config: Record<string, string> = {
-    planned: 'bg-muted text-muted-foreground',
-    approved: 'bg-blue-500/10 text-blue-600',
-    in_progress: 'bg-amber-500/10 text-amber-600',
-    completed: 'bg-emerald-500/10 text-emerald-600',
-    failed: 'bg-destructive/10 text-destructive',
-  };
-  const labels: Record<string, string> = {
-    planned: 'Chờ', approved: 'Đã duyệt', in_progress: 'Đang chạy',
-    completed: 'Hoàn thành', failed: 'Lỗi',
-  };
-  return (
-    <Badge variant="outline" className={cn('text-[9px] h-4 border', config[status] || '')}>
-      {labels[status] || status}
+function statusBadge(derived: DerivedPieceState) {
+  const v = PIECE_STATUS_VISUAL[derived.status];
+  const badge = (
+    <Badge
+      variant="outline"
+      className={cn('text-[9px] h-4 border gap-1', v.className)}
+    >
+      {v.pulse && <span className="w-1 h-1 rounded-full bg-current animate-pulse" />}
+      {v.label}
     </Badge>
   );
+  if (derived.status === 'failed' && derived.flagReason) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild><span>{badge}</span></TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-[11px]">
+            {derived.flagReason}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return badge;
 }
 
 // ─── Piece Card (shared across views) ───
