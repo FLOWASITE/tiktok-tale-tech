@@ -563,6 +563,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setDescription(initialData.description || '');
       setSelectedChannels(initialData.target_channels || []);
       setFrequency(initialData.frequency || {});
+      setContentMix(((initialData as any).content_mix as Record<string, ContentMixCell>) || {});
       setAutonomyLevel(initialData.autonomy_level);
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
