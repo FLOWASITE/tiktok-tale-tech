@@ -1,0 +1,99 @@
+# =============================================================================
+# Flowa override cho supabase/docker
+# Đặt cạnh docker-compose.yml gốc của Supabase, run: docker compose up -d
+# =============================================================================
+# Mục đích:
+#   - Bật extensions cần thiết (pgvector, pg_cron, pg_net)
+#   - Mount volume cho Postgres + Storage trên ổ NVMe riêng
+#   - Inject env AI providers cho edge runtime (250 functions)
+#   - Set TZ=Asia/Ho_Chi_Minh cho pg_cron chạy đúng giờ VN
+# =============================================================================
+
+services:
+  db:
+    environment:
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,pg_cron,pgaudit
+      - -c
+      - cron.database_name=postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=8GB
+      - -c
+      - effective_cache_size=24GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=2GB
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command='test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f'
+    volumes:
+      # NVMe RAID 1 dành riêng cho Postgres data
+      - /mnt/db-data/postgres:/var/lib/postgresql/data
+      - /mnt/db-data/wal-archive:/var/lib/postgresql/wal-archive
+      # Init script bật extensions
+      - ./init-extensions.sql:/docker-entrypoint-initdb.d/99-flowa-extensions.sql:ro
+
+  # Edge Runtime — chạy 250 Deno edge functions
+  functions:
+    environment:
+      # === Self-host AI shim (đọc bởi supabase/functions/_shared/ai-provider.ts) ===
+      SELF_HOSTED_MODE: "true"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL}
+      NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      POYO_API_KEY: ${POYO_API_KEY}
+      KIE_AI_API_KEY: ${KIE_AI_API_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      # Social platforms (full list trong .env.example)
+      TIKTOK_CLIENT_KEY: ${TIKTOK_CLIENT_KEY}
+      TIKTOK_CLIENT_SECRET: ${TIKTOK_CLIENT_SECRET}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      THREADS_APP_ID: ${THREADS_APP_ID}
+      THREADS_APP_SECRET: ${THREADS_APP_SECRET}
+      INSTAGRAM_APP_ID: ${INSTAGRAM_APP_ID}
+      INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET}
+      ZALO_APP_ID: ${ZALO_APP_ID}
+      ZALO_APP_SECRET: ${ZALO_APP_SECRET}
+      GBP_CLIENT_ID: ${GBP_CLIENT_ID}
+      GBP_CLIENT_SECRET: ${GBP_CLIENT_SECRET}
+      BLOGGER_CLIENT_ID: ${BLOGGER_CLIENT_ID}
+      BLOGGER_CLIENT_SECRET: ${BLOGGER_CLIENT_SECRET}
+      BLUESKY_CLIENT_ID: ${BLUESKY_CLIENT_ID}
+      BLUESKY_PRIVATE_KEY_JWK: ${BLUESKY_PRIVATE_KEY_JWK}
+      # Payment
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
+      VNPAY_SECRET_KEY: ${VNPAY_SECRET_KEY}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID}
+      PAYOS_API_KEY: ${PAYOS_API_KEY}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY}
+      # Misc
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      SEMRUSH_API_KEY: ${SEMRUSH_API_KEY}
+
+  storage:
+    volumes:
+      # NVMe RAID dành cho file uploads (carousel, video, audio)
+      - /mnt/storage-data:/var/lib/storage
+
+  # Kong API Gateway — public entry point qua Nginx
+  kong:
+    ports:
+      # Chỉ bind localhost, Nginx reverse proxy lo SSL
+      - "127.0.0.1:8000:8000/tcp"
+      - "127.0.0.1:8443:8443/tcp"
