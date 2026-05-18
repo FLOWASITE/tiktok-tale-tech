@@ -412,8 +412,8 @@ Secondary color: ${secondaryColor}`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
-        status: 500,
+      return new Response(JSON.stringify({ error: "AI analysis failed", fallback: true, details: errorMsg }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -594,8 +594,8 @@ Secondary color: ${secondaryColor}`;
     } catch {}
 
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error", fallback: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 }));
