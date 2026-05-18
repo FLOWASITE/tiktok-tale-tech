@@ -176,7 +176,7 @@ export function ActivePlansWidget({
                     {channels.length > 0 && (
                       <div className="flex items-center gap-1">
                         {channels.map(ch => (
-                          <ChannelIcon key={ch} channel={ch} size={14} />
+                          <ChannelIcon key={ch} channel={ch as any} size={14} />
                         ))}
                       </div>
                     )}
