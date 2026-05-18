@@ -41,6 +41,7 @@ export function useAgentGoals() {
       period_type?: 'month' | 'quarter' | 'year' | 'custom';
       period_label?: string | null;
       parent_goal_id?: string | null;
+      content_mix?: Record<string, { post: number; carousel: number; video: number }> | null;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();
@@ -55,6 +56,7 @@ export function useAgentGoals() {
           period_type: goal.period_type || 'custom',
           period_label: goal.period_label ?? null,
           parent_goal_id: goal.parent_goal_id ?? null,
+          content_mix: goal.content_mix ?? {},
         } as any)
         .select()
         .single();
