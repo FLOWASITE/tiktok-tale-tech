@@ -26,6 +26,7 @@ import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
 import { GoalWizard } from '@/components/agents/GoalWizard';
 import { AICampaignOverview } from '@/components/agents/AICampaignOverview';
+import { ActivePlansWidget } from '@/components/agents/ActivePlansWidget';
 import { OrchestratorHealthPanel } from '@/components/agents/OrchestratorHealthPanel';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
