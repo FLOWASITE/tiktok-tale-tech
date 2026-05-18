@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,12 +67,12 @@ Deno.serve(async (req) => {
       .map((c, i) => `${i + 1}. [${c.code}] ${c.shortName || c.name}${c.categoryLabel ? ` (${c.categoryLabel})` : ""}`)
       .join("\n");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const truncatedBrand = brandText.slice(0, 4000);
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

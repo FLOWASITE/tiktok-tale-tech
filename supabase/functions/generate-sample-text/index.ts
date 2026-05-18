@@ -3,6 +3,7 @@ import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -321,7 +322,7 @@ async function generateFromAI(params: {
   channels: string[];
   channelOverrides?: ChannelOverrides;
 }): Promise<SampleTextResponse> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const LOVABLE_API_KEY = getGatewayConfig().apiKey;
   if (!LOVABLE_API_KEY) {
     throw new Error("LOVABLE_API_KEY is not configured");
   }
@@ -389,7 +390,7 @@ Only return the JSON, no other text.`;
   const traceId = generateTraceId();
   const model = "google/gemini-2.5-flash";
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch(getGatewayConfig().url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,

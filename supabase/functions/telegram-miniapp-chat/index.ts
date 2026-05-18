@@ -1,6 +1,7 @@
 // Telegram Mini App AI chat — wraps Lovable AI Gateway with brand context.
 // Persists user/assistant messages to chat_conversation_messages.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
     });
 
     // Call Lovable AI Gateway
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableKey = getGatewayConfig().apiKey;
     if (!lovableKey) {
       return jsonResponse({ error: "LOVABLE_API_KEY not configured" }, 500);
     }
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
       ],
     };
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResp = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${lovableKey}`,

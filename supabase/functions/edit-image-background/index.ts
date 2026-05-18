@@ -5,6 +5,7 @@ import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_sha
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +106,7 @@ Deno.serve(withPerf({ functionName: 'edit-image-background', slowThresholdMs: 30
   const startTime = performance.now();
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY is not configured");
       return new Response(
@@ -218,7 +219,7 @@ Deno.serve(withPerf({ functionName: 'edit-image-background', slowThresholdMs: 30
       }
     } else {
       // Lovable AI flow (existing Gemini)
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(getGatewayConfig().url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,

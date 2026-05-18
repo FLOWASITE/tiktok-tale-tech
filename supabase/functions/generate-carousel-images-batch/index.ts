@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { updateTaskProgress, completeTask, failTask } from "../_shared/task-tracking.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { runCreativeDirection, type CreativeDirection } from "../_shared/carousel-creative-direction.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 /**
  * Extract dominant hex palette from anchor slide image.
@@ -22,7 +23,7 @@ async function extractLockedPalette(
   traceId: string,
   supabase: any,
 ): Promise<string[] | null> {
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableKey = getGatewayConfig().apiKey;
   if (!lovableKey) return null;
 
   const startedAt = Date.now();
@@ -116,7 +117,7 @@ async function extractVisualLexicon(
   traceId: string,
   supabase: any,
 ): Promise<string | null> {
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableKey = getGatewayConfig().apiKey;
   if (!lovableKey) return null;
 
   const startedAt = Date.now();

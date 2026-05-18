@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
 
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -152,7 +153,7 @@ Trả lời bằng tool call duy nhất.`;
     const userPrompt = `Dữ liệu báo cáo:\n${JSON.stringify(summary, null, 2)}\n\nHãy phân tích và đề xuất.`;
 
     const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      getGatewayConfig().url,
       {
         method: "POST",
         headers: {

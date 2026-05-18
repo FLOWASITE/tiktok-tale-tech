@@ -1,4 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +45,7 @@ Deno.serve(withPerf({ functionName: 'extract-broll-keywords', slowThresholdMs: 3
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) {
       return new Response(
         JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
@@ -55,7 +56,7 @@ Deno.serve(withPerf({ functionName: 'extract-broll-keywords', slowThresholdMs: 3
     // Use AI to extract B-Roll keywords
     const extractionPrompt = buildExtractionPrompt(scene);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

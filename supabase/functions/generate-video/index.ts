@@ -24,6 +24,7 @@ import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-uni
 import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
 import { buildCharacterCollage, hashIds, deriveStableSeed } from "../_shared/character-collage.ts";
 import { synthesizeKeyframe } from "../_shared/keyframe-synthesizer.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -437,7 +438,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       synthCharacters.some((c) => !!c.refUrl) &&
       orgRow?.organization_id
     ) {
-      const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+      const lovableKey = getGatewayConfig().apiKey;
       if (lovableKey) {
         try {
           const synth = await synthesizeKeyframe({

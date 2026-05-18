@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ serve(async (req) => {
     const { monitorId, industry, keywords, brandName, language } = await req.json();
     if (!monitorId) throw new Error("monitorId required");
 
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableApiKey = getGatewayConfig().apiKey;
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -61,7 +62,7 @@ Phân loại mỗi prompt theo intent:
 
 Mỗi prompt phải tự nhiên, giống cách người dùng thực sự hỏi AI. Viết bằng ${lang === "vi" ? "tiếng Việt" : "English"}.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableApiKey}`,

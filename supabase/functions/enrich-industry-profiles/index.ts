@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4'
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,7 +38,7 @@ const JURISDICTION_CONTEXT: Record<string, { name: string; language: string; con
 }
 
 async function callAI(prompt: string, systemPrompt: string): Promise<string> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const apiKey = getGatewayConfig().apiKey
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

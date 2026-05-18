@@ -6,6 +6,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -145,7 +146,7 @@ ${text.substring(0, 15000)}
  * Call Lovable AI to extract structured data
  */
 async function extractWithAI(text: string, category: string, jurisdiction: string): Promise<ExtractedData> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  const LOVABLE_API_KEY = getGatewayConfig().apiKey;
   if (!LOVABLE_API_KEY) {
     throw new Error('LOVABLE_API_KEY is not configured');
   }

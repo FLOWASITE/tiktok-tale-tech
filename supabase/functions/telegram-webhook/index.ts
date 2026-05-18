@@ -50,6 +50,7 @@ function buildMiniAppUrl(orgId: string | null | undefined, hashPath?: string): s
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback as rawAnswerCallback, editMessageText as rawEditMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 import { composeBrandedImage } from "../_shared/branded-image-composer.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 type ActiveBrandContext = BrandContext & { id: string };
 
@@ -4695,7 +4696,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
   // Ensure at least one channel
   if (fallback.channels.length === 0) fallback.channels = ["facebook", "website"];
 
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  const apiKey = getGatewayConfig().apiKey;
   if (!apiKey) {
     console.warn("[extractCampaignParams] no LOVABLE_API_KEY, using fallback");
     return fallback;
@@ -4708,7 +4709,7 @@ async function extractCampaignParams(prompt: string, availableChannels: string[]
       : `Có thể chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
     const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- objectives: array 1-3 mục tiêu, primary đầu tiên (chọn từ: ${VALID_OBJECTIVES.join(", ")})\n- channels: array tên kênh gợi ý (lowercase) — chỉ làm hint\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

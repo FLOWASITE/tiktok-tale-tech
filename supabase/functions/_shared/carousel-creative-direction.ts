@@ -6,6 +6,7 @@
 
 import { getAIConfig } from "./ai-config.ts";
 import { getPresetFonts } from "./carousel-preset-dna.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 export type SlideRole = 'hook' | 'explain' | 'data' | 'support' | 'cta';
 export type TypographyArchetype =
@@ -105,7 +106,7 @@ const TOOL_SCHEMA = {
 export async function runCreativeDirection(
   input: CreativeDirectionInput,
 ): Promise<CreativeDirection | null> {
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableKey = getGatewayConfig().apiKey;
   if (!lovableKey) return null;
 
   let model = 'google/gemini-2.5-flash';

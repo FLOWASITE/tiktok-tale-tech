@@ -16,6 +16,7 @@ import { validateRequest } from "../_shared/pipeline/request-validator.ts";
 import { fetchAllContext } from "../_shared/pipeline/context-fetcher.ts";
 import { processTokenBudget } from "../_shared/pipeline/token-processor.ts";
 import { assemblePrompt } from "../_shared/pipeline/prompt-assembler.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 export type { ContentGoal } from "./content-goal-type.ts";
 
@@ -24,7 +25,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const LOVABLE_API_KEY = getGatewayConfig().apiKey;
 
 Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {

@@ -1,6 +1,7 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 import { callAI } from "../_shared/ai-provider.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ Deno.serve(withPerf({ functionName: 'improve-script' }, async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500,

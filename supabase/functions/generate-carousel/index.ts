@@ -20,6 +20,7 @@ import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
 import { createTrace, getTraceHeaders, createSpan, endSpan } from "../_shared/tracing.ts";
 import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1615,7 +1616,7 @@ Follow the carousel style guidelines strictly.`;
             brandVoice,
             mergedRules,
             additionalContext: `Platform: ${formData.platform}, Slides: ${formData.slideCount}, AI Tool: ${formData.aiTool}`,
-            apiKey: Deno.env.get("LOVABLE_API_KEY") || '',
+            apiKey: getGatewayConfig().apiKey || '',
             organizationId: organizationId || undefined,
           }),
           new Promise<never>((_, reject) =>

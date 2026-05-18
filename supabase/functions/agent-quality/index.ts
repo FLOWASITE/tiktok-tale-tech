@@ -5,6 +5,7 @@
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableApiKey = getGatewayConfig().apiKey;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
@@ -212,7 +213,7 @@ QUAN TRỌNG:
 
 Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "issues": [{"type":"forbidden_word"|"claim_violation"|"legal_risk"|"tone_mismatch","severity":"high"|"medium"|"low","description":"...","term":"..."}], "summary": "..." }`;
 
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiRes = await fetch(getGatewayConfig().url, {
         method: "POST",
         headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -257,7 +258,7 @@ PERSONA:
 Chấm 5 chiều (0-100): pain_points (30%), desires (25%), communication_style (20%), objections (15%), triggers (10%).
 Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_style": <number>, "objections": <number>, "triggers": <number>, "feedback": "<1 câu>" }`;
 
-        const pfRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const pfRes = await fetch(getGatewayConfig().url, {
           method: "POST",
           headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({

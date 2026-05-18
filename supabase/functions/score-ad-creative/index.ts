@@ -4,8 +4,9 @@ import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLoc
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const LOVABLE_API_KEY = getGatewayConfig().apiKey;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -186,7 +187,7 @@ Return JSON in this format:
 ${jsonFormatInstruction}`;
 
     // Use Lovable AI Gateway
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(getGatewayConfig().url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
