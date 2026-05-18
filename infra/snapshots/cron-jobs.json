@@ -1,0 +1,3 @@
+ERROR:  permission denied for schema cron
+LINE 1: ...e, 'active', active, 'database', database))) FROM cron.job O...
+                                                             ^
