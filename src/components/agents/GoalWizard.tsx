@@ -41,6 +41,15 @@ import type { SchedulePiece } from '@/lib/scheduleExport';
 import { analyzeCampaignName, type NameQualityResult } from '@/lib/campaignNameQuality';
 import { PeriodScopePicker } from './PeriodScopePicker';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
+import {
+  defaultContentMix,
+  rebalanceMix,
+  getChannelSupport,
+  sumMix,
+  type ContentMixCell,
+} from '@/lib/channelContentTypeSupport';
+import { Input as UIInput } from '@/components/ui/input';
+import { FileText as FileTextIcon, Images as ImagesIcon, Film as FilmIcon } from 'lucide-react';
 
 // ─── Constants ───
 
