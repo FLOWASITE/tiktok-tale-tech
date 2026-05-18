@@ -8,7 +8,7 @@ import { GraphState, GraphPlan } from "./graph-state.ts";
 import { TEMPLATE_PLANS } from "./graph-engine.ts";
 import { BlackboardRetriever, formatRetrievedContext } from "./blackboard-retriever.ts";
 import { memoryCache } from "../cache/memory-cache.ts";
-import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
+import { getGatewayConfig } from "../lovable-gateway.ts";
 
 // ---- Types ----
 

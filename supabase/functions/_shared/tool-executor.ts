@@ -1,7 +1,7 @@
 // Tool executor for AI chatbot function calling
 
 import { ToolCallResult } from "./tool-definitions.ts";
-import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
+import { getGatewayConfig } from "./lovable-gateway.ts";
 
 interface ExecutionContext {
   supabase: any;

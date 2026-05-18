@@ -6,7 +6,7 @@
 
 import { getAIConfig } from "./ai-config.ts";
 import { getPresetFonts } from "./carousel-preset-dna.ts";
-import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
+import { getGatewayConfig } from "./lovable-gateway.ts";
 
 export type SlideRole = 'hook' | 'explain' | 'data' | 'support' | 'cta';
 export type TypographyArchetype =
