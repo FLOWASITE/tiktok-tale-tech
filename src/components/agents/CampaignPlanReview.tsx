@@ -526,7 +526,15 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
   const pieces = localPieces;
   const isEditable = ['planned', 'draft'].includes(plan.status);
   const isApproved = plan.plan_approved;
-  const completedCount = pieces.filter(p => p.status === 'completed').length;
+
+  // Pipeline truth: fetch real pipeline stage/flag/completed_at for badges
+  const pipelineIds = pieces.map(p => p.pipeline_id).filter((x): x is string => !!x);
+  const { pipelinesById } = useCampaignPlanPipelines(plan.id, pipelineIds);
+  const derivedFor = (p: CampaignContentPiece): DerivedPieceState =>
+    derivePieceStatus(p, p.pipeline_id ? pipelinesById.get(p.pipeline_id) : null);
+  const derivedAll = pieces.map(derivedFor);
+  const summary = summarizePieceStatuses(derivedAll);
+  const completedCount = summary.doneCount;
   const progressPercent = pieces.length > 0 ? (completedCount / pieces.length) * 100 : 0;
 
   // Unique channels for summary
