@@ -985,10 +985,18 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
                              primaryResult.error?.includes("Rate") ||
                              primaryResult.error?.includes("timeout") ||
                              primaryResult.error?.includes("DashScope error");
-    if (isTransientError && effectiveModel !== "qwen-flash") {
+    // Treat DashScope arrearage / payment errors as "needs escalation to Lovable Gateway"
+    // (account overdue is not transient but should not break the function).
+    const isDashScopeBlocked = primaryResult.error?.includes("Arrearage") ||
+                                primaryResult.error?.includes("Payment") ||
+                                primaryResult.error?.includes("402") ||
+                                primaryResult.error?.includes("400");
+
+    let tier2Result: AICallResult | null = null;
+    if (isTransientError && effectiveModel !== "qwen-flash" && !isDashScopeBlocked) {
       console.warn(`[ai-provider] DashScope ${effectiveModel} failed, falling back to qwen-flash`);
       const tier2Config = { ...effectiveConfig, model: "qwen-flash" };
-      const tier2Result = await callWithCircuitBreaker(
+      tier2Result = await callWithCircuitBreaker(
         () => callDashScope(messages, "qwen-flash", tier2Config, options),
         "qwen-flash",
         options
@@ -997,21 +1005,20 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
         tier2Result.fromFallback = true;
         return tier2Result;
       }
-      // Tier 3: Lovable Gateway as last resort (skip if 402 to avoid credit storm)
-      const isCreditsExhausted = tier2Result.error?.includes("402") ||
-                                  tier2Result.error?.includes("Payment");
-      if (!isCreditsExhausted) {
-        console.warn(`[ai-provider] DashScope qwen-flash failed, last-resort fallback to Lovable Gateway gemini-2.5-flash`);
-        const tier3Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
-        const tier3Result = await callWithCircuitBreaker(
-          () => callLovableGateway(messages, "google/gemini-2.5-flash", tier3Config, options),
-          "google/gemini-2.5-flash",
-          options
-        );
-        tier3Result.fromFallback = true;
-        return tier3Result;
-      }
     }
+
+    // Tier 3: Lovable Gateway as last resort.
+    // Runs on any DashScope failure (incl. arrearage/400) so a broken user key
+    // does not silently brick the whole function.
+    console.warn(`[ai-provider] DashScope failed (${primaryResult.error}), last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+    const tier3Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+    const tier3Result = await callWithCircuitBreaker(
+      () => callLovableGateway(messages, "google/gemini-2.5-flash", tier3Config, options),
+      "google/gemini-2.5-flash",
+      options
+    );
+    tier3Result.fromFallback = true;
+    if (tier3Result.success) return tier3Result;
 
     return primaryResult;
   }
