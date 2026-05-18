@@ -671,8 +671,6 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
         </Card>
       )}
 
-      {/* Phase 4c: Multi-Campaign Timeline */}
-      {!isSpecific && <MultiCampaignTimeline goals={goals} pipelines={pipelines} campaigns={campaigns} />}
     </div>
   );
 }
