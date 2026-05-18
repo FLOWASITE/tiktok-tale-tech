@@ -1,0 +1,78 @@
+# =============================================================================
+# Flowa local Docker stack — chạy trên laptop/WSL2/Mac để test trước cutover
+# Đặt file này CẠNH supabase/docker/docker-compose.yml gốc (đã clone từ supabase repo)
+# Khác với docker-compose.override.yml (production): nhẹ hơn, không RAID, không archive WAL
+# =============================================================================
+# Quick start:
+#   git clone --depth 1 https://github.com/supabase/supabase
+#   cd supabase/docker
+#   cp /path/to/flowa-repo/infra/docker-compose.local.yml ./docker-compose.override.yml
+#   cp /path/to/flowa-repo/infra/init-extensions.sql .
+#   cp /path/to/flowa-repo/infra/.env.example .env
+#   # Edit .env với keys thật
+#   docker compose up -d
+# =============================================================================
+
+services:
+  db:
+    environment:
+      TZ: "Asia/Ho_Chi_Minh"
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,pg_cron,pgaudit
+      - -c
+      - cron.database_name=postgres
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=16MB
+    volumes:
+      # Local Docker volume — không cần NVMe RAID khi test
+      - flowa-db-local:/var/lib/postgresql/data
+      - ./init-extensions.sql:/docker-entrypoint-initdb.d/99-flowa-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  functions:
+    environment:
+      # === Self-host AI shim (đọc bởi _shared/lovable-gateway.ts + ai-provider.ts) ===
+      SELF_HOSTED_MODE: "true"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      POYO_API_KEY: ${POYO_API_KEY:-}
+      KIE_AI_API_KEY: ${KIE_AI_API_KEY:-}
+      GEMINIGEN_API_KEY: ${GEMINIGEN_API_KEY:-}
+      NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-}
+      NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY:-}
+      # Encryption (bắt buộc — copy nguyên từ Lovable Cloud để decrypt tokens cũ)
+      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+      # External
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      CREATOMATE_API_KEY: ${CREATOMATE_API_KEY:-}
+      # URLs
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+
+  storage:
+    volumes:
+      - flowa-storage-local:/var/lib/storage
+
+  kong:
+    ports:
+      - "8000:8000/tcp"
+      - "8443:8443/tcp"
+
+volumes:
+  flowa-db-local:
+  flowa-storage-local:
