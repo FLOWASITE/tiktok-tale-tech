@@ -32,6 +32,7 @@ export interface AgentGoal {
   period_type: 'month' | 'quarter' | 'year' | 'custom';
   period_label: string | null;
   parent_goal_id: string | null;
+  content_mix: Record<string, { post: number; carousel: number; video: number }> | null;
   created_at: string;
   updated_at: string;
 }
