@@ -1,10 +1,9 @@
 // ============================================
 // Conversation Embedder - Utilities for indexing conversation history
 // ============================================
+import { callEmbedding } from "./embedding.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+const EMBEDDING_DIMENSIONS = 384; // matches pgvector column dimension
 const MAX_CHUNK_LENGTH = 1500;
 
 export interface ConversationMessage {
