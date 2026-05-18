@@ -59,7 +59,7 @@ Return a JSON object with:
 
 Be specific and actionable. Focus on practical content creation implications.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(getGatewayConfig().url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,

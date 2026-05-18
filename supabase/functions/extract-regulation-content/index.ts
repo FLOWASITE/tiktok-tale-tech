@@ -153,7 +153,7 @@ async function extractWithAI(text: string, category: string, jurisdiction: strin
   
   const prompt = buildExtractionPrompt(text, category, jurisdiction);
   
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(getGatewayConfig().url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,

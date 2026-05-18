@@ -154,7 +154,7 @@ Direct this carousel.`;
   try {
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 12_000);
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const resp = await fetch(getGatewayConfig().url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

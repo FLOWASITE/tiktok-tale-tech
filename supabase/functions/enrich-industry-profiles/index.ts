@@ -41,7 +41,7 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   const apiKey = getGatewayConfig().apiKey
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(getGatewayConfig().url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,

@@ -99,7 +99,7 @@ async function callImageEdit(
   for (const dataUrl of imageDataUrls) {
     content.push({ type: 'image_url', image_url: { url: dataUrl } });
   }
-  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const resp = await fetch(getGatewayConfig().url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

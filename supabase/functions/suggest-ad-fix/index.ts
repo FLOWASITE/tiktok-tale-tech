@@ -172,7 +172,7 @@ Deno.serve(withPerf({ functionName: 'suggest-ad-fix', slowThresholdMs: 30000 }, 
     const userPrompt = getLocalizedUserPrompt(lang, field, text, issueDescriptions);
     const toolDesc = getLocalizedToolDescription(lang);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(getGatewayConfig().url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
