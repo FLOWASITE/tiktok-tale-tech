@@ -412,8 +412,8 @@ Secondary color: ${secondaryColor}`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
-        status: 500,
+      return new Response(JSON.stringify({ error: "AI analysis failed", fallback: true, details: errorMsg }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
