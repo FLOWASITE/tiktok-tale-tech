@@ -94,21 +94,30 @@ function statusBadge(status: string) {
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete, renderSuggest,
+  onEdit, onDelete, onOpen, renderSuggest,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
   showChannel?: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
   const FormatIcon = fmt.icon;
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <Card className="group hover:border-primary/30 transition-colors h-full">
+    <Card
+      className="group hover:border-primary/40 hover:shadow-sm transition-all h-full cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(piece)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+      title="Mở Content Studio"
+    >
       <CardContent className="p-3 space-y-2">
         {/* Top row: date + status */}
         <div className="flex items-center justify-between">
@@ -130,7 +139,7 @@ function PieceCard({
         {/* Title + suggest */}
         <div className="flex items-start gap-1">
           <p className="text-sm font-medium leading-tight line-clamp-2 flex-1">{piece.title}</p>
-          {isEditable && renderSuggest?.(piece)}
+          {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
         </div>
 
         {/* Key message */}
@@ -150,11 +159,11 @@ function PieceCard({
             )}
           </div>
           {isEditable && (
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                 <Pencil className="w-2.5 h-2.5" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                 <Trash2 className="w-2.5 h-2.5 text-destructive" />
               </Button>
             </div>
