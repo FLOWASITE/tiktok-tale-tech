@@ -278,20 +278,22 @@ export default function AgentDashboard() {
                 setFilterGoalId(goalId);
                 setActiveTab('pipeline');
               }}
-            />
-            <ActivePlansWidget
-              plans={plans}
-              goals={goals}
-              onOpenPlan={(planId, goalName) => {
-                setAutoSelectPlan({ planId, goalName });
-                setCampaignSubTab('plans');
-                setActiveTab('campaigns');
-              }}
-              onViewAll={() => {
-                setCampaignSubTab('plans');
-                setActiveTab('campaigns');
-              }}
-              onCreate={() => { setEditingGoal(null); setWizardOpen(true); }}
+              afterStatsSlot={
+                <ActivePlansWidget
+                  plans={plans}
+                  goals={goals}
+                  onOpenPlan={(planId, goalName) => {
+                    setAutoSelectPlan({ planId, goalName });
+                    setCampaignSubTab('plans');
+                    setActiveTab('campaigns');
+                  }}
+                  onViewAll={() => {
+                    setCampaignSubTab('plans');
+                    setActiveTab('campaigns');
+                  }}
+                  onCreate={() => { setEditingGoal(null); setWizardOpen(true); }}
+                />
+              }
             />
             <OrchestratorHealthPanel />
           </TabsContent>
