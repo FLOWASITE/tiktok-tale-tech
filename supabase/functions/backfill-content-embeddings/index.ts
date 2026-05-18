@@ -25,8 +25,8 @@ async function embed(text: string): Promise<number[]> {
     return vec;
   } catch (e) {
     console.warn("[backfill-embeddings] Supabase.ai failed, fallback gateway:", e);
-    const vec = await callEmbedding(text.slice(0, 8000));
-    return vec;
+    const result = await callEmbedding({ text: text.slice(0, 8000), dims: 384 });
+    return result.embedding;
   }
 }
 
