@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +11,9 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   CheckCircle2, Plus, GripVertical, Calendar, Pencil, Trash2,
   ArrowRight, Loader2, LayoutList, LayoutGrid, CalendarDays,
-  FileText, Film, Images, Mail
+  FileText, Film, Images, Mail, ChevronRight
 } from 'lucide-react';
+import { getPieceTarget } from '@/lib/campaignPieceNav';
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
@@ -92,21 +94,30 @@ function statusBadge(status: string) {
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete, renderSuggest,
+  onEdit, onDelete, onOpen, renderSuggest,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
   showChannel?: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
   const FormatIcon = fmt.icon;
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <Card className="group hover:border-primary/30 transition-colors h-full">
+    <Card
+      className="group hover:border-primary/40 hover:shadow-sm transition-all h-full cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(piece)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+      title="Mở Content Studio"
+    >
       <CardContent className="p-3 space-y-2">
         {/* Top row: date + status */}
         <div className="flex items-center justify-between">
@@ -128,7 +139,7 @@ function PieceCard({
         {/* Title + suggest */}
         <div className="flex items-start gap-1">
           <p className="text-sm font-medium leading-tight line-clamp-2 flex-1">{piece.title}</p>
-          {isEditable && renderSuggest?.(piece)}
+          {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
         </div>
 
         {/* Key message */}
@@ -148,11 +159,11 @@ function PieceCard({
             )}
           </div>
           {isEditable && (
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                 <Pencil className="w-2.5 h-2.5" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                 <Trash2 className="w-2.5 h-2.5 text-destructive" />
               </Button>
             </div>
@@ -168,12 +179,13 @@ function PieceCard({
 
 // ─── Channel View ───
 function ChannelView({
-  pieces, isEditable, onEdit, onDelete, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const grouped = groupBy(sortedPieces(pieces), p => p.target_channel);
@@ -206,6 +218,7 @@ function ChannelView({
                   isEditable={isEditable}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onOpen={onOpen}
                   renderSuggest={renderSuggest}
                 />
               ))}
@@ -220,12 +233,13 @@ function ChannelView({
 
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
@@ -235,6 +249,7 @@ function TimelineView({
     if (b === '__unscheduled__') return -1;
     return new Date(a).getTime() - new Date(b).getTime();
   });
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div className="space-y-1">
@@ -270,11 +285,16 @@ function TimelineView({
                     return (
                       <div
                         key={piece.piece_number}
-                        className="group flex items-center gap-2 p-2 rounded-md border bg-card hover:border-primary/30 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onOpen(piece)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+                        title="Mở Content Studio"
+                        className="group flex items-center gap-2 p-2 rounded-md border bg-card hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
                       >
                         <ChannelIcon channel={piece.target_channel} size="sm" />
                         <p className="text-sm font-medium flex-1 truncate">{piece.title}</p>
-                        {isEditable && renderSuggest?.(piece)}
+                        {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                         {role && (
                           <Badge variant="outline" className={cn('text-[9px] h-4 shrink-0', role.color)}>
                             {role.emoji} {role.label}
@@ -286,15 +306,16 @@ function TimelineView({
                         </Badge>
                         {statusBadge(piece.status)}
                         {isEditable && (
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={stop}>
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                               <Pencil className="w-2.5 h-2.5" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                               <Trash2 className="w-2.5 h-2.5 text-destructive" />
                             </Button>
                           </div>
                         )}
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                       </div>
                     );
                   })}
@@ -310,15 +331,17 @@ function TimelineView({
 
 // ─── List View (default, polished) ───
 function ListView({
-  pieces, isEditable, onEdit, onDelete, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div className="space-y-1.5">
@@ -339,7 +362,15 @@ function ListView({
         const angle = ANGLE_LABELS[piece.angle] || piece.angle;
 
         return (
-          <Card key={piece.piece_number} className="group hover:border-primary/30 transition-colors">
+          <Card
+            key={piece.piece_number}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen(piece)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+            title="Mở Content Studio"
+            className="group hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
+          >
             <CardContent className="p-0">
               {/* Desktop row */}
               <div className="hidden sm:grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-2 items-center px-3 py-2.5">
@@ -353,7 +384,7 @@ function ListView({
                       <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
                     )}
                   </div>
-                  {isEditable && renderSuggest?.(piece)}
+                  {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <ChannelIcon channel={piece.target_channel} size="sm" />
@@ -376,15 +407,16 @@ function ListView({
                 <div className="flex items-center gap-1 shrink-0">
                   {statusBadge(piece.status)}
                   {isEditable && (
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                         <Pencil className="w-2.5 h-2.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                         <Trash2 className="w-2.5 h-2.5 text-destructive" />
                       </Button>
                     </div>
                   )}
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
 
@@ -397,7 +429,7 @@ function ListView({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
-                      {isEditable && renderSuggest?.(piece)}
+                      {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                       {statusBadge(piece.status)}
                     </div>
                     {piece.key_message && (
@@ -424,11 +456,11 @@ function ListView({
                   </div>
                 </div>
                 {isEditable && (
-                  <div className="flex items-center gap-1 justify-end">
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(piece)}>
+                  <div className="flex items-center gap-1 justify-end" onClick={stop}>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                       <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(piece.piece_number)}>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                       <Trash2 className="w-3 h-3 text-destructive" />
                     </Button>
                   </div>
@@ -444,11 +476,21 @@ function ListView({
 
 // ─── Main Component ───
 export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }: CampaignPlanReviewProps) {
+  const navigate = useNavigate();
   const { updatePlan, approvePlan } = useCampaignPlans();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingPiece, setEditingPiece] = useState<CampaignContentPiece | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CampaignContentPiece>>({});
+
+  const handleOpenPiece = (piece: CampaignContentPiece) => {
+    const { path } = getPieceTarget(piece, {
+      planId: plan.id,
+      brandTemplateId: brandTemplateId || null,
+      organizationId: plan.organization_id,
+    });
+    navigate(path);
+  };
 
   const [localPieces, setLocalPieces] = useState<CampaignContentPiece[]>(
     (plan.plan_data || []) as CampaignContentPiece[]
@@ -644,13 +686,13 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
 
       {/* Content Views */}
       {viewMode === 'channel' && (
-        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
+        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'timeline' && (
-        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
+        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
       )}
       {viewMode === 'list' && (
-        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} renderSuggest={renderSuggest} />
+        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
       )}
 
       {/* Edit Piece Dialog */}
