@@ -476,11 +476,21 @@ function ListView({
 
 // ─── Main Component ───
 export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }: CampaignPlanReviewProps) {
+  const navigate = useNavigate();
   const { updatePlan, approvePlan } = useCampaignPlans();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingPiece, setEditingPiece] = useState<CampaignContentPiece | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CampaignContentPiece>>({});
+
+  const handleOpenPiece = (piece: CampaignContentPiece) => {
+    const { path } = getPieceTarget(piece, {
+      planId: plan.id,
+      brandTemplateId: brandTemplateId || null,
+      organizationId: plan.organization_id,
+    });
+    navigate(path);
+  };
 
   const [localPieces, setLocalPieces] = useState<CampaignContentPiece[]>(
     (plan.plan_data || []) as CampaignContentPiece[]
