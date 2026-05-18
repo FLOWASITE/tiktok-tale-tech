@@ -251,7 +251,7 @@ function ChannelView({
 
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -259,6 +259,7 @@ function TimelineView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const sorted = sortedPieces(pieces);
   const grouped = groupBy(sorted, p => p.scheduled_date || '__unscheduled__');
@@ -322,7 +323,7 @@ function TimelineView({
                           <FormatIcon className="w-2.5 h-2.5" />
                           {fmt.label}
                         </Badge>
-                        {statusBadge(piece.status)}
+                        {statusBadge(derivedFor(piece))}
                         {isEditable && (
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={stop}>
                             <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
@@ -349,7 +350,7 @@ function TimelineView({
 
 // ─── List View (default, polished) ───
 function ListView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -357,6 +358,7 @@ function ListView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const sorted = sortedPieces(pieces);
   const stop = (e: React.MouseEvent) => e.stopPropagation();
