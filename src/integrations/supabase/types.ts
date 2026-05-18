@@ -1449,6 +1449,7 @@ export type Database = {
           campaign_id: string | null
           campaign_start_date: string | null
           clarification_context: Json | null
+          content_mix: Json
           created_at: string
           created_by: string | null
           description: string | null
@@ -1474,6 +1475,7 @@ export type Database = {
           campaign_id?: string | null
           campaign_start_date?: string | null
           clarification_context?: Json | null
+          content_mix?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1499,6 +1501,7 @@ export type Database = {
           campaign_id?: string | null
           campaign_start_date?: string | null
           clarification_context?: Json | null
+          content_mix?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
