@@ -2,7 +2,12 @@
 
 Mục tiêu: Làm xong toàn bộ phần "code + config + dry-run" trong khi chờ server. Khi server sẵn sàng chỉ cần `git pull && docker compose up && pg_restore`.
 
-Thứ tự: **Phase 1 (Export) → Phase 2 (Refactor AI) → Phase 3 (Test Docker local)**. Phase 1 chạy trước vì an toàn nhất (read-only), Phase 2 cần Phase 1 làm baseline để verify, Phase 3 cần cả 2 phase trước.
+Thứ tự: **Phase 1 (Export) ✅ → Phase 2 (Refactor AI) ✅ → Phase 3 (Test Docker local) — sẵn sàng test trên laptop**.
+
+## Trạng thái hiện tại (2026-05-18)
+- ✅ **Phase 1 DONE**: schema/cron/storage exported vào `infra/snapshots/`, OAuth migration doc, function manifest 247 functions × 46 secrets
+- ✅ **Phase 2 DONE**: shim `_shared/lovable-gateway.ts` + `_shared/embedding.ts`; codemod refactor 44 functions; 4 embedding sites manual; ZERO hard-coded gateway URL còn sót. Chi tiết: `infra/PHASE-2-COMPLETED.md`
+- ⏸ **Phase 3 READY**: configs + scripts sẵn sàng (`docker-compose.local.yml`, `20-bootstrap-local-stack.sh`, `21-smoke-test-local.sh`, `22-deploy-edge-functions-local.sh`). Cần chạy trên laptop có Docker. Hướng dẫn: `infra/PHASE-3-LOCAL-TEST.md`
 
 ---
 
