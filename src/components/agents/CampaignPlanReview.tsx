@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +11,9 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   CheckCircle2, Plus, GripVertical, Calendar, Pencil, Trash2,
   ArrowRight, Loader2, LayoutList, LayoutGrid, CalendarDays,
-  FileText, Film, Images, Mail
+  FileText, Film, Images, Mail, ChevronRight
 } from 'lucide-react';
+import { getPieceTarget } from '@/lib/campaignPieceNav';
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
