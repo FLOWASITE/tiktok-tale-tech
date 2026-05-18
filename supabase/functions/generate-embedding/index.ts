@@ -1,18 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { callEmbedding } from "../_shared/embedding.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Embedding model config
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+// Embedding model config — managed by _shared/embedding.ts (auto-selects provider)
+const EMBEDDING_DIMENSIONS = 384; // matches pgvector column dimension
 const MAX_CHUNK_LENGTH = 2000; // Characters per chunk
 const MAX_BATCH_SIZE = 100;
 
