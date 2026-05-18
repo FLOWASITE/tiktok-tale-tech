@@ -109,7 +109,7 @@ function statusBadge(derived: DerivedPieceState) {
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete, onOpen, renderSuggest,
+  onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
@@ -118,6 +118,7 @@ function PieceCard({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
@@ -141,7 +142,7 @@ function PieceCard({
               ? format(new Date(piece.scheduled_date), 'dd/MM (EEEE)', { locale: vi })
               : 'Chưa lên lịch'}
           </span>
-          {statusBadge(piece.status)}
+          {statusBadge(derivedFor(piece))}
         </div>
 
         {/* Role badge */}
