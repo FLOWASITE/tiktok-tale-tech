@@ -316,6 +316,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
+  const [contentMix, setContentMix] = useState<Record<string, ContentMixCell>>({});
   // Auto-suggest channels mode
   const [autoChannelMode, setAutoChannelMode] = useState(false);
   const [aiChannelIds, setAiChannelIds] = useState<Set<string>>(new Set());
