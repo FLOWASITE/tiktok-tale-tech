@@ -44,18 +44,13 @@ export interface SimilarContent {
 }
 
 /**
- * Generate embedding for text using Lovable AI Gateway
- * 
- * NOTE: Lovable AI Gateway currently does not support embedding models.
- * This function throws an error to gracefully skip dedup checks.
- * The caller (checkSemanticDuplicate) has fail-open logic that will
- * allow content creation when this fails.
+ * Generate embedding for text via shared multi-provider helper.
+ * Returns 384-dim vector matching pgvector column.
  */
-async function generateEmbedding(_text: string): Promise<number[]> {
-  // Lovable AI Gateway only supports LLM models, not embedding models.
-  // text-embedding-3-small is not in the allowed models list.
-  // Skip embedding-based dedup until embedding support is added.
-  console.log('[semantic-dedup] Embedding not supported by Lovable AI Gateway - skipping check');
+async function generateEmbedding(text: string): Promise<number[]> {
+  const r = await callEmbedding({ text, dims: EMBEDDING_DIMENSIONS });
+  return r.embedding;
+}
   throw new Error('Embedding not supported - skipping semantic dedup check');
 }
 
