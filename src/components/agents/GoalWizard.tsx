@@ -692,6 +692,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (selectedChannels.includes(ch)) {
       setSelectedChannels(selectedChannels.filter(c => c !== ch));
       const newFreq = { ...frequency }; delete newFreq[ch]; setFrequency(newFreq);
+      const newMix = { ...contentMix }; delete newMix[ch]; setContentMix(newMix);
     } else {
       setSelectedChannels([...selectedChannels, ch]);
       setFrequency({ ...frequency, [ch]: 'weekly' });
