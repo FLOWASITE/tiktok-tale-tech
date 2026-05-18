@@ -25,17 +25,7 @@ async function embed(text: string): Promise<number[]> {
     return vec;
   } catch (e) {
     console.warn("[backfill-embeddings] Supabase.ai failed, fallback gateway:", e);
-    const aiKey = Deno.env.get("LOVABLE_API_KEY")!;
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${aiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/text-embedding-004", input: text.slice(0, 8000) }),
-    });
-    if (!r.ok) throw new Error(`embed fallback ${r.status}`);
-    const j = await r.json();
-    let vec: number[] = j.data?.[0]?.embedding ?? [];
-    if (vec.length > 384) vec = vec.slice(0, 384);
-    while (vec.length < 384) vec.push(0);
+    const vec = await callEmbedding(text.slice(0, 8000));
     return vec;
   }
 }
