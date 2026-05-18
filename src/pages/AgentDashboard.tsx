@@ -26,6 +26,7 @@ import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
 import { GoalWizard } from '@/components/agents/GoalWizard';
 import { AICampaignOverview } from '@/components/agents/AICampaignOverview';
+import { ActivePlansWidget } from '@/components/agents/ActivePlansWidget';
 import { OrchestratorHealthPanel } from '@/components/agents/OrchestratorHealthPanel';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
@@ -277,6 +278,20 @@ export default function AgentDashboard() {
                 setFilterGoalId(goalId);
                 setActiveTab('pipeline');
               }}
+            />
+            <ActivePlansWidget
+              plans={plans}
+              goals={goals}
+              onOpenPlan={(planId, goalName) => {
+                setAutoSelectPlan({ planId, goalName });
+                setCampaignSubTab('plans');
+                setActiveTab('campaigns');
+              }}
+              onViewAll={() => {
+                setCampaignSubTab('plans');
+                setActiveTab('campaigns');
+              }}
+              onCreate={() => { setEditingGoal(null); setWizardOpen(true); }}
             />
             <OrchestratorHealthPanel />
           </TabsContent>
