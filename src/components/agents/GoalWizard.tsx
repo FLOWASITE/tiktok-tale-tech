@@ -2385,7 +2385,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                       <p className="text-[9px] text-muted-foreground">Bấm số để chỉnh • tổng = ~bài</p>
                     </div>
                     {/* Header row */}
-                    <div className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground/70 px-1 pt-0.5">
+                    <div className="grid items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground/70 px-1 pt-0.5" style={{ gridTemplateColumns: '1fr 70px 60px 40px 40px 40px' }}>
                       <span>Kênh</span>
                       <span className="text-center">Tần suất</span>
                       <span className="text-right">Tổng</span>
@@ -2432,7 +2432,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                         return (
                           <div
                             key={ch}
-                            className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[11px] py-0.5"
+                            className="grid items-center gap-1.5 text-[11px] py-0.5"
+                            style={{ gridTemplateColumns: '1fr 70px 60px 40px 40px 40px' }}
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
                               <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
