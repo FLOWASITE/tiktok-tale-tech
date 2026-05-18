@@ -41,6 +41,13 @@ import type { SchedulePiece } from '@/lib/scheduleExport';
 import { analyzeCampaignName, type NameQualityResult } from '@/lib/campaignNameQuality';
 import { PeriodScopePicker } from './PeriodScopePicker';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
+import {
+  defaultContentMix,
+  rebalanceMix,
+  getChannelSupport,
+  sumMix,
+  type ContentMixCell,
+} from '@/lib/channelContentTypeSupport';
 
 // ─── Constants ───
 
@@ -217,6 +224,7 @@ type GoalSubmitData = {
   period_type?: 'month' | 'quarter' | 'year' | 'custom';
   period_label?: string | null;
   parent_goal_id?: string | null;
+  content_mix?: Record<string, ContentMixCell> | null;
 };
 
 type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
@@ -308,6 +316,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
+  const [contentMix, setContentMix] = useState<Record<string, ContentMixCell>>({});
   // Auto-suggest channels mode
   const [autoChannelMode, setAutoChannelMode] = useState(false);
   const [aiChannelIds, setAiChannelIds] = useState<Set<string>>(new Set());
@@ -420,6 +429,44 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       return total + Math.max(1, Math.round(effectiveDuration * perDay));
     }, 0);
   }, [selectedChannels, frequency, effectiveDuration]);
+
+  // Per-channel posts count (matches the heuristic used in the preview UI)
+  const channelPostsMap = useMemo(() => {
+    const freqPerWeek: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+    const out: Record<string, number> = {};
+    selectedChannels.forEach(ch => {
+      const perDay = (freqPerWeek[frequency[ch] || 'weekly'] || 1) / 7;
+      out[ch] = Math.max(1, Math.round(effectiveDuration * perDay));
+    });
+    return out;
+  }, [selectedChannels, frequency, effectiveDuration]);
+
+  // Auto-fill / re-sync contentMix when channels, frequency, or duration change.
+  // - new channel: seed with defaultContentMix
+  // - existing channel whose total changed: re-seed defaults
+  // - removed channel: handled in toggleChannel
+  useEffect(() => {
+    setContentMix(prev => {
+      let changed = false;
+      const next: Record<string, ContentMixCell> = {};
+      selectedChannels.forEach(ch => {
+        const total = channelPostsMap[ch] ?? 0;
+        const cur = prev[ch];
+        if (!cur) {
+          next[ch] = defaultContentMix(ch, total);
+          changed = true;
+        } else if (sumMix(cur) !== total) {
+          next[ch] = defaultContentMix(ch, total);
+          changed = true;
+        } else {
+          next[ch] = cur;
+        }
+      });
+      // Drop entries for unselected channels
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [selectedChannels, channelPostsMap]);
 
   // ─── Schedule Studio: build context + trigger preview ───
   const buildPreviewClarification = (): Record<string, any> => {
@@ -554,6 +601,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       setDescription(initialData.description || '');
       setSelectedChannels(initialData.target_channels || []);
       setFrequency(initialData.frequency || {});
+      setContentMix(((initialData as any).content_mix as Record<string, ContentMixCell>) || {});
       setAutonomyLevel(initialData.autonomy_level);
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
@@ -620,7 +668,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setPeriodType('custom'); setPeriodLabel(null); setParentGoalId(null);
-    setSelectedChannels([]); setFrequency({});
+    setSelectedChannels([]); setFrequency({}); setContentMix({});
     setAutonomyLevel(defaultAutonomyLevel || 'full_auto'); setApprovalMode(AUTONOMY_TO_APPROVAL[defaultAutonomyLevel || 'full_auto'] || 'full_auto');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
@@ -682,6 +730,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     if (selectedChannels.includes(ch)) {
       setSelectedChannels(selectedChannels.filter(c => c !== ch));
       const newFreq = { ...frequency }; delete newFreq[ch]; setFrequency(newFreq);
+      const newMix = { ...contentMix }; delete newMix[ch]; setContentMix(newMix);
     } else {
       setSelectedChannels([...selectedChannels, ch]);
       setFrequency({ ...frequency, [ch]: 'weekly' });
@@ -998,6 +1047,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       period_type: periodType,
       period_label: periodLabel,
       parent_goal_id: parentGoalId,
+      content_mix: contentMix,
     };
 
     // Start generating flow inside dialog
@@ -2325,23 +2375,84 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                 )}
 
-                {/* Kênh & Tần suất */}
+                {/* Kênh × Tần suất × Loại nội dung */}
                 {selectedChannels.length > 0 && (
                   <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
-                      <Radio className="w-3 h-3" /> Kênh & Tần suất
-                    </p>
-                    <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
+                        <Radio className="w-3 h-3" /> Kênh × Tần suất × Loại nội dung
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">Bấm số để chỉnh • tổng = ~bài</p>
+                    </div>
+                    {/* Header row */}
+                    <div className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground/70 px-1 pt-0.5">
+                      <span>Kênh</span>
+                      <span className="text-center">Tần suất</span>
+                      <span className="text-right">Tổng</span>
+                      <span className="text-center" title="Bài đa kênh">
+                        <FileText className="w-3 h-3 inline" />
+                      </span>
+                      <span className="text-center" title="Carousel">
+                        <Images className="w-3 h-3 inline" />
+                      </span>
+                      <span className="text-center" title="Video">
+                        <Video className="w-3 h-3 inline" />
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
                       {selectedChannels.map(ch => {
                         const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
                         const freq = frequency[ch] || 'weekly';
-                        const posts = getChannelPosts(ch);
+                        const total = channelPostsMap[ch] ?? getChannelPosts(ch);
+                        const mix: ContentMixCell = contentMix[ch] ?? defaultContentMix(ch, total);
+                        const support = getChannelSupport(ch);
+                        const offBalance = sumMix(mix) !== total;
+
+                        const handleCellChange = (key: keyof ContentMixCell, raw: string) => {
+                          const n = parseInt(raw, 10);
+                          const next = rebalanceMix(ch, mix, key, isNaN(n) ? 0 : n, total);
+                          setContentMix(prev => ({ ...prev, [ch]: next }));
+                        };
+
+                        const cell = (key: keyof ContentMixCell, supported: boolean) => (
+                          supported ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={total}
+                              value={mix[key]}
+                              onChange={e => handleCellChange(key, e.target.value)}
+                              className="h-6 w-9 px-1 text-center text-[10px] tabular-nums"
+                            />
+                          ) : (
+                            <span className="text-center text-muted-foreground/40 text-[10px]">—</span>
+                          )
+                        );
+
                         return (
-                          <div key={ch} className="flex items-center gap-2 text-[11px] py-0.5">
-                            <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
-                            <span className="flex-1 min-w-0 truncate font-medium">{info?.label || ch}</span>
-                            <Badge variant="outline" className="text-[9px] font-normal h-4 px-1.5">{freqLabel[freq]}</Badge>
-                            <span className="text-[10px] text-muted-foreground tabular-nums w-14 text-right">~{posts} bài</span>
+                          <div
+                            key={ch}
+                            className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[11px] py-0.5"
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
+                              <span className="truncate font-medium">{info?.label || ch}</span>
+                            </div>
+                            <div className="flex justify-center">
+                              <Badge variant="outline" className="text-[9px] font-normal h-4 px-1.5">{freqLabel[freq]}</Badge>
+                            </div>
+                            <span
+                              className={cn(
+                                'text-[10px] tabular-nums text-right',
+                                offBalance ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground',
+                              )}
+                              title={offBalance ? `Đang lệch: tổng mix = ${sumMix(mix)} / ${total}` : undefined}
+                            >
+                              ~{total}
+                            </span>
+                            {cell('post', support.post)}
+                            {cell('carousel', support.carousel)}
+                            {cell('video', support.video)}
                           </div>
                         );
                       })}
