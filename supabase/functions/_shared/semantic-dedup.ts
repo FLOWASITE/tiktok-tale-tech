@@ -51,8 +51,6 @@ async function generateEmbedding(text: string): Promise<number[]> {
   const r = await callEmbedding({ text, dims: EMBEDDING_DIMENSIONS });
   return r.embedding;
 }
-  throw new Error('Embedding not supported - skipping semantic dedup check');
-}
 
 /**
  * Search for similar content using vector similarity
