@@ -1,6 +1,7 @@
 // Backfill content_embedding cho multi_channel_contents (admin-only)
 // Gọi lặp với cùng organization_id để xử lý từng batch.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callEmbedding } from "../_shared/embedding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
