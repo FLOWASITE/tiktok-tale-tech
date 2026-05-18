@@ -224,6 +224,7 @@ type GoalSubmitData = {
   period_type?: 'month' | 'quarter' | 'year' | 'custom';
   period_label?: string | null;
   parent_goal_id?: string | null;
+  content_mix?: Record<string, ContentMixCell> | null;
 };
 
 type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
