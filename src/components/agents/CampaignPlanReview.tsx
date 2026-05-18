@@ -195,7 +195,7 @@ function PieceCard({
 
 // ─── Channel View ───
 function ChannelView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -203,6 +203,7 @@ function ChannelView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const grouped = groupBy(sortedPieces(pieces), p => p.target_channel);
   const channels = Object.keys(grouped).sort((a, b) => {
@@ -236,6 +237,7 @@ function ChannelView({
                   onDelete={onDelete}
                   onOpen={onOpen}
                   renderSuggest={renderSuggest}
+                  derivedFor={derivedFor}
                 />
               ))}
             </div>
