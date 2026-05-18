@@ -48,36 +48,15 @@ function chunkText(text: string, maxLength: number = MAX_CHUNK_LENGTH): string[]
   return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
 }
 
-// Generate embeddings using Lovable AI API
+// Generate embeddings via shared multi-provider helper (Lovable Gateway / OpenAI / DashScope)
 async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
+  console.log(`Generating embeddings for ${texts.length} texts (dims=${EMBEDDING_DIMENSIONS})`);
+  const results: number[][] = [];
+  for (const text of texts) {
+    const r = await callEmbedding({ text, dims: EMBEDDING_DIMENSIONS });
+    results.push(r.embedding);
   }
-
-  console.log(`Generating embeddings for ${texts.length} texts`);
-  
-  // Use Gemini embedding model via Lovable AI gateway
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: texts,
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data.map((item: any) => item.embedding);
+  return results;
 }
 
 // Fetch content from database by type and ID
