@@ -1,5 +1,7 @@
-// Generate embedding for a multi_channel_content row using Supabase gte-small (384-dim)
+// Generate embedding for a multi_channel_content row (384-dim)
+// Refactored: dùng _shared/embedding.ts → tự động chọn OpenAI/DashScope khi self-host
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callEmbedding } from "../_shared/embedding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,34 +23,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Use Lovable AI Gateway embeddings via Gemini (text-embedding-004 → resize to 384)
-    // Simpler: call Supabase's built-in inference via fetch to gte-small model
-    const aiKey = Deno.env.get("LOVABLE_API_KEY")!;
-    const embedRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${aiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/text-embedding-004", input: text.slice(0, 8000) }),
-    });
-
-    if (!embedRes.ok) {
-      const errText = await embedRes.text();
-      throw new Error(`Embedding API failed [${embedRes.status}]: ${errText}`);
-    }
-    const embedData = await embedRes.json();
-    let vec: number[] = embedData.data?.[0]?.embedding ?? [];
-
-    // Resize to 384 dims (truncate or pad)
-    if (vec.length > 384) vec = vec.slice(0, 384);
-    else while (vec.length < 384) vec.push(0);
+    const { embedding, provider, model, dims } = await callEmbedding({ text, dims: 384 });
 
     const { error: updErr } = await supabase
       .from("multi_channel_contents")
-      .update({ content_embedding: vec as any })
+      .update({ content_embedding: embedding as any })
       .eq("id", content_id);
 
     if (updErr) throw updErr;
 
-    return new Response(JSON.stringify({ success: true, dims: vec.length }), {
+    console.log(`[embed-content] OK provider=${provider} model=${model} dims=${dims}`);
+    return new Response(JSON.stringify({ success: true, dims, provider, model }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
