@@ -427,6 +427,8 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
         )}
       </div>
 
+      {afterStatsSlot}
+
       {/* Charts Row: Stage Distribution + Completion Trend */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Pipeline Stage Distribution */}
