@@ -331,15 +331,17 @@ function TimelineView({
 
 // ─── List View (default, polished) ───
 function ListView({
-  pieces, isEditable, onEdit, onDelete, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
+  onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
 }) {
   const sorted = sortedPieces(pieces);
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <div className="space-y-1.5">
@@ -360,7 +362,15 @@ function ListView({
         const angle = ANGLE_LABELS[piece.angle] || piece.angle;
 
         return (
-          <Card key={piece.piece_number} className="group hover:border-primary/30 transition-colors">
+          <Card
+            key={piece.piece_number}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen(piece)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(piece); } }}
+            title="Mở Content Studio"
+            className="group hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
+          >
             <CardContent className="p-0">
               {/* Desktop row */}
               <div className="hidden sm:grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-2 items-center px-3 py-2.5">
@@ -374,7 +384,7 @@ function ListView({
                       <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
                     )}
                   </div>
-                  {isEditable && renderSuggest?.(piece)}
+                  {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <ChannelIcon channel={piece.target_channel} size="sm" />
@@ -397,15 +407,16 @@ function ListView({
                 <div className="flex items-center gap-1 shrink-0">
                   {statusBadge(piece.status)}
                   {isEditable && (
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                         <Pencil className="w-2.5 h-2.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                         <Trash2 className="w-2.5 h-2.5 text-destructive" />
                       </Button>
                     </div>
                   )}
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
 
@@ -418,7 +429,7 @@ function ListView({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
-                      {isEditable && renderSuggest?.(piece)}
+                      {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
                       {statusBadge(piece.status)}
                     </div>
                     {piece.key_message && (
@@ -445,11 +456,11 @@ function ListView({
                   </div>
                 </div>
                 {isEditable && (
-                  <div className="flex items-center gap-1 justify-end">
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(piece)}>
+                  <div className="flex items-center gap-1 justify-end" onClick={stop}>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
                       <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(piece.piece_number)}>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { stop(e); onDelete(piece.piece_number); }}>
                       <Trash2 className="w-3 h-3 text-destructive" />
                     </Button>
                   </div>
