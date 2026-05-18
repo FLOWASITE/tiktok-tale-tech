@@ -2447,9 +2447,9 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                                 'text-[10px] tabular-nums text-right',
                                 offBalance ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground',
                               )}
-                              title={offBalance ? `Đang lệch: tổng mix = ${sumMix(mix)} / ${total}` : undefined}
+                              title={offBalance ? `Đang lệch: tổng mix = ${sumMix(mix).toLocaleString('vi-VN')} / ${total.toLocaleString('vi-VN')}` : undefined}
                             >
-                              {total}
+                              {total.toLocaleString('vi-VN')}
                             </span>
                             {cell('post', support.post)}
                             {cell('carousel', support.carousel)}
