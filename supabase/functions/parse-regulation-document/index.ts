@@ -6,6 +6,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1934,7 +1935,7 @@ async function fetchHtmlDirectly(url: string): Promise<string | null> {
  * Used as fallback when Firecrawl fails or times out
  */
 async function extractWithAI(html: string, url: string): Promise<{ text: string; success: boolean }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const LOVABLE_API_KEY = getGatewayConfig().apiKey;
   
   if (!LOVABLE_API_KEY) {
     console.log('[parse-document] LOVABLE_API_KEY not configured, skipping AI extraction');
@@ -1947,7 +1948,7 @@ async function extractWithAI(html: string, url: string): Promise<{ text: string;
     // Truncate HTML if too large (Gemini has context limits)
     const truncatedHtml = html.length > 100000 ? html.substring(0, 100000) : html;
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -3071,7 +3072,7 @@ function calculateContentQuality(text: string): ContentQualityResult {
  * v6: Force AI clean for TVPL if artifacts > 20, force use AI output for severe contamination
  */
 async function aiPostProcessClean(text: string, url: string): Promise<{ cleanedText: string; wasProcessed: boolean }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const LOVABLE_API_KEY = getGatewayConfig().apiKey;
   
   if (!LOVABLE_API_KEY) {
     console.log('[parse-document] LOVABLE_API_KEY not configured, skipping AI post-process clean');
@@ -3167,7 +3168,7 @@ BẮT BUỘC GIỮ LẠI:
 OUTPUT: Text thuần túy, giữ nguyên xuống dòng và cấu trúc pháp lý.
 KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã làm sạch.`;
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

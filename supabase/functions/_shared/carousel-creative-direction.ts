@@ -6,6 +6,7 @@
 
 import { getAIConfig } from "./ai-config.ts";
 import { getPresetFonts } from "./carousel-preset-dna.ts";
+import { getGatewayConfig } from "./lovable-gateway.ts";
 
 export type SlideRole = 'hook' | 'explain' | 'data' | 'support' | 'cta';
 export type TypographyArchetype =
@@ -105,7 +106,7 @@ const TOOL_SCHEMA = {
 export async function runCreativeDirection(
   input: CreativeDirectionInput,
 ): Promise<CreativeDirection | null> {
-  const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+  const lovableKey = getGatewayConfig().apiKey;
   if (!lovableKey) return null;
 
   let model = 'google/gemini-2.5-flash';
@@ -153,7 +154,7 @@ Direct this carousel.`;
   try {
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 12_000);
-    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const resp = await fetch(getGatewayConfig().url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

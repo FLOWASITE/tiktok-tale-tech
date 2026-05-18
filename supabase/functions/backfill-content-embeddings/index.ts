@@ -1,6 +1,7 @@
 // Backfill content_embedding cho multi_channel_contents (admin-only)
 // Gọi lặp với cùng organization_id để xử lý từng batch.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callEmbedding } from "../_shared/embedding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,18 +25,8 @@ async function embed(text: string): Promise<number[]> {
     return vec;
   } catch (e) {
     console.warn("[backfill-embeddings] Supabase.ai failed, fallback gateway:", e);
-    const aiKey = Deno.env.get("LOVABLE_API_KEY")!;
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${aiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/text-embedding-004", input: text.slice(0, 8000) }),
-    });
-    if (!r.ok) throw new Error(`embed fallback ${r.status}`);
-    const j = await r.json();
-    let vec: number[] = j.data?.[0]?.embedding ?? [];
-    if (vec.length > 384) vec = vec.slice(0, 384);
-    while (vec.length < 384) vec.push(0);
-    return vec;
+    const result = await callEmbedding({ text: text.slice(0, 8000), dims: 384 });
+    return result.embedding;
   }
 }
 

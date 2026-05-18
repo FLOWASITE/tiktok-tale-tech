@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableApiKey = getGatewayConfig().apiKey;
     const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
     const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
@@ -289,7 +290,7 @@ async function scanSimulated(
 ): Promise<any> {
   const systemPrompt = buildSystemPrompt(engine, brandName, competitors);
 
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const aiResponse = await fetch(getGatewayConfig().url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${lovableApiKey}`,

@@ -10,6 +10,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createBrandImportSSE } from "../_shared/brand-import-stream.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -434,9 +435,9 @@ async function extractColorFromLogo(logoUrl: string): Promise<string | null> {
     if (pixelColor) return pixelColor;
 
     // Fallback: ask Lovable AI vision (small + cheap) to read dominant brand color
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) return null;
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({

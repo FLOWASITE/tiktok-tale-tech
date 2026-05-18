@@ -4,12 +4,9 @@
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callEmbedding } from "./embedding.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-// Use a supported embedding model from Lovable AI Gateway
-// text-embedding-004 is not supported - using openai text-embedding-3-small instead
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EMBEDDING_DIMENSIONS = 1536;
+const EMBEDDING_DIMENSIONS = 384; // pgvector column dim
 
 // Deduplication configuration
 export const DEDUP_CONFIG = {
@@ -47,19 +44,12 @@ export interface SimilarContent {
 }
 
 /**
- * Generate embedding for text using Lovable AI Gateway
- * 
- * NOTE: Lovable AI Gateway currently does not support embedding models.
- * This function throws an error to gracefully skip dedup checks.
- * The caller (checkSemanticDuplicate) has fail-open logic that will
- * allow content creation when this fails.
+ * Generate embedding for text via shared multi-provider helper.
+ * Returns 384-dim vector matching pgvector column.
  */
-async function generateEmbedding(_text: string): Promise<number[]> {
-  // Lovable AI Gateway only supports LLM models, not embedding models.
-  // text-embedding-3-small is not in the allowed models list.
-  // Skip embedding-based dedup until embedding support is added.
-  console.log('[semantic-dedup] Embedding not supported by Lovable AI Gateway - skipping check');
-  throw new Error('Embedding not supported - skipping semantic dedup check');
+async function generateEmbedding(text: string): Promise<number[]> {
+  const r = await callEmbedding({ text, dims: EMBEDDING_DIMENSIONS });
+  return r.embedding;
 }
 
 /**

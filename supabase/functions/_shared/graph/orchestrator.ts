@@ -8,6 +8,7 @@ import { GraphState, GraphPlan } from "./graph-state.ts";
 import { TEMPLATE_PLANS } from "./graph-engine.ts";
 import { BlackboardRetriever, formatRetrievedContext } from "./blackboard-retriever.ts";
 import { memoryCache } from "../cache/memory-cache.ts";
+import { getGatewayConfig } from "../lovable-gateway.ts";
 
 // ---- Types ----
 
@@ -784,7 +785,7 @@ async function planWithLLM(
   _options: OrchestratorOptions
 ): Promise<GraphPlan> {
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) {
       console.warn("[Orchestrator] No LOVABLE_API_KEY, falling back to full_pipeline");
       return { ...TEMPLATE_PLANS.full_pipeline, fastPath: false };
@@ -809,7 +810,7 @@ async function planWithLLM(
       }
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

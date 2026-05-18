@@ -1,6 +1,7 @@
 // Fetch SERP top 10 + scrape top results via Firecrawl, store snapshot for competitive analysis.
 // POST: { keyword_id: string, max_scrape?: number }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ const FIRECRAWL_GATEWAY = "https://connector-gateway.lovable.dev/firecrawl";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY chưa cấu hình");
     if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY chưa cấu hình (kết nối Firecrawl)");

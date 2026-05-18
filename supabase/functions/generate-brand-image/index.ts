@@ -26,6 +26,7 @@ import {
 } from "../_shared/image-prompt-builder.ts";
 import { applyTextBudgetsToOverlay, buildAiRenderPlan, formatRenderSpecBrief } from "../image-render-spec.ts";
 import { getOutputLanguage } from "../_shared/country-language-map.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -349,7 +350,7 @@ async function generateImageWithRetry(
       try {
         console.log(`[generate-brand-image] Attempt ${attempts} with model: ${model}`);
         
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const response = await fetch(getGatewayConfig().url, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -558,7 +559,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
   let requestBody: GenerateImageRequest | null = null;
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 

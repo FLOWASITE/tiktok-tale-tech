@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { slugify, appendUtmToUrls } from "../_shared/utm-helper.ts";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { runSelfCritiqueLoop, CRITIQUE_CONFIG } from "../_shared/self-critique.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1842,7 +1843,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
     // ========== STAGE: quality ==========
     } else if (stage === "quality") {
       const contentId = resolveContentId(pipeline, pState);
-      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+      const lovableApiKey = getGatewayConfig().apiKey;
 
       // ── 1. GEO Scoring (all content types) ──
       let geoScores: any = null;
@@ -2058,7 +2059,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
               }
             }
 
-            const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+            const lovableKey = getGatewayConfig().apiKey;
             if (lovableKey && Object.keys(contentForCritique).length > 0) {
               console.log(`[quality][self-critique] Running critique loop for content ${contentId}, channels: ${channels.join(', ')}`);
 

@@ -78,6 +78,7 @@ import {
 } from "../_shared/smart-context.ts";
 // NEW: Length Validator for intelligent length enforcement
 import {
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
   buildWordBudgetInstruction,
   validateAllChannels,
   getChannelsNeedingExpansion,
@@ -175,7 +176,7 @@ const getSupabaseClient = () => {
 };
 
 // Pre-computed static values
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const LOVABLE_API_KEY = getGatewayConfig().apiKey;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1937,7 +1938,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
     console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (website/blogger/wordpress are now separate long-form channels)`);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = getGatewayConfig().apiKey;
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }

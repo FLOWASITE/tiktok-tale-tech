@@ -1,10 +1,9 @@
 // ============================================
 // Conversation Embedder - Utilities for indexing conversation history
 // ============================================
+import { callEmbedding } from "./embedding.ts";
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+const EMBEDDING_DIMENSIONS = 384; // matches pgvector column dimension
 const MAX_CHUNK_LENGTH = 1500;
 
 export interface ConversationMessage {
@@ -39,35 +38,15 @@ export interface EmbeddingRecord {
 }
 
 /**
- * Generate embeddings using Lovable AI API
+ * Generate embeddings via shared multi-provider helper.
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  if (!LOVABLE_API_KEY) {
-    console.error('LOVABLE_API_KEY not configured');
-    return null;
-  }
-
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: EMBEDDING_MODEL,
-        input: [text.slice(0, MAX_CHUNK_LENGTH * 2)],
-        dimensions: EMBEDDING_DIMENSIONS,
-      }),
+    const r = await callEmbedding({
+      text: text.slice(0, MAX_CHUNK_LENGTH * 2),
+      dims: EMBEDDING_DIMENSIONS,
     });
-
-    if (!response.ok) {
-      console.error('Embedding API error:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data?.[0]?.embedding || null;
+    return r.embedding;
   } catch (error) {
     console.error('generateEmbedding error:', error);
     return null;

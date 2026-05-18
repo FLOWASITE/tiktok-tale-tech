@@ -14,6 +14,7 @@ import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
 import { isCircuitOpen, recordSuccess, recordFailure } from "../_shared/circuit-breaker.ts";
 import { buildTypographyDirective, type TypographyArchetype } from "../_shared/carousel-creative-direction.ts";
 import { buildPresetDirective } from "../_shared/carousel-preset-dna.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,7 +73,7 @@ async function describeImageForContinuity(
     return null;
   }
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(getGatewayConfig().url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${lovableApiKey}`,
@@ -708,7 +709,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     let modelUsed = requestedModel;
     let usedFallback = false;
     let fallbackFromModel: string | null = null;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableApiKey = getGatewayConfig().apiKey;
 
     // === Enterprise logo path: PoYo/KIE/GeminiGen are single-image providers
     // and in seamless mode `previousImageUrl` displaces the logo (slide 2..N
@@ -1143,7 +1144,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         }
 
         const bgResponse = await fetch(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          getGatewayConfig().url,
           {
             method: "POST",
             headers: {

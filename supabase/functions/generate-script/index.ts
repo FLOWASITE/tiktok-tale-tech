@@ -24,6 +24,7 @@ import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
+import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2352,7 +2353,7 @@ ${cp.wardrobe ? `Trang phục: ${cp.wardrobe}.` : ''}`;
           brandVoice,
           mergedRules,
           additionalContext: `Video type: ${video_type}, Character: ${character_type}, Duration: ${duration}`,
-          apiKey: Deno.env.get("LOVABLE_API_KEY") || '',
+          apiKey: getGatewayConfig().apiKey || '',
           organizationId: requestOrgId || undefined,
         });
 

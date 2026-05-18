@@ -1,6 +1,7 @@
 // Tool executor for AI chatbot function calling
 
 import { ToolCallResult } from "./tool-definitions.ts";
+import { getGatewayConfig } from "./lovable-gateway.ts";
 
 interface ExecutionContext {
   supabase: any;
@@ -1108,7 +1109,7 @@ async function executeGeneratePlanDraft(
   if (content_frequency === 'weekly') contentCount = Math.ceil(days / 7);
 
   // Generate plan using Lovable AI
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  const lovableApiKey = getGatewayConfig().apiKey;
   if (!lovableApiKey) {
     return {
       success: false,

@@ -1,18 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { callEmbedding } from "../_shared/embedding.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Embedding model config
-const EMBEDDING_MODEL = 'text-embedding-004';
-const EMBEDDING_DIMENSIONS = 768;
+// Embedding model config — managed by _shared/embedding.ts (auto-selects provider)
+const EMBEDDING_DIMENSIONS = 384; // matches pgvector column dimension
 const MAX_CHUNK_LENGTH = 2000; // Characters per chunk
 const MAX_BATCH_SIZE = 100;
 
@@ -49,36 +48,15 @@ function chunkText(text: string, maxLength: number = MAX_CHUNK_LENGTH): string[]
   return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
 }
 
-// Generate embeddings using Lovable AI API
+// Generate embeddings via shared multi-provider helper (Lovable Gateway / OpenAI / DashScope)
 async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
+  console.log(`Generating embeddings for ${texts.length} texts (dims=${EMBEDDING_DIMENSIONS})`);
+  const results: number[][] = [];
+  for (const text of texts) {
+    const r = await callEmbedding({ text, dims: EMBEDDING_DIMENSIONS });
+    results.push(r.embedding);
   }
-
-  console.log(`Generating embeddings for ${texts.length} texts`);
-  
-  // Use Gemini embedding model via Lovable AI gateway
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: texts,
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data.map((item: any) => item.embedding);
+  return results;
 }
 
 // Fetch content from database by type and ID
