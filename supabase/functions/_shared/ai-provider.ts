@@ -141,19 +141,36 @@ export function isLovableCompatibleModel(model: string): boolean {
 }
 
 /**
+ * Self-host mode: when running outside Lovable Cloud, the Lovable AI Gateway
+ * is unreachable. Set SELF_HOSTED_MODE=true (or DISABLE_LOVABLE_GATEWAY=true)
+ * in the edge runtime env to auto-route all "lovable" provider calls through
+ * OpenRouter (which supports the same google/gemini-* and openai/gpt-* model IDs).
+ *
+ * This shim is a no-op on Lovable Cloud (env vars unset) → zero risk to prod.
+ */
+function isLovableGatewayDisabled(): boolean {
+  const flag = Deno.env.get("SELF_HOSTED_MODE") || Deno.env.get("DISABLE_LOVABLE_GATEWAY");
+  return flag === "true" || flag === "1";
+}
+
+/**
  * Get provider from model name (exported for routing/fallback decisions)
  */
 export function getProviderFromModel(model: string): string {
+  const selfHost = isLovableGatewayDisabled();
+
   // Check explicit prefixes first
   for (const [prefix, provider] of Object.entries(MODEL_TO_PROVIDER)) {
     if (model.startsWith(prefix)) {
+      // Self-host: reroute Lovable Gateway → OpenRouter (same model IDs work)
+      if (provider === "lovable" && selfHost) return "openrouter";
       return provider;
     }
   }
   
   // Check if it's a known Lovable-supported model
   if (isLovableCompatibleModel(model)) {
-    return "lovable";
+    return selfHost ? "openrouter" : "lovable";
   }
   
   // For any other model with provider prefix (e.g., "xyz/model-name"),
@@ -163,8 +180,8 @@ export function getProviderFromModel(model: string): string {
     return "openrouter";
   }
   
-  // Models without prefix default to Lovable
-  return "lovable";
+  // Models without prefix default to Lovable (or OpenRouter when self-hosted)
+  return selfHost ? "openrouter" : "lovable";
 }
 
 /**
