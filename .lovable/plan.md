@@ -1,89 +1,72 @@
+# Kiểm tra trạng thái thật & sửa badge
 
-## Mục tiêu
+## Sự thật ở DB (plan "Nội dung tháng 5", 16 pieces, status=`executing`, progress 0/16)
 
-Click vào dòng nội dung trong `CampaignPlanReview` (cả 3 view: Danh sách / Timeline / Theo kênh) → mở đúng studio tương ứng với `format` của piece, prefill dữ liệu cơ bản (title, key_message, channel, brand, date).
+| # | Kênh | UI hiện tại | Trạng thái thật |
+|---|------|-------------|-----------------|
+| 1 | Website | "Đang chạy" 🟠 | **Chờ duyệt** — pipeline ở stage `approval`, đã có `content_id` |
+| 2 | Facebook | "Đang chạy" 🟠 | **Chờ duyệt** — pipeline ở stage `approval`, đã có `content_id` |
+| 3 | Pinterest | "Đang chạy" 🟠 | **Lỗi** — pipeline `is_flagged=true`, "Failed to save carousel" sau 3 retries |
+| 4–16 | mixed | "Đang chạy"/"Chờ" | **Chưa bắt đầu** — chưa có `pipeline_id`, `piece.status='planned'` |
 
-Hôm nay row chỉ có icon Pencil (mở dialog sửa metadata) và Trash. Hành vi mới: **toàn bộ row clickable** → navigate, icon vẫn giữ nguyên để sửa nhanh tại chỗ.
+⇒ Badge hiện tại lừa người dùng: cả 3 pipeline đều **không thật sự đang chạy** (2 đang chờ tay duyệt, 1 đã chết). 13 piece còn lại chưa được agent đụng vào.
 
-## Mapping format → đích đến
+## Nguyên nhân
 
-| `piece.format` | `piece.target_channel` | Điều hướng |
+`CampaignPlanReview` chỉ đọc `piece.status` trong `plan_data` (jsonb). Trường này được set `in_progress` ngay khi `agent-pipeline` khởi tạo và **không bao giờ cập nhật** khi pipeline rơi vào `approval`, `flagged`, hay `failed`. Trạng thái thật nằm ở bảng `agent_pipelines` (cột `current_stage`, `is_flagged`, `flag_reason`, `content_id`, `completed_at`).
+
+## Phạm vi sửa (chỉ UI, không đổi backend)
+
+### 1. Hook mới: `src/hooks/useCampaignPlanPipelines.ts`
+- Input: `plan.plan_data[].pipeline_id` (lọc non-null)
+- Query `agent_pipelines` select `id, current_stage, is_flagged, flag_reason, content_id, completed_at, overall_quality_score`
+- Trả `Map<pipeline_id, AgentPipelineLite>` + `isLoading`
+- Realtime: subscribe `postgres_changes` trên `agent_pipelines` filter `campaign_plan_id=eq.{plan.id}` để badge tự cập nhật khi agent chạy
+
+### 2. Util: `src/lib/campaignPieceStatus.ts`
+Hàm `derivePieceStatus(piece, pipeline?)` trả về:
+```
+type DerivedPieceStatus =
+  | 'not_started'   // piece.status='planned', no pipeline_id
+  | 'queued'        // có pipeline_id, current_stage='strategy'|'create' chưa flagged
+  | 'generating'    // current_stage='create' đang chạy (heuristic theo updated_at < 5 phút)
+  | 'awaiting_approval' // current_stage='approval', có content_id
+  | 'publishing'    // current_stage='publish'
+  | 'published'     // completed_at != null
+  | 'failed'        // is_flagged=true
+  | 'completed'     // piece.status='completed'
+```
+Ưu tiên: `failed` > `published`/`completed` > stage thật > `piece.status` fallback.
+
+### 3. Cập nhật `statusBadge()` trong `CampaignPlanReview.tsx` (line 75)
+Đổi signature: `statusBadge(derived: DerivedPieceStatus, extra?: { flagReason?: string })`. Bảng nhãn + màu:
+
+| Trạng thái | Nhãn VN | Màu |
 |---|---|---|
-| `carousel` | bất kỳ | `/carousel?title=…&channel=…&brand=…&pieceId=…&planId=…` |
-| `video_script` | bất kỳ | `/videos?tab=scripts&title=…&channel=…&brand=…&pieceId=…&planId=…` |
-| `post` | `website / wordpress / blogger` | `/multichannel/new?channels=<channel>&title=…&brand=…&pieceId=…&planId=…` (long-form) |
-| `post` | còn lại (FB/IG/Threads/LinkedIn/X/Pinterest/Zalo/TikTok) | `/multichannel/new?channels=<channel>&title=…&brand=…&pieceId=…&planId=…` |
-| `email` | — | `/multichannel/new?channels=email&title=…&brand=…&pieceId=…&planId=…` |
+| not_started | Chưa bắt đầu | muted/gray |
+| queued | Trong hàng đợi | slate |
+| generating | Đang tạo | blue, pulse |
+| awaiting_approval | Chờ duyệt | amber |
+| publishing | Đang đăng | indigo, pulse |
+| published | Đã đăng | emerald |
+| failed | Lỗi | rose (tooltip = `flag_reason`) |
+| completed | Hoàn tất | emerald |
 
-Nếu `piece.pipeline_id` đã có và pipeline có `content_id` → ưu tiên mở content đã tạo:
-- carousel: `/carousel?id=<content_id>`
-- multichannel/email/post: `/multichannel?id=<content_id>` (xem chi tiết)
-- video_script: `/videos?tab=scripts&id=<content_id>`
+3 view (`PieceCard` ~line 122, `ChannelView` ~307, `TimelineView` ~408, `ListView` ~433) đều gọi `statusBadge(derivePieceStatus(piece, pipelinesMap.get(piece.pipeline_id)), { flagReason })`.
 
-Nếu chưa có → vào trang "new" với prefill.
+### 4. Progress bar "Tiến độ X/Y" (line ~509)
+Đổi `completedCount` từ `piece.status==='completed'` → dùng `derived === 'published' || 'completed'`. Thêm dòng phụ nhỏ bên dưới: `2 chờ duyệt · 1 lỗi · 13 chưa chạy` (đếm theo derived).
 
-## Implementation
+### 5. Hành động cho row "failed" (nhỏ, optional)
+Trong row mode `ListView`, khi `derived==='failed'` hiện thêm nút text-xs "Thử lại" → invoke edge `agent-pipeline` action `retry` (đã tồn tại, không thêm backend).
 
-### 1. File mới `src/lib/campaignPieceNav.ts`
+## File thay đổi
+- **Tạo**: `src/hooks/useCampaignPlanPipelines.ts`, `src/lib/campaignPieceStatus.ts`
+- **Sửa**: `src/components/agents/CampaignPlanReview.tsx` (statusBadge + 4 chỗ gọi + completedCount + sub-line)
 
-Hàm thuần `getPieceTarget(piece, ctx)`:
-- Input: `piece: CampaignContentPiece`, `ctx: { planId, brandTemplateId, organizationId, pipelineContentId? }`
-- Output: `{ path: string }` (URL có sẵn query params)
-
-Logic:
-- Nếu `pipelineContentId` → trả route "view existing" theo bảng trên.
-- Ngược lại build route "new" + query: `title`, `key_message`, `channels` (mảng → join `,`), `brand`, `pieceId`, `planId`, `scheduledDate`.
-
-Export thêm `CHANNEL_TO_LONGFORM` helper nếu cần phân biệt long-form vs social (nhưng cùng dùng `/multichannel/new`, chỉ khác kênh truyền).
-
-### 2. Optional fetch pipeline.content_id
-
-`CampaignPlanReview` đã có `pieces`. Mỗi piece có `pipeline_id` nullable.
-
-Tạo hook nhỏ `useCampaignPieceContentIds(pieces)`:
-- Lọc piece có `pipeline_id` → 1 query Supabase `agent_pipelines` `select('id, content_id, content_type').in('id', ids)` → return `Map<pipelineId, {content_id, content_type}>`.
-- Trả về `{ getContentId(pieceNumber): string | null }`.
-
-(Nếu hook overhead, skip phase 1: luôn route sang trang "new" với prefill. Vẫn ổn vì agent đã có `content_id` trong pipeline state UI khác.)
-
-### 3. Sửa `CampaignPlanReview.tsx`
-
-- Import `useNavigate` từ `react-router-dom`, import `getPieceTarget`.
-- Thêm prop `onPieceOpen?: (piece) => void` (default = navigate dùng `getPieceTarget`).
-- Truyền `onOpen` xuống `ListView`, `TimelineView`, `ChannelView` (và `PieceCard`).
-- Trong row của mỗi view: wrap nội dung trong `<button onClick={() => onOpen(piece)}>` HOẶC thêm `onClick` cho `<Card>` / row `<div>` + `cursor-pointer`, `role="button"`, `tabIndex={0}`, keydown Enter.
-- Nút Pencil/Trash phải `e.stopPropagation()` để không trigger navigate.
-- Trong dialog edit hiện tại (`Pencil`) giữ nguyên.
-
-### 4. Edit dialog
-
-Không đổi. Vẫn mở qua nút Pencil. Click thẳng row = navigate sang Content Studio.
-
-## Visual hint
-
-- Toàn row: thêm `cursor-pointer` + hover ring đậm hơn (đã có `hover:border-primary/30`).
-- Thêm `ChevronRight` nhỏ ở cuối row (chỉ List/Timeline) khi hover để báo "mở".
-- Tooltip ngắn: `Mở Content Studio` (i18n vi).
-
-## Edge cases
-
-- Piece không có `target_channel` hoặc `format` lạ → fallback `/multichannel/new?title=…`.
-- `brandTemplateId` null → bỏ qua param `brand`.
-- `email` format và channel không phải email → vẫn dùng channel của piece (không ép `email`).
-
-## Không đổi
-
-- Backend, DB, RLS, generate-* edge functions: zero changes.
-- Dialog edit + Pencil + Trash + Suggest popover: y nguyên.
-- Layout / 3 view mode toggle / progress bar: y nguyên.
-
-## Files sửa
-
-- **Tạo:** `src/lib/campaignPieceNav.ts` (~60 dòng, thuần function).
-- **Sửa:** `src/components/agents/CampaignPlanReview.tsx`
-  - Import `useNavigate` + `getPieceTarget` + `ChevronRight`.
-  - Thêm handler `handleOpenPiece(piece)`.
-  - Wrap row trong 3 view (`ListView` lines 341–389, `TimelineView` lines 271–298, `PieceCard` lines 108–166) với `onClick` + `stopPropagation` cho nút.
-- **(Optional)** `src/hooks/agents/useCampaignPieceContentIds.ts` nếu muốn route sang content đã generate.
-
-Tổng: 2–3 file, không đụng backend.
+## Không đụng
+- Backend (`agent-pipeline`, `generate-campaign-strategy`)
+- DB schema, RLS, migrations
+- `piece.status` trong jsonb (vẫn giữ làm fallback)
+- Navigation onClick row (đã làm ở turn trước)
+- Layout 3-view, edit/delete dialog

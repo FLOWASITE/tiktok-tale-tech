@@ -16,6 +16,14 @@ import {
 import { getPieceTarget } from '@/lib/campaignPieceNav';
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
+import { useCampaignPlanPipelines } from '@/hooks/useCampaignPlanPipelines';
+import {
+  derivePieceStatus,
+  PIECE_STATUS_VISUAL,
+  summarizePieceStatuses,
+  type DerivedPieceState,
+} from '@/lib/campaignPieceStatus';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
 import { PieceTopicSuggestPopover } from './PieceTopicSuggestPopover';
 import type { PieceTopicSuggestion, SuggestPieceTopicsInput } from '@/hooks/agents/useSuggestPieceTopics';
@@ -72,29 +80,36 @@ function sortedPieces(pieces: CampaignContentPiece[]) {
   });
 }
 
-function statusBadge(status: string) {
-  const config: Record<string, string> = {
-    planned: 'bg-muted text-muted-foreground',
-    approved: 'bg-blue-500/10 text-blue-600',
-    in_progress: 'bg-amber-500/10 text-amber-600',
-    completed: 'bg-emerald-500/10 text-emerald-600',
-    failed: 'bg-destructive/10 text-destructive',
-  };
-  const labels: Record<string, string> = {
-    planned: 'Chờ', approved: 'Đã duyệt', in_progress: 'Đang chạy',
-    completed: 'Hoàn thành', failed: 'Lỗi',
-  };
-  return (
-    <Badge variant="outline" className={cn('text-[9px] h-4 border', config[status] || '')}>
-      {labels[status] || status}
+function statusBadge(derived: DerivedPieceState) {
+  const v = PIECE_STATUS_VISUAL[derived.status];
+  const badge = (
+    <Badge
+      variant="outline"
+      className={cn('text-[9px] h-4 border gap-1', v.className)}
+    >
+      {v.pulse && <span className="w-1 h-1 rounded-full bg-current animate-pulse" />}
+      {v.label}
     </Badge>
   );
+  if (derived.status === 'failed' && derived.flagReason) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild><span>{badge}</span></TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-[11px]">
+            {derived.flagReason}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return badge;
 }
 
 // ─── Piece Card (shared across views) ───
 function PieceCard({
   piece, isEditable, showChannel = false,
-  onEdit, onDelete, onOpen, renderSuggest,
+  onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   piece: CampaignContentPiece;
   isEditable: boolean;
@@ -103,6 +118,7 @@ function PieceCard({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const role = ROLE_CONFIG[piece.content_role];
   const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
@@ -126,7 +142,7 @@ function PieceCard({
               ? format(new Date(piece.scheduled_date), 'dd/MM (EEEE)', { locale: vi })
               : 'Chưa lên lịch'}
           </span>
-          {statusBadge(piece.status)}
+          {statusBadge(derivedFor(piece))}
         </div>
 
         {/* Role badge */}
@@ -179,7 +195,7 @@ function PieceCard({
 
 // ─── Channel View ───
 function ChannelView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -187,6 +203,7 @@ function ChannelView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const grouped = groupBy(sortedPieces(pieces), p => p.target_channel);
   const channels = Object.keys(grouped).sort((a, b) => {
@@ -220,6 +237,7 @@ function ChannelView({
                   onDelete={onDelete}
                   onOpen={onOpen}
                   renderSuggest={renderSuggest}
+                  derivedFor={derivedFor}
                 />
               ))}
             </div>
@@ -233,7 +251,7 @@ function ChannelView({
 
 // ─── Timeline View ───
 function TimelineView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -241,6 +259,7 @@ function TimelineView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const sorted = sortedPieces(pieces);
   const grouped = groupBy(sorted, p => p.scheduled_date || '__unscheduled__');
@@ -304,7 +323,7 @@ function TimelineView({
                           <FormatIcon className="w-2.5 h-2.5" />
                           {fmt.label}
                         </Badge>
-                        {statusBadge(piece.status)}
+                        {statusBadge(derivedFor(piece))}
                         {isEditable && (
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={stop}>
                             <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
@@ -331,7 +350,7 @@ function TimelineView({
 
 // ─── List View (default, polished) ───
 function ListView({
-  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest,
+  pieces, isEditable, onEdit, onDelete, onOpen, renderSuggest, derivedFor,
 }: {
   pieces: CampaignContentPiece[];
   isEditable: boolean;
@@ -339,6 +358,7 @@ function ListView({
   onDelete: (n: number) => void;
   onOpen: (p: CampaignContentPiece) => void;
   renderSuggest?: (p: CampaignContentPiece) => ReactNode;
+  derivedFor: (p: CampaignContentPiece) => DerivedPieceState;
 }) {
   const sorted = sortedPieces(pieces);
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -405,7 +425,7 @@ function ListView({
                   {piece.scheduled_date ? format(new Date(piece.scheduled_date), 'dd/MM') : '—'}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
-                  {statusBadge(piece.status)}
+                  {statusBadge(derivedFor(piece))}
                   {isEditable && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stop}>
                       <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={(e) => { stop(e); onEdit(piece); }}>
@@ -430,7 +450,7 @@ function ListView({
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
                       {isEditable && <span onClick={stop}>{renderSuggest?.(piece)}</span>}
-                      {statusBadge(piece.status)}
+                      {statusBadge(derivedFor(piece))}
                     </div>
                     {piece.key_message && (
                       <p className="text-[11px] text-muted-foreground line-clamp-1">{piece.key_message}</p>
@@ -506,7 +526,15 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
   const pieces = localPieces;
   const isEditable = ['planned', 'draft'].includes(plan.status);
   const isApproved = plan.plan_approved;
-  const completedCount = pieces.filter(p => p.status === 'completed').length;
+
+  // Pipeline truth: fetch real pipeline stage/flag/completed_at for badges
+  const pipelineIds = pieces.map(p => p.pipeline_id).filter((x): x is string => !!x);
+  const { pipelinesById } = useCampaignPlanPipelines(plan.id, pipelineIds);
+  const derivedFor = (p: CampaignContentPiece): DerivedPieceState =>
+    derivePieceStatus(p, p.pipeline_id ? pipelinesById.get(p.pipeline_id) : null);
+  const derivedAll = pieces.map(derivedFor);
+  const summary = summarizePieceStatuses(derivedAll);
+  const completedCount = summary.doneCount;
   const progressPercent = pieces.length > 0 ? (completedCount / pieces.length) * 100 : 0;
 
   // Unique channels for summary
@@ -652,13 +680,22 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
           </div>
 
           {/* Progress bar */}
-          {plan.status === 'executing' && (
+          {(plan.status === 'executing' || summary.doneCount + summary.failed + summary.awaiting_approval + summary.generating + summary.publishing + summary.queued > 0) && (
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Tiến độ</span>
+                <span>Tiến độ thực tế</span>
                 <span>{completedCount}/{pieces.length}</span>
               </div>
               <Progress value={progressPercent} className="h-1.5" />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground pt-0.5">
+                {summary.published > 0 && <span className="text-emerald-600">● {summary.published} đã đăng</span>}
+                {summary.publishing > 0 && <span className="text-indigo-600">● {summary.publishing} đang đăng</span>}
+                {summary.awaiting_approval > 0 && <span className="text-amber-600">● {summary.awaiting_approval} chờ duyệt</span>}
+                {summary.generating > 0 && <span className="text-blue-600">● {summary.generating} đang tạo</span>}
+                {summary.queued > 0 && <span className="text-slate-600">● {summary.queued} trong hàng đợi</span>}
+                {summary.failed > 0 && <span className="text-destructive">● {summary.failed} lỗi</span>}
+                {summary.not_started > 0 && <span>● {summary.not_started} chưa bắt đầu</span>}
+              </div>
             </div>
           )}
 
@@ -686,13 +723,13 @@ export function CampaignPlanReview({ plan, goalName, brandTemplateId, onClose }:
 
       {/* Content Views */}
       {viewMode === 'channel' && (
-        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <ChannelView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
       {viewMode === 'timeline' && (
-        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <TimelineView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
       {viewMode === 'list' && (
-        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} />
+        <ListView pieces={pieces} isEditable={isEditable} onEdit={handleEditPiece} onDelete={handleDeletePiece} onOpen={handleOpenPiece} renderSuggest={renderSuggest} derivedFor={derivedFor} />
       )}
 
       {/* Edit Piece Dialog */}
