@@ -2375,23 +2375,84 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
                   </div>
                 )}
 
-                {/* Kênh & Tần suất */}
+                {/* Kênh × Tần suất × Loại nội dung */}
                 {selectedChannels.length > 0 && (
                   <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
-                      <Radio className="w-3 h-3" /> Kênh & Tần suất
-                    </p>
-                    <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-wide font-medium flex items-center gap-1">
+                        <Radio className="w-3 h-3" /> Kênh × Tần suất × Loại nội dung
+                      </p>
+                      <p className="text-[9px] text-muted-foreground">Bấm số để chỉnh • tổng = ~bài</p>
+                    </div>
+                    {/* Header row */}
+                    <div className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[9px] uppercase tracking-wide text-muted-foreground/70 px-1 pt-0.5">
+                      <span>Kênh</span>
+                      <span className="text-center">Tần suất</span>
+                      <span className="text-right">Tổng</span>
+                      <span className="text-center" title="Bài đa kênh">
+                        <FileText className="w-3 h-3 inline" />
+                      </span>
+                      <span className="text-center" title="Carousel">
+                        <Images className="w-3 h-3 inline" />
+                      </span>
+                      <span className="text-center" title="Video">
+                        <Video className="w-3 h-3 inline" />
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
                       {selectedChannels.map(ch => {
                         const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
                         const freq = frequency[ch] || 'weekly';
-                        const posts = getChannelPosts(ch);
+                        const total = channelPostsMap[ch] ?? getChannelPosts(ch);
+                        const mix: ContentMixCell = contentMix[ch] ?? defaultContentMix(ch, total);
+                        const support = getChannelSupport(ch);
+                        const offBalance = sumMix(mix) !== total;
+
+                        const handleCellChange = (key: keyof ContentMixCell, raw: string) => {
+                          const n = parseInt(raw, 10);
+                          const next = rebalanceMix(ch, mix, key, isNaN(n) ? 0 : n, total);
+                          setContentMix(prev => ({ ...prev, [ch]: next }));
+                        };
+
+                        const cell = (key: keyof ContentMixCell, supported: boolean) => (
+                          supported ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={total}
+                              value={mix[key]}
+                              onChange={e => handleCellChange(key, e.target.value)}
+                              className="h-6 w-9 px-1 text-center text-[10px] tabular-nums"
+                            />
+                          ) : (
+                            <span className="text-center text-muted-foreground/40 text-[10px]">—</span>
+                          )
+                        );
+
                         return (
-                          <div key={ch} className="flex items-center gap-2 text-[11px] py-0.5">
-                            <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
-                            <span className="flex-1 min-w-0 truncate font-medium">{info?.label || ch}</span>
-                            <Badge variant="outline" className="text-[9px] font-normal h-4 px-1.5">{freqLabel[freq]}</Badge>
-                            <span className="text-[10px] text-muted-foreground tabular-nums w-14 text-right">~{posts} bài</span>
+                          <div
+                            key={ch}
+                            className="grid grid-cols-[1fr_70px_60px_36px_36px_36px] items-center gap-1.5 text-[11px] py-0.5"
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <ChannelIcon channel={info?.channelKey || 'website'} size={12} className={channelIconColors[info?.channelKey || 'website']} />
+                              <span className="truncate font-medium">{info?.label || ch}</span>
+                            </div>
+                            <div className="flex justify-center">
+                              <Badge variant="outline" className="text-[9px] font-normal h-4 px-1.5">{freqLabel[freq]}</Badge>
+                            </div>
+                            <span
+                              className={cn(
+                                'text-[10px] tabular-nums text-right',
+                                offBalance ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground',
+                              )}
+                              title={offBalance ? `Đang lệch: tổng mix = ${sumMix(mix)} / ${total}` : undefined}
+                            >
+                              ~{total}
+                            </span>
+                            {cell('post', support.post)}
+                            {cell('carousel', support.carousel)}
+                            {cell('video', support.video)}
                           </div>
                         );
                       })}
