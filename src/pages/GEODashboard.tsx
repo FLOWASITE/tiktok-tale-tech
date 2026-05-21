@@ -10,6 +10,7 @@ import { useGEOMonitors } from '@/hooks/useGEOMonitors';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { GEO_SCORING_ENABLED } from '@/lib/featureFlags';
 
 export default function GEODashboard() {
   const { monitors, loading } = useGEOMonitors();
@@ -49,7 +50,7 @@ export default function GEODashboard() {
           <GEOSetupWizard />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-6 lg:w-[720px]">
+            <TabsList className={`grid w-full ${GEO_SCORING_ENABLED ? 'grid-cols-6 lg:w-[720px]' : 'grid-cols-5 lg:w-[600px]'}`}>
               <TabsTrigger value="overview" className="relative">
                 Tổng quan
                 {unreadAlerts > 0 && (
@@ -58,7 +59,7 @@ export default function GEODashboard() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="optimizer">GEO Score</TabsTrigger>
+              {GEO_SCORING_ENABLED && <TabsTrigger value="optimizer">GEO Score</TabsTrigger>}
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
               <TabsTrigger value="competitors">Đối thủ</TabsTrigger>
               <TabsTrigger value="actions">Actions</TabsTrigger>
@@ -67,9 +68,11 @@ export default function GEODashboard() {
             <TabsContent value="overview" className="mt-6">
               <GEOOverview monitors={monitors} loading={loading} />
             </TabsContent>
-            <TabsContent value="optimizer" className="mt-6">
-              <GEOContentOptimizerTab />
-            </TabsContent>
+            {GEO_SCORING_ENABLED && (
+              <TabsContent value="optimizer" className="mt-6">
+                <GEOContentOptimizerTab />
+              </TabsContent>
+            )}
             <TabsContent value="prompts" className="mt-6">
               <PromptExplorer monitors={monitors} />
             </TabsContent>
