@@ -303,6 +303,7 @@ const PROVIDER_DOT_COLORS: Record<string, string> = {
   kie: 'bg-violet-500',
   poyo: 'bg-teal-500',
   dashscope: 'bg-orange-500',
+  deepseek: 'bg-blue-600',
   geminigen: 'bg-emerald-500',
   ninerouter: 'bg-slate-600',
 };
