@@ -1208,6 +1208,34 @@ export function MultiChannelViewer({
           <MediaRetentionNotice storageKey="media-retention-multichannel" />
         </div>
 
+        {/* All-empty banner: AI failed to generate any channel content */}
+        {(() => {
+          const selChannels = content.selected_channels || [];
+          if (selChannels.length === 0) return null;
+          const allEmpty = selChannels.every(ch => {
+            const txt = getContentForChannel(content, ch);
+            return !txt || txt.trim().length === 0;
+          });
+          if (!allEmpty) return null;
+          return (
+            <div className="px-6 pt-2">
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+                <div className="font-medium text-destructive mb-1">
+                  Tạo nội dung thất bại — tất cả kênh đều trống
+                </div>
+                <div className="text-muted-foreground text-xs leading-relaxed">
+                  Model AI được chọn không khả dụng hoặc nhà cung cấp đã hết credit.
+                  Vui lòng kiểm tra <strong>Admin → AI Models</strong> để đổi sang model khác
+                  (vd: <code className="px-1 rounded bg-muted">google/gemini-2.5-flash</code>),
+                  hoặc nhấn <strong>Tạo lại</strong> trên từng kênh để thử lại.
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+
+
         {showTeamPanel ? (
           <div className="p-6 space-y-6">
             <TeamWorkPanel 

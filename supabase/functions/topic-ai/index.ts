@@ -115,21 +115,30 @@ interface TopicAIRequest {
   _userId?: string;
 }
 
-// ========== Topic AI model safety (v3 - DashScope alias normalization) ==========
+// ========== Topic AI model safety (v4 - prefix-allow + extended whitelist) ==========
 const TOPIC_AI_ALLOWED_MODELS = new Set([
-  // Lovable Gateway - text models
+  // Lovable Gateway - OpenAI
   'openai/gpt-5-mini',
   'openai/gpt-5',
   'openai/gpt-5-nano',
   'openai/gpt-5.2',
+  'openai/gpt-5.4',
+  'openai/gpt-5.4-mini',
+  'openai/gpt-5.4-nano',
+  'openai/gpt-5.4-pro',
+  'openai/gpt-5.5',
+  'openai/gpt-5.5-pro',
+  // Lovable Gateway - Google
   'google/gemini-2.5-pro',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-flash-lite',
   'google/gemini-3-flash-preview',
   'google/gemini-3.1-pro-preview',
+  'google/gemini-3.1-flash-lite-preview',
+  'google/gemini-3.5-flash',
+  // DashScope - Qwen (direct + latest aliases)
   'qwen-max-latest',
   'qwen-plus-latest',
-  // DashScope - legacy Qwen
   'qwen-plus',
   'qwen-max',
   'qwen-turbo',
@@ -144,9 +153,16 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'deepseek-v4-pro',
 ]);
 
+// Prefixes that are allowed without explicit whitelisting (open provider families)
+const TOPIC_AI_ALLOWED_PREFIXES = [
+  '9router/',     // self-hosted OpenAI-compatible gateway
+  'deepseek/',    // OpenRouter DeepSeek
+  'moonshotai/',  // OpenRouter Moonshot
+  'anthropic/',   // OpenRouter Anthropic
+  'qwen/',        // OpenRouter Qwen
+];
 
 const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
-  'google/gemini-3.1-flash-lite-preview': 'google/gemini-2.5-flash-lite',
   'qwen3-plus': 'qwen-plus',
   'qwen3-max': 'qwen-max',
   'qwen3-turbo': 'qwen-turbo',
@@ -161,10 +177,11 @@ const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
 // to avoid silently switching the user from DashScope -> Lovable Gateway.
 function pickFallbackForModel(rawModel: string, defaultFallback: string): string {
   const m = rawModel.toLowerCase();
-  if (m.startsWith('qwen')) return 'qwen-plus'; // DashScope family fallback
-  if (m.startsWith('deepseek')) return 'deepseek-chat'; // DeepSeek family fallback
+  if (m.startsWith('qwen')) return 'qwen-plus';
+  if (m.startsWith('deepseek')) return 'deepseek-chat';
   if (m.startsWith('openai/')) return 'openai/gpt-5-mini';
-  return defaultFallback; // google/gemini-* etc.
+  if (m.startsWith('9router/')) return defaultFallback;
+  return defaultFallback;
 }
 
 
@@ -173,10 +190,17 @@ function sanitizeTopicAIModel(model: string | undefined | null, fallbackModel = 
   if (!rawModel) return fallbackModel;
 
   const normalizedModel = TOPIC_AI_MODEL_ALIASES[rawModel] ?? rawModel;
+
+  // Allow by explicit whitelist
   if (TOPIC_AI_ALLOWED_MODELS.has(normalizedModel)) {
     if (normalizedModel !== rawModel) {
-      console.warn(`[topic-ai] Remapped unsupported model ${rawModel} -> ${normalizedModel}`);
+      console.warn(`[topic-ai] Remapped alias ${rawModel} -> ${normalizedModel}`);
     }
+    return normalizedModel;
+  }
+
+  // Allow by provider-family prefix (open families like 9router/, openrouter)
+  if (TOPIC_AI_ALLOWED_PREFIXES.some(p => normalizedModel.startsWith(p))) {
     return normalizedModel;
   }
 
