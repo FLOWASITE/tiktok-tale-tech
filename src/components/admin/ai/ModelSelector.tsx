@@ -230,7 +230,7 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.ninerouter.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.geminigen.length + filteredModels.dashscope.length + filteredModels.deepseek.length + filteredModels.ninerouter.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
   const hasDashScope = availableDashScopeModels.length > 0;
   const hasGeminigen = availableGeminigenModels.length > 0;
@@ -294,6 +294,17 @@ export function ModelSelector({
               >
                 <span className="hidden sm:inline">DashScope</span>
                 <span className="sm:hidden">DS</span>
+              </ProviderTab>
+            )}
+            {availableDeepSeekModels.length > 0 && (
+              <ProviderTab
+                active={providerFilter === 'deepseek'}
+                onClick={() => setProviderFilter('deepseek')}
+                provider="deepseek"
+                count={availableDeepSeekModels.length}
+              >
+                <span className="hidden sm:inline">DeepSeek</span>
+                <span className="sm:hidden">DS2</span>
               </ProviderTab>
             )}
             {availableNineRouterModels.length > 0 && (
@@ -534,6 +545,42 @@ export function ModelSelector({
                 </div>
                 <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
                   {filteredModels.dashscope.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* DeepSeek (Direct API) Models */}
+            {filteredModels.deepseek.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <Key className="h-4 w-4 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-blue-700 dark:text-blue-400">🐋 DeepSeek (Direct)</h3>
+                    <p className="text-[10px] sm:text-xs text-blue-600/70 dark:text-blue-400/70 truncate">
+                      deepseek-chat / reasoner / v4-flash / v4-pro — prompt caching tự động
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30">
+                    {filteredModels.deepseek.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-blue-500/5 border border-blue-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-blue-600/80 dark:text-blue-400/80">
+                    Yêu cầu <code className="font-mono font-medium">DEEPSEEK_API_KEY</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.deepseek.map((modelId) => (
                     <ModelCard
                       key={modelId}
                       modelId={modelId}
