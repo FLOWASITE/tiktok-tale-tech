@@ -306,7 +306,7 @@ export async function recordFailure(model: string, config: CircuitBreakerConfig 
  * Get fallback model for a given model
  */
 export function getFallbackModel(model: string): string {
-  return FALLBACK_MODELS[model] || DEFAULT_FALLBACK;
+  return FALLBACK_MODELS[model] || resolveFamilyFallback(model);
 }
 
 /**
