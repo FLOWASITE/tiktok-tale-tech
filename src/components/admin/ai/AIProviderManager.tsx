@@ -474,7 +474,8 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     const ptype = editingProvider.providerType!;
                     const envOn = !!envSecrets?.[ptype];
                     const sName = (AI_PROVIDERS.find(p => p.type === ptype) as any)?.secretName as string | undefined;
-                    const alreadyConfigured = !!configured && hasApiKey(configured);
+                    const existing = getConfiguredProvider(ptype);
+                    const alreadyConfigured = !!existing && hasApiKey(existing);
                     if (!envOn || alreadyConfigured) return null;
                     return (
                       <div className="rounded-md bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground flex gap-2">
