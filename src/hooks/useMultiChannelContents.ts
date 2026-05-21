@@ -109,6 +109,7 @@ export function useMultiChannelContents() {
    * Fire-and-forget — errors are silently logged.
    */
   const triggerAutoGEOScore = useCallback((contentItem: MultiChannelContent) => {
+    if (!GEO_SCORING_ENABLED) return;
     if (!currentOrganization?.id) return;
 
     // Collect all channel texts into one combined text for overall GEO scoring
