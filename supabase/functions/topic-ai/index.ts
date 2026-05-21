@@ -162,9 +162,11 @@ const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
 function pickFallbackForModel(rawModel: string, defaultFallback: string): string {
   const m = rawModel.toLowerCase();
   if (m.startsWith('qwen')) return 'qwen-plus'; // DashScope family fallback
+  if (m.startsWith('deepseek')) return 'deepseek-chat'; // DeepSeek family fallback
   if (m.startsWith('openai/')) return 'openai/gpt-5-mini';
   return defaultFallback; // google/gemini-* etc.
 }
+
 
 function sanitizeTopicAIModel(model: string | undefined | null, fallbackModel = 'google/gemini-2.5-flash'): string {
   const rawModel = model?.trim();
