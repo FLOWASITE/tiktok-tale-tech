@@ -137,7 +137,13 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'qwen-long',
   'qwen-vl-max',
   'qwen-vl-plus',
+  // DeepSeek - direct
+  'deepseek-chat',
+  'deepseek-reasoner',
+  'deepseek-v4-flash',
+  'deepseek-v4-pro',
 ]);
+
 
 const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
   'google/gemini-3.1-flash-lite-preview': 'google/gemini-2.5-flash-lite',
