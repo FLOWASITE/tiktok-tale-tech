@@ -34,6 +34,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   dashscope: <Bot className="h-5 w-5 text-orange-600" />,
   geminigen: <Sparkles className="h-5 w-5 text-emerald-500" />,
   ninerouter: <Workflow className="h-5 w-5 text-indigo-500" />,
+  deepseek: <Sparkles className="h-5 w-5 text-blue-600" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -48,6 +49,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   dashscope: 'https://dashscope.console.aliyun.com/',
   geminigen: 'https://geminigen.ai/profile/integration/api-keys',
   ninerouter: 'https://9router.com/',
+  deepseek: 'https://platform.deepseek.com/api_keys',
 };
 
 interface TestResult {

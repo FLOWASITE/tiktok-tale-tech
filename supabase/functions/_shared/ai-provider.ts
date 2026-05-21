@@ -26,6 +26,7 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+  deepseek: "https://api.deepseek.com/v1/chat/completions",
   // 9Router: self-hosted OpenAI-compatible gateway routing to 60+ providers
   // Base URL is configurable per org via ai_provider_configs.base_url OR env NINE_ROUTER_BASE_URL
   ninerouter: "", // resolved dynamically in callNineRouter
@@ -49,13 +50,20 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "qwen-": "dashscope",           // qwen-plus, qwen-max, qwen-turbo, qwen-*-latest (DashScope native)
   "qwen2": "dashscope",           // qwen2.5-*, qwen2-* (DashScope native)
   "qwen3": "dashscope",           // qwen3-max/plus/turbo/flash/long/vl-*/coder-* (DashScope native)
-  
+
+  // DeepSeek direct API (OpenAI-compatible, https://api.deepseek.com)
+  // IMPORTANT: must be checked BEFORE "deepseek/" (OpenRouter) prefix below.
+  "deepseek-chat": "deepseek",           // V3 general chat
+  "deepseek-reasoner": "deepseek",       // R1-style reasoning
+  "deepseek-v4": "deepseek",             // deepseek-v4-flash, deepseek-v4-pro
+  "deepseek/native/": "deepseek",        // explicit override → force direct DeepSeek
+
   // OpenRouter models (200+ third-party models)
   "openrouter/": "openrouter",   // OpenRouter explicit prefix
   "anthropic/": "openrouter",    // Claude via OpenRouter
   "meta-llama/": "openrouter",   // Llama via OpenRouter
   "mistralai/": "openrouter",    // Mistral via OpenRouter
-  "deepseek/": "openrouter",     // DeepSeek via OpenRouter
+  "deepseek/": "openrouter",     // DeepSeek via OpenRouter (legacy/fallback)
   "moonshotai/": "openrouter",   // Kimi models via OpenRouter
   "qwen/": "openrouter",         // Qwen models via OpenRouter (with provider prefix)
   "cohere/": "openrouter",       // Cohere models via OpenRouter
@@ -764,6 +772,78 @@ async function callDashScope(
 }
 
 /**
+ * Call DeepSeek direct API (https://api.deepseek.com) - OpenAI-compatible
+ * Models: deepseek-chat, deepseek-reasoner, deepseek-v4-flash, deepseek-v4-pro
+ * Supports prompt caching natively (auto-applied server-side).
+ */
+async function callDeepSeek(
+  messages: AIMessage[],
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions,
+  apiKeyOverride?: string
+): Promise<AICallResult> {
+  const apiKey = apiKeyOverride || Deno.env.get("DEEPSEEK_API_KEY");
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "DEEPSEEK_API_KEY not configured (no DB key and no env var)",
+      provider: "deepseek",
+      model,
+    };
+  }
+
+  // Strip explicit-override prefix `deepseek/native/` if user used it to force direct routing.
+  const cleanModel = model.replace(/^deepseek\/native\//, "");
+
+  try {
+    const body: any = {
+      model: cleanModel,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+    if (options.tools) body.tools = options.tools;
+    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    if (options.stream) body.stream = true;
+
+    const response = await fetch(PROVIDER_ENDPOINTS.deepseek, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] DeepSeek error:", response.status, errorText);
+      if (response.status === 401) {
+        return { success: false, error: "DeepSeek: Invalid API key (401)", provider: "deepseek", model };
+      }
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "deepseek", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "deepseek", model };
+      }
+      return { success: false, error: `DeepSeek error: ${response.status}`, provider: "deepseek", model };
+    }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "deepseek", model: cleanModel };
+    }
+    const data = await response.json();
+    return { success: true, data, provider: "deepseek", model: cleanModel };
+  } catch (err) {
+    console.error("[ai-provider] DeepSeek call failed:", err);
+    return { success: false, error: String(err), provider: "deepseek", model };
+  }
+}
+
+
+/**
  * Call Gemini directly (without Lovable Gateway)
  */
 async function callGeminiDirect(
@@ -951,6 +1031,8 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "dashscope":
             return callDashScope(messages, effectiveModel, effectiveConfig, options, apiKey);
+          case "deepseek":
+            return callDeepSeek(messages, effectiveModel, effectiveConfig, options, apiKey);
           case "ninerouter":
             return callNineRouter(messages, effectiveModel, effectiveConfig, options, apiKey, providerConfig?.baseUrl);
           default:
@@ -1037,6 +1119,34 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     tier3Result.fromFallback = true;
     if (tier3Result.success) return tier3Result;
 
+    return primaryResult;
+  }
+
+  // DeepSeek env-only fallback (when no DB provider config row)
+  // Tier 1: requested deepseek model. Tier 2: Lovable Gateway gemini-2.5-flash.
+  if (primaryProvider === "deepseek") {
+    console.log("[ai-provider] Using DeepSeek direct API (env config)");
+    const primaryResult = await callWithCircuitBreaker(
+      () => callDeepSeek(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options,
+    );
+    if (primaryResult.success) return primaryResult;
+
+    const isCreditsExhausted = primaryResult.error?.includes("402") ||
+                               primaryResult.error?.includes("Payment") ||
+                               primaryResult.error?.includes("401");
+    if (!isCreditsExhausted) {
+      console.warn(`[ai-provider] DeepSeek failed (${primaryResult.error}), last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+      const tier2Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+      const tier2Result = await callWithCircuitBreaker(
+        () => callLovableGateway(messages, "google/gemini-2.5-flash", tier2Config, options),
+        "google/gemini-2.5-flash",
+        options,
+      );
+      tier2Result.fromFallback = true;
+      if (tier2Result.success) return tier2Result;
+    }
     return primaryResult;
   }
 

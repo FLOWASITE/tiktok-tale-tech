@@ -196,6 +196,11 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'google/gemini-3-flash-preview',
     'deepseek/deepseek-v3.2',
     'deepseek/deepseek-chat',
+    // DeepSeek direct API (cheaper than OpenRouter)
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
     'moonshotai/kimi-k2.5',
     'minimax/minimax-m2.5',
     'z-ai/glm-5',
@@ -398,7 +403,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter' | 'deepseek';
   isRecommended?: boolean;
 }
 
@@ -1511,6 +1516,16 @@ export const isDashScopeModel = (modelId: string): boolean => {
   return DASHSCOPE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
 };
 
+// DeepSeek direct API prefixes (deepseek-chat, deepseek-reasoner, deepseek-v4-*).
+// NOTE: `deepseek/...` (with slash) is OpenRouter — NOT included here.
+export const DEEPSEEK_MODEL_PREFIXES = ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4'];
+
+// Check if a model is a direct DeepSeek model (not the OpenRouter `deepseek/*` variant)
+export const isDeepSeekModel = (modelId: string): boolean => {
+  if (modelId.startsWith('deepseek/native/')) return true;
+  return DEEPSEEK_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
+};
+
 // 9Router (self-hosted OpenAI-compatible gateway) prefix
 export const NINEROUTER_MODEL_PREFIXES = ['9router/'];
 
@@ -1631,6 +1646,20 @@ export const getModelInfo = (modelId: string): ModelInfo => {
     };
   }
 
+  // Check DeepSeek direct models
+  if (isDeepSeekModel(modelId)) {
+    return {
+      shortName: extractShortName(modelId),
+      description: 'DeepSeek direct API (prompt caching, giá rẻ)',
+      speed: modelId.includes('reasoner') ? 'slow' as ModelSpeed : 'fast' as ModelSpeed,
+      quality: modelId.includes('pro') || modelId.includes('reasoner') ? 'premium' as ModelQuality : 'high' as ModelQuality,
+      cost: 'low' as ModelCost,
+      bestFor: modelId.includes('reasoner') ? ['Reasoning', 'Toán/Logic'] : ['Long-context', 'Chi phí thấp'],
+      provider: 'deepseek',
+    };
+  }
+
+
   // Determine provider: Lovable AI models vs OpenRouter
   const isLovableModel = isLovableAIModel(modelId);
     
@@ -1710,6 +1739,12 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
     'qwen-max-latest', 'qwen-plus-latest',
     // Legacy
     'qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long',
+  ],
+  deepseek: [
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
   ],
   geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/sora-2-pro', 'geminigen/sora-2-hd', 'geminigen/tts-v1'],
   ninerouter: [

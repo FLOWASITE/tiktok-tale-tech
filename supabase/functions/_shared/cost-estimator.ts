@@ -31,6 +31,12 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   // DeepSeek family (via OpenRouter - estimated)
   'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
   'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
+
+  // DeepSeek direct API (https://api.deepseek.com — V4 series, Apr 2026)
+  'deepseek-chat': { input: 0.27, output: 1.10 },
+  'deepseek-reasoner': { input: 0.55, output: 2.19 },
+  'deepseek-v4-flash': { input: 0.07, output: 0.27 },
+  'deepseek-v4-pro': { input: 0.27, output: 1.10 },
   
   // Anthropic family (via OpenRouter - estimated)
   'anthropic/claude-sonnet-4': { input: 3.0, output: 15.0 },
