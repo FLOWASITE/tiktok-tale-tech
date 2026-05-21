@@ -470,6 +470,22 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
               {/* API Key Input */}
               {AI_PROVIDERS.find(p => p.type === editingProvider.providerType)?.hasKey && (
                 <div className="space-y-2">
+                  {(() => {
+                    const ptype = editingProvider.providerType!;
+                    const envOn = !!envSecrets?.[ptype];
+                    const sName = (AI_PROVIDERS.find(p => p.type === ptype) as any)?.secretName as string | undefined;
+                    const alreadyConfigured = !!configured && hasApiKey(configured);
+                    if (!envOn || alreadyConfigured) return null;
+                    return (
+                      <div className="rounded-md bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground flex gap-2">
+                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>
+                          Hệ thống đã có <code className="font-mono">{sName}</code> ở env — edge function đang dùng key này tự động.
+                          Chỉ nhập key dưới đây nếu muốn <b>override riêng cho organization này</b> (vd: tách billing).
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center justify-between">
                     <Label>API Key</Label>
                     {PROVIDER_KEY_URLS[editingProvider.providerType!] && (
