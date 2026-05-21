@@ -11,10 +11,11 @@ import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUN
 import { ALL_AGENTS, useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw, KeyRound, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useProviderEnvSecrets } from '@/hooks/useProviderEnvSecrets';
 
 interface AIProviderManagerProps {
   organizationId?: string;
