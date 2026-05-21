@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
   windowSizeMs: 5 * 60 * 1000,   // 5 minute rolling window
 };
 
-// Fallback model mapping
+// Fallback model mapping (family-aware: keep user's provider whenever possible)
 const FALLBACK_MODELS: Record<string, string> = {
   // OpenRouter models -> Lovable Gateway fallbacks
   'moonshotai/kimi-k2': 'google/gemini-2.5-flash',
@@ -60,14 +60,48 @@ const FALLBACK_MODELS: Record<string, string> = {
   // Gemini fallbacks
   'google/gemini-2.5-pro': 'google/gemini-2.5-flash',
   'google/gemini-3-pro-preview': 'google/gemini-2.5-flash',
+  'google/gemini-3.1-pro-preview': 'google/gemini-2.5-flash',
+  'google/gemini-3.5-flash': 'google/gemini-2.5-flash',
   // OpenAI fallbacks
   'openai/gpt-5': 'google/gemini-2.5-pro',
   'openai/gpt-5-mini': 'google/gemini-2.5-flash',
   'openai/gpt-5-nano': 'google/gemini-2.5-flash-lite',
+  // DeepSeek direct (stay within family before crossing to Gemini)
+  'deepseek-v4-flash': 'deepseek-chat',
+  'deepseek-v4-pro': 'deepseek-reasoner',
+  'deepseek-reasoner': 'deepseek-chat',
+  'deepseek-chat': 'google/gemini-2.5-flash',
+  // DashScope / Qwen direct
+  'qwen-max': 'qwen-plus',
+  'qwen-max-latest': 'qwen-plus',
+  'qwen-plus': 'qwen-flash',
+  'qwen-plus-latest': 'qwen-flash',
+  'qwen-turbo': 'qwen-flash',
+  'qwen-long': 'qwen-plus',
+  'qwen-flash': 'google/gemini-2.5-flash',
+  'qwen-vl-max': 'qwen-vl-plus',
+  'qwen-vl-plus': 'google/gemini-2.5-flash',
 };
 
 // Default fallback for any unknown model
 const DEFAULT_FALLBACK = 'google/gemini-2.5-flash';
+
+/**
+ * Resolve a family-aware fallback for models not listed in FALLBACK_MODELS.
+ * Keeps the user's chosen provider whenever possible instead of silently
+ * switching to Lovable Gateway gemini.
+ */
+function resolveFamilyFallback(model: string): string {
+  const m = model.toLowerCase();
+  if (m.startsWith('deepseek-')) return 'deepseek-chat';
+  if (m.startsWith('qwen-vl')) return 'qwen-vl-plus';
+  if (m.startsWith('qwen-')) return 'qwen-plus';
+  if (m.startsWith('deepseek/')) return 'google/gemini-2.5-flash';
+  if (m.startsWith('9router/')) return 'google/gemini-2.5-flash';
+  if (m.startsWith('openai/')) return 'openai/gpt-5-mini';
+  if (m.startsWith('google/gemini-3')) return 'google/gemini-2.5-flash';
+  return DEFAULT_FALLBACK;
+}
 
 // ============================================
 // STATE MANAGEMENT (Hybrid: Redis + In-Memory)
