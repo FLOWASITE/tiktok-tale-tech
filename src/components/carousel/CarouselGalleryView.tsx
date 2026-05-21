@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
 import { useCarouselGallery, SortBy, ContentFolder } from '@/hooks/useCarouselGallery';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 import {
   Breadcrumb,
   BreadcrumbList,
