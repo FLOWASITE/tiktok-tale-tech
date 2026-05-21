@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 
 export type ImageSource = 'carousel' | 'multichannel' | 'video' | 'video_render';
 export type MediaType = 'image' | 'video';
@@ -520,6 +521,10 @@ export function useCarouselGallery() {
   };
 
   const deleteImage = async (imageId: string) => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return;
+    }
     const img = images.find(i => i.id === imageId);
     if (!img) return;
     try {
@@ -535,6 +540,10 @@ export function useCarouselGallery() {
   };
 
   const bulkDelete = useCallback(async (ids: string[]) => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return;
+    }
     if (!ids.length) return;
     const groups: Record<string, string[]> = {
       carousel_images: [], channel_image_history: [], video_generations: [], video_render_jobs: [],

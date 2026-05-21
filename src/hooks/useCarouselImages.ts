@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 
 export interface CarouselImage {
   id: string;
@@ -109,7 +110,13 @@ export function useCarouselImages(carouselId: string | null) {
   }, [carouselId, user, currentOrganization]);
 
   const deleteImage = useCallback(async (slideNumber: number): Promise<boolean> => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return false;
+    }
     if (!carouselId) return false;
+
+
 
     try {
       const { error } = await supabase

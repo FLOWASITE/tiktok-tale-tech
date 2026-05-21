@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { toast } from 'sonner';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 
 export interface GeneratedImage {
   slideNumber: number;
@@ -150,6 +151,10 @@ export function useImageGeneration() {
     slideNumber: number,
     carouselId: string
   ): Promise<boolean> => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return false;
+    }
     const image = getImageForSlide(slideNumber);
     if (!image) {
       toast.error('Không tìm thấy ảnh để xóa');

@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
 import { useCarouselGallery, SortBy, ContentFolder } from '@/hooks/useCarouselGallery';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -405,6 +406,7 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
             <Button variant="outline" size="sm" onClick={handleBulkDownload} className="h-7 text-xs" disabled={selectedIds.size === 0}>
               <Download className="w-3 h-3 mr-1" /> Tải về
             </Button>
+            {IMAGE_DELETION_ENABLED && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={selectedIds.size === 0}>
@@ -422,11 +424,12 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
                     onClick={() => bulkDelete(Array.from(selectedIds))}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    Xóa {selectedIds.size} ảnh
+                    Xóa
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
         )}
 
@@ -750,6 +753,7 @@ function GalleryImageCard({
                 >
                   <Download className="w-3.5 h-3.5" />
                 </Button>
+                {IMAGE_DELETION_ENABLED && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -777,6 +781,7 @@ function GalleryImageCard({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                )}
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight } from 'lucide-react';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -256,6 +257,7 @@ export function ChannelImageHistory({
                           <TooltipContent>Mở ảnh</TooltipContent>
                         </Tooltip>
 
+                        {IMAGE_DELETION_ENABLED && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
@@ -275,6 +277,7 @@ export function ChannelImageHistory({
                             {image.is_selected ? 'Không thể xóa ảnh đang dùng' : 'Xóa ảnh'}
                           </TooltipContent>
                         </Tooltip>
+                        )}
                       </TooltipProvider>
                     </div>
                   </div>
