@@ -151,6 +151,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
       'deepseek-v4-pro',
     ],
     icon: '🐋',
+  },
   {
     id: 'geminigen',
     name: 'GeminiGen.ai',
