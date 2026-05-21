@@ -1031,6 +1031,8 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "dashscope":
             return callDashScope(messages, effectiveModel, effectiveConfig, options, apiKey);
+          case "deepseek":
+            return callDeepSeek(messages, effectiveModel, effectiveConfig, options, apiKey);
           case "ninerouter":
             return callNineRouter(messages, effectiveModel, effectiveConfig, options, apiKey, providerConfig?.baseUrl);
           default:
@@ -1117,6 +1119,34 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     tier3Result.fromFallback = true;
     if (tier3Result.success) return tier3Result;
 
+    return primaryResult;
+  }
+
+  // DeepSeek env-only fallback (when no DB provider config row)
+  // Tier 1: requested deepseek model. Tier 2: Lovable Gateway gemini-2.5-flash.
+  if (primaryProvider === "deepseek") {
+    console.log("[ai-provider] Using DeepSeek direct API (env config)");
+    const primaryResult = await callWithCircuitBreaker(
+      () => callDeepSeek(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options,
+    );
+    if (primaryResult.success) return primaryResult;
+
+    const isCreditsExhausted = primaryResult.error?.includes("402") ||
+                               primaryResult.error?.includes("Payment") ||
+                               primaryResult.error?.includes("401");
+    if (!isCreditsExhausted) {
+      console.warn(`[ai-provider] DeepSeek failed (${primaryResult.error}), last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+      const tier2Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+      const tier2Result = await callWithCircuitBreaker(
+        () => callLovableGateway(messages, "google/gemini-2.5-flash", tier2Config, options),
+        "google/gemini-2.5-flash",
+        options,
+      );
+      tier2Result.fromFallback = true;
+      if (tier2Result.success) return tier2Result;
+    }
     return primaryResult;
   }
 
