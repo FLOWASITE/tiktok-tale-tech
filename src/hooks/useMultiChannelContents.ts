@@ -7,6 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { useQueryClient } from '@tanstack/react-query';
+import { GEO_SCORING_ENABLED } from '@/lib/featureFlags';
 
 // Helper to normalize content field - ensures string or null
 const normalizeContentField = (value: unknown): string | null => {

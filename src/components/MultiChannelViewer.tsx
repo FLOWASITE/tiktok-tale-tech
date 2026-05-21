@@ -278,6 +278,7 @@ import { PinterestAnalyticsCard } from '@/components/viewer/PinterestAnalyticsCa
 import ClusterContextBadge from '@/components/seo/ClusterContextBadge';
 import SeoInsightsSheet from '@/components/seo/SeoInsightsSheet';
 import { WordPressSeoPanel } from '@/components/seo/WordPressSeoPanel';
+import { GEO_SCORING_ENABLED } from '@/lib/featureFlags';
 
 // Brand Voice Apply instruction
 const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
