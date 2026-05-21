@@ -60,6 +60,7 @@ interface TestResult {
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
+  const { data: envSecrets } = useProviderEnvSecrets();
   const { configs: agentConfigs } = useAgentModelConfig(organizationId);
   const { configs: channelConfigs } = useChannelModelConfig(organizationId);
   const { getEffectiveModel } = useGroupModelConfig(organizationId);
