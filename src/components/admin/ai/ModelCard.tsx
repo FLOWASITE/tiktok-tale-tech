@@ -69,6 +69,12 @@ const PROVIDER_STYLES: Record<string, {
     icon: <Sparkles className="h-3 w-3" />,
     label: 'DashScope',
   },
+  deepseek: {
+    border: 'border-l-blue-600',
+    badge: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    icon: <Sparkles className="h-3 w-3" />,
+    label: 'DeepSeek',
+  },
   geminigen: {
     border: 'border-l-emerald-500',
     badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
@@ -297,6 +303,7 @@ const PROVIDER_DOT_COLORS: Record<string, string> = {
   kie: 'bg-violet-500',
   poyo: 'bg-teal-500',
   dashscope: 'bg-orange-500',
+  deepseek: 'bg-blue-600',
   geminigen: 'bg-emerald-500',
   ninerouter: 'bg-slate-600',
 };
