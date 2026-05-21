@@ -26,6 +26,7 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+  deepseek: "https://api.deepseek.com/v1/chat/completions",
   // 9Router: self-hosted OpenAI-compatible gateway routing to 60+ providers
   // Base URL is configurable per org via ai_provider_configs.base_url OR env NINE_ROUTER_BASE_URL
   ninerouter: "", // resolved dynamically in callNineRouter
@@ -49,13 +50,20 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "qwen-": "dashscope",           // qwen-plus, qwen-max, qwen-turbo, qwen-*-latest (DashScope native)
   "qwen2": "dashscope",           // qwen2.5-*, qwen2-* (DashScope native)
   "qwen3": "dashscope",           // qwen3-max/plus/turbo/flash/long/vl-*/coder-* (DashScope native)
-  
+
+  // DeepSeek direct API (OpenAI-compatible, https://api.deepseek.com)
+  // IMPORTANT: must be checked BEFORE "deepseek/" (OpenRouter) prefix below.
+  "deepseek-chat": "deepseek",           // V3 general chat
+  "deepseek-reasoner": "deepseek",       // R1-style reasoning
+  "deepseek-v4": "deepseek",             // deepseek-v4-flash, deepseek-v4-pro
+  "deepseek/native/": "deepseek",        // explicit override → force direct DeepSeek
+
   // OpenRouter models (200+ third-party models)
   "openrouter/": "openrouter",   // OpenRouter explicit prefix
   "anthropic/": "openrouter",    // Claude via OpenRouter
   "meta-llama/": "openrouter",   // Llama via OpenRouter
   "mistralai/": "openrouter",    // Mistral via OpenRouter
-  "deepseek/": "openrouter",     // DeepSeek via OpenRouter
+  "deepseek/": "openrouter",     // DeepSeek via OpenRouter (legacy/fallback)
   "moonshotai/": "openrouter",   // Kimi models via OpenRouter
   "qwen/": "openrouter",         // Qwen models via OpenRouter (with provider prefix)
   "cohere/": "openrouter",       // Cohere models via OpenRouter
