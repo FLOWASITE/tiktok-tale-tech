@@ -1687,6 +1687,7 @@ export const AI_PROVIDERS = [
   { type: 'kie', name: 'KIE.ai', description: 'Flux Kontext, GPT-Image (gateway)', hasKey: true, secretName: 'KIE_API_KEY' },
   { type: 'poyo', name: 'PoYo.ai', description: 'GPT-4o Image, Z-Image, Flux 2, Seedream, Grok', hasKey: true, secretName: 'POYO_API_KEY' },
   { type: 'dashscope', name: 'DashScope (Alibaba Cloud)', description: 'Qwen Plus, Max, Turbo, VL (Singapore)', hasKey: true, secretName: 'DASHSCOPE_API_KEY' },
+  { type: 'deepseek', name: 'DeepSeek (Direct)', description: 'DeepSeek Chat, Reasoner, V4 Flash/Pro — native prompt caching, giá rẻ', hasKey: true, secretName: 'DEEPSEEK_API_KEY' },
   { type: 'geminigen', name: 'GeminiGen.ai', description: 'Nano Banana Pro, Nano Banana 2, Imagen 4', hasKey: true, secretName: 'GEMINIGEN_API_KEY' },
   { type: 'ninerouter', name: '9Router (Self-hosted)', description: '60+ providers qua 1 endpoint: GLM, Kimi, MiniMax, Claude, GPT, Gemini, Qwen, DeepSeek, Groq…', hasKey: true, secretName: 'NINE_ROUTER_API_KEY' },
   { type: 'custom', name: 'Custom API', description: 'OpenAI-compatible endpoints', hasKey: true },
