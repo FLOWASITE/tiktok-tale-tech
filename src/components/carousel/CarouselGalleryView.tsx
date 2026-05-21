@@ -429,15 +429,6 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
               </AlertDialogContent>
             </AlertDialog>
             )}
-                  <AlertDialogAction
-                    onClick={() => bulkDelete(Array.from(selectedIds))}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Xóa {selectedIds.size} ảnh
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
         )}
 
