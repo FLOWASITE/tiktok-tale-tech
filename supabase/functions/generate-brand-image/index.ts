@@ -235,7 +235,7 @@ const DEFAULT_IMAGE_MODELS = {
 // Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
 // 150s. Keep provider polling well below that and use fast fallback paths.
 const EXTERNAL_PROVIDER_POLL_BUDGET = {
-  geminigenAttempts: 15, // 15 × 3s = 45s
+  geminigenAttempts: 40, // 40 × 3s = 120s (under 150s idle timeout)
 } as const;
 
 function isProviderCreditOrAuthError(message: string): boolean {
@@ -1017,31 +1017,82 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       } catch (geminiGenErr) {
         const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
-        providerDebug.providerTimeout = errMsg.includes('timeout');
+        const isTimeout = errMsg.toLowerCase().includes('timeout');
+        providerDebug.providerTimeout = isTimeout;
         providerDebug.fallbackTried = true;
-        providerDebug.fallbackProvider = 'lovable-ai';
         providerDebug.errorCode = 'PROVIDER_ERROR';
 
-        console.log('[generate-brand-image] GeminiGen failed, falling back to Lovable AI Gateway...');
-        try {
-          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
-          imageData = result.imageData;
-          modelUsed = `${result.model} (fallback from ${primaryModel})`;
-          totalAttempts = result.attempts;
-        } catch (lovableFallbackErr) {
-          const fallbackMsg = lovableFallbackErr instanceof Error ? lovableFallbackErr.message : String(lovableFallbackErr);
-          console.error('[generate-brand-image] Lovable AI fallback also failed:', fallbackMsg);
-          const isCreditsOrRateLimit = isProviderCreditOrAuthError(errMsg) || isProviderCreditOrAuthError(fallbackMsg);
-          return buildProviderFailureResponse({
-            error: isCreditsOrRateLimit
-              ? 'Provider tạo ảnh đang hết quota hoặc bị giới hạn. Vui lòng thử lại sau hoặc kiểm tra credits provider ảnh.'
-              : `GeminiGen and Lovable AI fallback both failed: ${errMsg}`,
-            errorCode: isCreditsOrRateLimit ? 'CREDITS_EXHAUSTED' : 'ALL_PROVIDERS_DOWN',
-            provider: 'geminigen',
-            providerTimeout: providerDebug.providerTimeout,
-            fallbackTried: true,
-            fallbackProvider: 'lovable-ai',
-          });
+        // Map GeminiGen model → PoYo equivalent
+        const poyoEquivalentMap: Record<string, string> = {
+          'geminigen/nano-banana-2': 'poyo/nano-banana-2-new',
+          'geminigen/nano-banana-pro': 'poyo/nano-banana-pro',
+          'geminigen/imagen-4': 'poyo/nano-banana-pro',
+        };
+        const poyoPrimary = poyoEquivalentMap[primaryModel] || 'poyo/nano-banana-2-new';
+        const poyoAlt = poyoPrimary === 'poyo/nano-banana-2-new' ? 'poyo/nano-banana-pro' : 'poyo/nano-banana-2-new';
+
+        const POYO_KEY = Deno.env.get('POYO_API_KEY');
+        let poyoSucceeded = false;
+        let poyoErrMsg = '';
+
+        if (POYO_KEY) {
+          providerDebug.fallbackProvider = 'poyo';
+          for (const poyoModel of [poyoPrimary, poyoAlt]) {
+            try {
+              console.log(`[generate-brand-image] GeminiGen ${isTimeout ? 'timeout' : 'failed'}, falling back to PoYo (${poyoModel})...`);
+              const poyoResult = await generateImageViaPoyo({
+                prompt: enhancedPrompt,
+                aspectRatio: mapAspectRatioToPoyo(aspectRatio),
+                model: poyoModel,
+                quality: 'standard',
+              }, POYO_KEY);
+              imageData = poyoResult.imageUrl;
+              modelUsed = `${poyoModel} (fallback from ${primaryModel})`;
+              totalAttempts = 1;
+              poyoSucceeded = true;
+              break;
+            } catch (poyoErr) {
+              poyoErrMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
+              console.error(`[generate-brand-image] PoYo fallback (${poyoModel}) failed: ${poyoErrMsg}`);
+              // If credits exhausted on PoYo, skip alt PoYo, go straight to Lovable
+              if (isProviderCreditOrAuthError(poyoErrMsg)) break;
+            }
+          }
+        } else {
+          console.warn('[generate-brand-image] POYO_API_KEY not set, skipping PoYo fallback');
+        }
+
+        if (!poyoSucceeded) {
+          providerDebug.fallbackProvider = POYO_KEY ? 'poyo→lovable-ai' : 'lovable-ai';
+          console.log('[generate-brand-image] PoYo unavailable/failed, falling back to Lovable AI Gateway...');
+          try {
+            const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+            imageData = result.imageData;
+            modelUsed = `${result.model} (fallback from ${primaryModel})`;
+            totalAttempts = result.attempts;
+          } catch (lovableFallbackErr) {
+            const fallbackMsg = lovableFallbackErr instanceof Error ? lovableFallbackErr.message : String(lovableFallbackErr);
+            console.error('[generate-brand-image] Lovable AI fallback also failed:', fallbackMsg);
+            const allCredits = isProviderCreditOrAuthError(errMsg)
+              && (!poyoErrMsg || isProviderCreditOrAuthError(poyoErrMsg))
+              && isProviderCreditOrAuthError(fallbackMsg);
+            const errorCode = allCredits
+              ? 'CREDITS_EXHAUSTED'
+              : isTimeout ? 'PROVIDER_TIMEOUT' : 'ALL_PROVIDERS_DOWN';
+            const errorText = allCredits
+              ? 'Tất cả provider tạo ảnh đều hết credits/quota. Vui lòng nạp thêm credits hoặc đổi model trong Admin.'
+              : isTimeout
+                ? `GeminiGen render quá chậm; PoYo${poyoErrMsg ? ` (${poyoErrMsg})` : ' không khả dụng'} và Lovable AI cũng fail: ${fallbackMsg}`
+                : `Tất cả provider fail. GeminiGen: ${errMsg} | PoYo: ${poyoErrMsg || 'n/a'} | Lovable: ${fallbackMsg}`;
+            return buildProviderFailureResponse({
+              error: errorText,
+              errorCode,
+              provider: 'geminigen',
+              providerTimeout: isTimeout,
+              fallbackTried: true,
+              fallbackProvider: providerDebug.fallbackProvider,
+            });
+          }
         }
       }
     } else if (isKieModel(primaryModel)) {
