@@ -1,62 +1,45 @@
-# Plan — Cải tiến UI Provider Manager (DeepSeek/DashScope/9Router/OpenRouter)
+# Vì sao "Gợi ý chủ đề" báo hết token dù đã set DeepSeek
 
-## Vấn đề
-`AIProviderManager` chỉ check `ai_provider_configs` (per-org override) khi quyết định hiện badge "Active" hay nút "Cấu hình". Với những provider đã có **env-level secret** (vd `DEEPSEEK_API_KEY`, `DASHSCOPE_API_KEY`, `NINE_ROUTER_API_KEY`, `OPENROUTER_API_KEY`), edge function chạy tốt nhưng UI vẫn hiển thị "Not configured" + nút "Cấu hình" gây hiểu lầm rằng phải nhập key mới dùng được.
+## Root cause
 
-## Thay đổi
+`supabase/functions/topic-ai/index.ts` có **whitelist cứng** `TOPIC_AI_ALLOWED_MODELS` (dòng 119–140) chỉ chứa Lovable Gateway + Qwen/DashScope. **Không có DeepSeek**.
 
-### 1. Khai báo env-secret cho provider
-File: `src/hooks/useAIConfig.ts` (mảng `AI_PROVIDERS`)
-- Mỗi entry đã có `secretName` (vd `DEEPSEEK_API_KEY`). Giữ nguyên, đảm bảo các provider có path direct đều khai báo: `deepseek`, `dashscope`, `ninerouter`, `openrouter`, `kie`, `poyo`, `geminigen`.
+Khi bạn cấu hình model `deepseek-chat` / `deepseek-reasoner` cho function `topic-ai` (hoặc agent override), `sanitizeTopicAIModel()` coi nó là "unsupported" và **silently fallback** sang `google/gemini-2.5-flash` (xem `pickFallbackForModel`, dòng 156–161 — chỉ check prefix `qwen` / `openai/`).
 
-### 2. Tạo edge function `check-provider-secrets`
-File mới: `supabase/functions/check-provider-secrets/index.ts`
-- Trả về `{ [secretName: string]: boolean }` cho danh sách secret names client gửi lên (chỉ trả `Deno.env.get(name) ? true : false`, không trả giá trị).
-- `verify_jwt = true`, chỉ cho admin gọi (check role qua `has_role(uid,'admin')`).
-- Đăng ký trong `supabase/config.toml` nếu cần (default verify_jwt=true là OK, không cần block).
+Lỗi `DashScope error: 400` bạn thấy trong console là từ một lần request khác (model cũ vẫn là `qwen-*` và DashScope đang lỗi quota/payload) — không liên quan trực tiếp tới DeepSeek. Nhưng kết quả thực tế là: **request DeepSeek của bạn không bao giờ tới DeepSeek**, mà bị chuyển sang Gemini hoặc Qwen tùy override.
 
-### 3. Hook `useProviderEnvSecrets`
-File mới: `src/hooks/useProviderEnvSecrets.ts`
-- TanStack Query gọi `check-provider-secrets` với list secret names từ `AI_PROVIDERS`.
-- Cache 5 phút, returns `{ [providerType]: boolean }`.
+## Fix (3 chỗ, đều trong `topic-ai/index.ts`)
 
-### 4. UI #1 — Badge "Đã cấu hình qua secret"
-File: `src/components/admin/ai/AIProviderManager.tsx`
-- Import hook mới, gọi `const { data: envSecrets } = useProviderEnvSecrets()`.
-- Trong vòng lặp `AI_PROVIDERS.map`, thêm biến:
-  ```ts
-  const hasEnvSecret = !!envSecrets?.[provider.type];
-  ```
-- Cập nhật phần render badge (lines 316-330):
-  - Nếu `!configured && hasEnvSecret` → hiện badge mới `<Badge variant="default" className="bg-emerald-600">✓ Env secret</Badge>` (icon `KeyRound`).
-- Cập nhật phần render CTA (lines 399-413):
-  - Khi `!configured && hasEnvSecret`: thay vì nút "Cấu hình" full-width, hiện:
-    ```
-    <p className="text-xs text-muted-foreground">
-      Đã có {secretName} ở env. Edge function dùng key này tự động.
-    </p>
-    <Button variant="ghost" size="sm">Override cho org này…</Button>
-    ```
-  - Click "Override…" mở dialog như cũ.
+### 1. Thêm DeepSeek vào `TOPIC_AI_ALLOWED_MODELS`
+```ts
+// DeepSeek - direct
+'deepseek-chat',
+'deepseek-reasoner',
+'deepseek-v4-flash',
+'deepseek-v4-pro',
+```
 
-### 5. UI #2 — Helper text trong dialog
-File: `src/components/admin/ai/AIProviderManager.tsx` (block dialog ~line 447)
-- Bên trên input API key, khi `hasEnvSecret === true` và chưa có `configured`, render alert nhẹ:
-  ```
-  <div className="rounded-md bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
-    <Info className="inline w-3 h-3 mr-1" />
-    Hệ thống đã có <code>{secretName}</code> ở env. Chỉ nhập key ở đây nếu muốn
-    override riêng cho organization này (vd: tách billing).
-  </div>
-  ```
+### 2. Thêm family fallback DeepSeek trong `pickFallbackForModel`
+```ts
+if (m.startsWith('deepseek')) return 'deepseek-chat';
+```
+→ Tránh trường hợp user chọn alias DeepSeek lạ bị đẩy về Gemini.
 
-## Không thay đổi
-- Logic `ai-provider.ts` (`apiKeyOverride || Deno.env.get(...)`) đã đúng — giữ nguyên.
-- Schema DB, RLS, các tab Functions/Channels/Agents.
-- Không động đến DashScope 400 runtime error (issue riêng).
+### 3. (Optional) Alias map cho tên cũ
+Nếu trong UI có hiển thị `deepseek/deepseek-v3.2` (route OpenRouter cũ), không cần map — vẫn để OpenRouter handle. Chỉ cần whitelist prefix `deepseek-*` cho direct.
 
-## Acceptance
-1. `/admin/ai` → tab Providers: card DeepSeek/DashScope/9Router hiện badge xanh "✓ Env secret" (không còn "Not configured").
-2. Click "Override…" → dialog có dòng helper text giải thích.
-3. Nếu xóa env secret (hoặc env không có), card quay về trạng thái "Not configured" + nút "Cấu hình" như cũ.
-4. Edge function `check-provider-secrets` chỉ trả boolean, không expose key.
+## Verify sau khi sửa
+
+1. Mở `/multichannel/new` → trigger "Gợi ý chủ đề"
+2. Check edge logs `topic-ai`: log dòng `[topic-ai] Remapped...` hoặc `Unsupported model...` phải **biến mất**
+3. `ai_metrics` row mới nhất cho `function_name='topic-ai'` phải có `provider='deepseek'` và `model='deepseek-chat'`
+
+## Không đụng tới
+
+- `_shared/ai-provider.ts` — DeepSeek routing đã hoạt động ổn
+- DB schema, RLS
+- Lỗi DashScope 400 song song (sẽ tự hết khi user chuyển sang DeepSeek; nếu vẫn lỗi sau đó sẽ debug riêng)
+
+## Scope
+
+1 file, ~6 dòng. Không cần migration, không cần deploy thủ công (auto qua Lovable Cloud khi commit).
