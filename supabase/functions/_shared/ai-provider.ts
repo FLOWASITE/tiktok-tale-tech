@@ -772,6 +772,78 @@ async function callDashScope(
 }
 
 /**
+ * Call DeepSeek direct API (https://api.deepseek.com) - OpenAI-compatible
+ * Models: deepseek-chat, deepseek-reasoner, deepseek-v4-flash, deepseek-v4-pro
+ * Supports prompt caching natively (auto-applied server-side).
+ */
+async function callDeepSeek(
+  messages: AIMessage[],
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions,
+  apiKeyOverride?: string
+): Promise<AICallResult> {
+  const apiKey = apiKeyOverride || Deno.env.get("DEEPSEEK_API_KEY");
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "DEEPSEEK_API_KEY not configured (no DB key and no env var)",
+      provider: "deepseek",
+      model,
+    };
+  }
+
+  // Strip explicit-override prefix `deepseek/native/` if user used it to force direct routing.
+  const cleanModel = model.replace(/^deepseek\/native\//, "");
+
+  try {
+    const body: any = {
+      model: cleanModel,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+    if (options.tools) body.tools = options.tools;
+    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    if (options.stream) body.stream = true;
+
+    const response = await fetch(PROVIDER_ENDPOINTS.deepseek, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] DeepSeek error:", response.status, errorText);
+      if (response.status === 401) {
+        return { success: false, error: "DeepSeek: Invalid API key (401)", provider: "deepseek", model };
+      }
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "deepseek", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "deepseek", model };
+      }
+      return { success: false, error: `DeepSeek error: ${response.status}`, provider: "deepseek", model };
+    }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "deepseek", model: cleanModel };
+    }
+    const data = await response.json();
+    return { success: true, data, provider: "deepseek", model: cleanModel };
+  } catch (err) {
+    console.error("[ai-provider] DeepSeek call failed:", err);
+    return { success: false, error: String(err), provider: "deepseek", model };
+  }
+}
+
+
+/**
  * Call Gemini directly (without Lovable Gateway)
  */
 async function callGeminiDirect(
