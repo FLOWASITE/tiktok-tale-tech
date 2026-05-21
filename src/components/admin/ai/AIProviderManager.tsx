@@ -11,10 +11,11 @@ import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUN
 import { ALL_AGENTS, useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw, KeyRound, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useProviderEnvSecrets } from '@/hooks/useProviderEnvSecrets';
 
 interface AIProviderManagerProps {
   organizationId?: string;
@@ -59,6 +60,7 @@ interface TestResult {
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
+  const { data: envSecrets } = useProviderEnvSecrets();
   const { configs: agentConfigs } = useAgentModelConfig(organizationId);
   const { configs: channelConfigs } = useChannelModelConfig(organizationId);
   const { getEffectiveModel } = useGroupModelConfig(organizationId);
@@ -304,9 +306,11 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
           const isBuiltIn = provider.type === 'lovable';
           const hasConnector = provider.type === 'perplexity' || provider.type === 'firecrawl';
           const hasKey = configured && hasApiKey(configured);
+          const hasEnvSecret = !!envSecrets?.[provider.type];
+          const secretName = (provider as any).secretName as string | undefined;
           
           return (
-            <Card key={provider.type} className={configured?.isActive || isBuiltIn ? 'border-primary/50' : ''}>
+            <Card key={provider.type} className={configured?.isActive || isBuiltIn || (hasEnvSecret && !configured) ? 'border-primary/50' : ''}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -322,6 +326,10 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                       ) : (
                         <><X className="h-3 w-3 mr-1" /> Inactive</>
                       )}
+                    </Badge>
+                  ) : hasEnvSecret ? (
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600">
+                      <KeyRound className="h-3 w-3 mr-1" /> Env secret
                     </Badge>
                   ) : hasConnector ? (
                     <Badge variant="outline">Connector</Badge>
@@ -397,19 +405,35 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     {renderUsageSection(provider.type)}
                   </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setEditingProvider({ providerType: provider.type, displayName: provider.name });
-                      setIsDialogOpen(true);
-                      setTestResult(null);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Cấu hình
-                  </Button>
+                  <div className="space-y-2">
+                    {hasEnvSecret && (
+                      <>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                          Đã cấu hình qua env secret
+                        </p>
+                        {secretName && (
+                          <p className="text-xs text-muted-foreground">
+                            Edge functions tự động dùng <code className="font-mono">{secretName}</code>. Bạn không cần nhập key — trừ khi muốn override riêng cho org này.
+                          </p>
+                        )}
+                        {renderUsageSection(provider.type)}
+                      </>
+                    )}
+                    <Button
+                      variant={hasEnvSecret ? 'ghost' : 'outline'}
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setEditingProvider({ providerType: provider.type, displayName: provider.name });
+                        setIsDialogOpen(true);
+                        setTestResult(null);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {hasEnvSecret ? 'Override cho org này…' : 'Cấu hình'}
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -446,6 +470,23 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
               {/* API Key Input */}
               {AI_PROVIDERS.find(p => p.type === editingProvider.providerType)?.hasKey && (
                 <div className="space-y-2">
+                  {(() => {
+                    const ptype = editingProvider.providerType!;
+                    const envOn = !!envSecrets?.[ptype];
+                    const sName = (AI_PROVIDERS.find(p => p.type === ptype) as any)?.secretName as string | undefined;
+                    const existing = getConfiguredProvider(ptype);
+                    const alreadyConfigured = !!existing && hasApiKey(existing);
+                    if (!envOn || alreadyConfigured) return null;
+                    return (
+                      <div className="rounded-md bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground flex gap-2">
+                        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>
+                          Hệ thống đã có <code className="font-mono">{sName}</code> ở env — edge function đang dùng key này tự động.
+                          Chỉ nhập key dưới đây nếu muốn <b>override riêng cho organization này</b> (vd: tách billing).
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center justify-between">
                     <Label>API Key</Label>
                     {PROVIDER_KEY_URLS[editingProvider.providerType!] && (
