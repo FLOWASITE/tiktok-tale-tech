@@ -77,8 +77,8 @@ import {
   type SmartContextResult,
 } from "../_shared/smart-context.ts";
 // NEW: Length Validator for intelligent length enforcement
-import {
 import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
+import {
   buildWordBudgetInstruction,
   validateAllChannels,
   getChannelsNeedingExpansion,
@@ -89,6 +89,7 @@ import { getGatewayConfig } from "../_shared/lovable-gateway.ts";
   type LengthValidationResult,
   type MultiChannelLengthValidation,
 } from "../_shared/length-validator.ts";
+
 // Learning Context for RAG-enhanced generation
 import { fetchLearningContext } from "../_shared/learning-context.ts";
 // NEW: Task tracking for background generation
