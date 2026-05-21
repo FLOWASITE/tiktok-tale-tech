@@ -229,7 +229,7 @@ export function AIChannelModelConfig({ organizationId }: AIChannelModelConfigPro
                               <ProviderIndicator provider={modelInfo.provider} />
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium flex items-center gap-1.5">
-                                  {modelInfo.provider === 'dashscope' ? '☁️ ' : ''}{modelInfo.shortName}
+                                  {modelInfo.provider === 'dashscope' ? '☁️ ' : modelInfo.provider === 'deepseek' ? '🐋 ' : ''}{modelInfo.shortName}
                                   {isCustomized && modelInfo.provider === 'lovable' && (
                                     <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400 text-[10px] px-1 py-0 gap-0.5">
                                       <AlertTriangle className="h-2.5 w-2.5" />
@@ -245,7 +245,8 @@ export function AIChannelModelConfig({ organizationId }: AIChannelModelConfigPro
                                       {modelInfo.provider === 'kie' && 'KIE.ai'}
                                       {modelInfo.provider === 'poyo' && 'PoYo.ai'}
                                       {modelInfo.provider === 'dashscope' && 'DashScope'}
-                                      {!['lovable', 'openrouter', 'kie', 'poyo', 'dashscope'].includes(modelInfo.provider) && 'Custom'}
+                                      {modelInfo.provider === 'deepseek' && 'DeepSeek'}
+                                      {!['lovable', 'openrouter', 'kie', 'poyo', 'dashscope', 'deepseek'].includes(modelInfo.provider) && 'Custom'}
                                     </>
                                   ) : 'Default'}
                                 </span>
