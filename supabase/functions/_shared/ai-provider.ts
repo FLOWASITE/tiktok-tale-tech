@@ -1178,6 +1178,16 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   }
 
   // Default: Use Lovable Gateway
+  // Safety net: warn loudly if a non-Lovable-compatible model ends up here.
+  // This usually means MODEL_TO_PROVIDER is missing a prefix → user's chosen
+  // model gets routed to the wrong gateway and will 400 immediately.
+  if (!isLovableCompatibleModel(effectiveModel) && primaryProvider === "lovable") {
+    console.error(
+      `[ai-provider] BLOCKED-MISROUTE: model "${effectiveModel}" was routed to Lovable Gateway ` +
+      `but is not Lovable-compatible. Add a prefix mapping in MODEL_TO_PROVIDER, ` +
+      `or set a force_provider for function "${functionName}".`,
+    );
+  }
   console.log("[ai-provider] Using Lovable AI Gateway (default)");
   return callWithCircuitBreaker(
     () => callLovableGateway(messages, effectiveModel, effectiveConfig, options),
