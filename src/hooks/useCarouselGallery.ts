@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 
 export type ImageSource = 'carousel' | 'multichannel' | 'video' | 'video_render';
 export type MediaType = 'image' | 'video';

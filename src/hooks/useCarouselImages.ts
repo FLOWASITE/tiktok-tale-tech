@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
+import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 
 export interface CarouselImage {
   id: string;
