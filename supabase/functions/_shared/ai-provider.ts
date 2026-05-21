@@ -1057,10 +1057,24 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
         fallbackResult.fromFallback = true;
         return fallbackResult;
       } else {
+        // For DashScope/DeepSeek/9Router (user-key), always escalate to Lovable Gateway gemini-2.5-flash
+        // so an arrearage/400/auth error on the user's account does not brick the function.
+        if (primaryProvider === "dashscope" || primaryProvider === "deepseek" || primaryProvider === "ninerouter") {
+          console.warn(`[ai-provider] ${primaryProvider} (user key) failed (${result.error}), last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+          const lastResort = await callWithCircuitBreaker(
+            () => callLovableGateway(messages, "google/gemini-2.5-flash", { ...effectiveConfig, model: "google/gemini-2.5-flash" }, options),
+            "google/gemini-2.5-flash",
+            options
+          );
+          lastResort.fromFallback = true;
+          if (lastResort.success) return lastResort;
+          return result;
+        }
         // Don't fallback - Lovable won't support this model anyway
         console.error(`[ai-provider] ${primaryProvider} failed, no fallback for model: ${effectiveModel}`);
         return result;
       }
+
     }
   }
 
