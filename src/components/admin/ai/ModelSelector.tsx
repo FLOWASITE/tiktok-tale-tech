@@ -11,6 +11,7 @@ import {
   isPoyoModel,
   isDashScopeModel,
   isNineRouterModel,
+  isDeepSeekModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
@@ -30,7 +31,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'ninerouter' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'geminigen' | 'dashscope' | 'deepseek' | 'ninerouter' | 'openrouter';
 
 const isGeminigenModel = (modelId: string) => modelId.startsWith('geminigen/');
 
@@ -76,6 +77,7 @@ export function ModelSelector({
     poyoModels: availablePoyoModels,
     geminigenModels: availableGeminigenModels,
     dashscopeModels: availableDashScopeModels,
+    deepseekModels: availableDeepSeekModels,
     ninerouterModels: availableNineRouterModels,
     lovableOnlyModels: availableLovableOnlyModels,
   } = useMemo(() => {
@@ -83,9 +85,10 @@ export function ModelSelector({
     const poyo = availableModels.lovable.filter(id => isPoyoModel(id));
     const geminigen = availableModels.lovable.filter(id => isGeminigenModel(id));
     const dashscope = availableModels.lovable.filter(id => isDashScopeModel(id));
+    const deepseek = availableModels.lovable.filter(id => isDeepSeekModel(id));
     const ninerouter = availableModels.lovable.filter(id => isNineRouterModel(id));
     const lovableOnly = availableModels.lovable.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isDeepSeekModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -93,6 +96,7 @@ export function ModelSelector({
       poyoModels: poyo,
       geminigenModels: geminigen,
       dashscopeModels: dashscope,
+      deepseekModels: deepseek,
       ninerouterModels: ninerouter,
       lovableOnlyModels: lovableOnly,
     };
@@ -169,7 +173,7 @@ export function ModelSelector({
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(
-        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
+        id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isDeepSeekModel(id) && !isNineRouterModel(id)
       );
     } else if (providerFilter === 'kie') {
       openrouterFiltered = [];
@@ -183,6 +187,9 @@ export function ModelSelector({
     } else if (providerFilter === 'dashscope') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    } else if (providerFilter === 'deepseek') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isDeepSeekModel(id));
     } else if (providerFilter === 'ninerouter') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
@@ -195,9 +202,10 @@ export function ModelSelector({
     const poyoFiltered = lovableFiltered.filter(id => isPoyoModel(id));
     const geminigenFiltered = lovableFiltered.filter(id => isGeminigenModel(id));
     const dashscopeFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    const deepseekFiltered = lovableFiltered.filter(id => isDeepSeekModel(id));
     const ninerouterFiltered = lovableFiltered.filter(id => isNineRouterModel(id));
     const lovableOnlyFiltered = lovableFiltered.filter(
-      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id)
+      id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isDeepSeekModel(id) && !isNineRouterModel(id)
     );
 
     return {
@@ -206,6 +214,7 @@ export function ModelSelector({
       poyo: poyoFiltered,
       geminigen: geminigenFiltered,
       dashscope: dashscopeFiltered,
+      deepseek: deepseekFiltered,
       ninerouter: ninerouterFiltered,
       openrouter: openrouterFiltered,
     };
