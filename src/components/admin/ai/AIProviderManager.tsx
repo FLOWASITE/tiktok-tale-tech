@@ -306,9 +306,11 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
           const isBuiltIn = provider.type === 'lovable';
           const hasConnector = provider.type === 'perplexity' || provider.type === 'firecrawl';
           const hasKey = configured && hasApiKey(configured);
+          const hasEnvSecret = !!envSecrets?.[provider.type];
+          const secretName = (provider as any).secretName as string | undefined;
           
           return (
-            <Card key={provider.type} className={configured?.isActive || isBuiltIn ? 'border-primary/50' : ''}>
+            <Card key={provider.type} className={configured?.isActive || isBuiltIn || (hasEnvSecret && !configured) ? 'border-primary/50' : ''}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -324,6 +326,10 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                       ) : (
                         <><X className="h-3 w-3 mr-1" /> Inactive</>
                       )}
+                    </Badge>
+                  ) : hasEnvSecret ? (
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600">
+                      <KeyRound className="h-3 w-3 mr-1" /> Env secret
                     </Badge>
                   ) : hasConnector ? (
                     <Badge variant="outline">Connector</Badge>
