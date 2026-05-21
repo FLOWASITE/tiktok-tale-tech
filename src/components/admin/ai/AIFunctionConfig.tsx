@@ -403,7 +403,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
             {/* Provider */}
             <div className="flex items-center gap-1">
               <span className="text-muted-foreground mr-0.5">Provider:</span>
-              {(['lovable', 'openrouter', 'ninerouter', 'dashscope'] as FunctionProvider[]).map(p => (
+              {(['lovable', 'openrouter', 'ninerouter', 'dashscope', 'deepseek'] as FunctionProvider[]).map(p => (
                 <Button
                   key={p}
                   variant={providerFilter.includes(p) ? 'default' : 'outline'}
@@ -411,7 +411,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   className="h-7 text-[11px] shrink-0"
                   onClick={() => toggleInArray(providerFilter, p, setProviderFilter)}
                 >
-                  {p === 'ninerouter' ? '9Router' : p === 'openrouter' ? 'OpenRouter' : p === 'dashscope' ? 'DashScope' : 'Lovable'}
+                  {p === 'ninerouter' ? '9Router' : p === 'openrouter' ? 'OpenRouter' : p === 'dashscope' ? 'DashScope' : p === 'deepseek' ? 'DeepSeek' : 'Lovable'}
                 </Button>
               ))}
             </div>
