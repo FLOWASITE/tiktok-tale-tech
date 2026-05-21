@@ -405,6 +405,7 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
             <Button variant="outline" size="sm" onClick={handleBulkDownload} className="h-7 text-xs" disabled={selectedIds.size === 0}>
               <Download className="w-3 h-3 mr-1" /> Tải về
             </Button>
+            {IMAGE_DELETION_ENABLED && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={selectedIds.size === 0}>
@@ -418,6 +419,16 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => bulkDelete(Array.from(selectedIds))}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Xóa
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            )}
                   <AlertDialogAction
                     onClick={() => bulkDelete(Array.from(selectedIds))}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
