@@ -88,7 +88,8 @@ function getProviderGroups(allModels: string[]): ProviderGroup[] {
   const groups: ProviderGroup[] = [];
   const openrouter = allModels.filter(isOpenRouterModel);
   const ninerouter = allModels.filter(isNineRouterModel);
-  const lovable = allModels.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isNineRouterModel(id) && !isOpenRouterModel(id));
+  const deepseek = allModels.filter(isDeepSeekModel);
+  const lovable = allModels.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isDeepSeekModel(id) && !isNineRouterModel(id) && !isOpenRouterModel(id));
   const poyo = allModels.filter(isPoyoModel);
   const kie = allModels.filter(isKieModel);
   const geminigen = allModels.filter(isGeminigenModel);
@@ -97,6 +98,7 @@ function getProviderGroups(allModels: string[]): ProviderGroup[] {
   if (lovable.length) groups.push({ key: 'lovable', label: 'Lovable AI', emoji: '✨', dotColor: 'bg-blue-500', models: lovable });
   if (openrouter.length) groups.push({ key: 'openrouter', label: 'OpenRouter', emoji: '🔀', dotColor: 'bg-purple-500', models: openrouter });
   if (ninerouter.length) groups.push({ key: 'ninerouter', label: '9Router', emoji: '🔀', dotColor: 'bg-slate-600', models: ninerouter });
+  if (deepseek.length) groups.push({ key: 'deepseek', label: 'DeepSeek', emoji: '🐋', dotColor: 'bg-blue-600', models: deepseek });
   if (poyo.length) groups.push({ key: 'poyo', label: 'PoYo.ai', emoji: '🐱', dotColor: 'bg-teal-500', models: poyo });
   if (kie.length) groups.push({ key: 'kie', label: 'KIE.ai', emoji: '🔮', dotColor: 'bg-violet-500', models: kie });
   if (geminigen.length) groups.push({ key: 'geminigen', label: 'GeminiGen.ai', emoji: '💎', dotColor: 'bg-emerald-500', models: geminigen });
