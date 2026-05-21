@@ -405,19 +405,35 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     {renderUsageSection(provider.type)}
                   </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setEditingProvider({ providerType: provider.type, displayName: provider.name });
-                      setIsDialogOpen(true);
-                      setTestResult(null);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Cấu hình
-                  </Button>
+                  <div className="space-y-2">
+                    {hasEnvSecret && (
+                      <>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                          Đã cấu hình qua env secret
+                        </p>
+                        {secretName && (
+                          <p className="text-xs text-muted-foreground">
+                            Edge functions tự động dùng <code className="font-mono">{secretName}</code>. Bạn không cần nhập key — trừ khi muốn override riêng cho org này.
+                          </p>
+                        )}
+                        {renderUsageSection(provider.type)}
+                      </>
+                    )}
+                    <Button
+                      variant={hasEnvSecret ? 'ghost' : 'outline'}
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setEditingProvider({ providerType: provider.type, displayName: provider.name });
+                        setIsDialogOpen(true);
+                        setTestResult(null);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {hasEnvSecret ? 'Override cho org này…' : 'Cấu hình'}
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
