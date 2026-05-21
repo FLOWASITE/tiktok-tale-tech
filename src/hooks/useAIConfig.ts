@@ -403,7 +403,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter' | 'deepseek';
   isRecommended?: boolean;
 }
 
