@@ -54,6 +54,7 @@ const PROVIDER_DOTS: Record<string, { color: string; label: string; emoji: strin
   kie: { color: 'bg-violet-500', label: 'KIE.ai', emoji: '🔮' },
   geminigen: { color: 'bg-emerald-500', label: 'GeminiGen.ai', emoji: '💎' },
   dashscope: { color: 'bg-orange-500', label: 'DashScope', emoji: '☁️' },
+  deepseek: { color: 'bg-blue-600', label: 'DeepSeek', emoji: '🐋' },
   ninerouter: { color: 'bg-slate-600', label: '9Router', emoji: '🔀' },
   openrouter: { color: 'bg-purple-500', label: 'OpenRouter', emoji: '🔗' },
 };
