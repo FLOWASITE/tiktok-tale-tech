@@ -1,143 +1,107 @@
-# Kế hoạch chuẩn bị Self-host (không cần server)
+## Mục tiêu
+Thêm **DeepSeek** như một AI provider trực tiếp (giống DashScope, không qua OpenRouter/9Router) — rẻ hơn, độ trễ thấp hơn, có thể dùng cho long-context cheap tasks và reasoning.
 
-Mục tiêu: Làm xong toàn bộ phần "code + config + dry-run" trong khi chờ server. Khi server sẵn sàng chỉ cần `git pull && docker compose up && pg_restore`.
+## Research — DeepSeek API (nguồn: api-docs.deepseek.com)
 
-Thứ tự: **Phase 1 (Export) ✅ → Phase 2 (Refactor AI) ✅ → Phase 3 (Test Docker local) — sẵn sàng test trên laptop**.
+| Item | Value |
+|---|---|
+| Base URL | `https://api.deepseek.com` (OpenAI-compatible) hoặc `https://api.deepseek.com/anthropic` |
+| Chat endpoint | `POST /v1/chat/completions` (OpenAI shape) |
+| Auth | `Authorization: Bearer $DEEPSEEK_API_KEY` |
+| API key | Tạo tại `https://platform.deepseek.com/api_keys` |
+| Models hiện hành | `deepseek-chat` (V3-style, general), `deepseek-reasoner` (R1, chain-of-thought), `deepseek-v4-flash`, `deepseek-v4-pro` |
+| Context | 128K |
+| Pricing | rẻ nhất frontier — V4-Flash ~$0.07/$0.27 per 1M in/out; V4-Pro ~$0.27/$1.10 (cached input còn rẻ hơn) |
+| Tính năng | function calling, JSON mode, streaming, prefix caching tự động (giảm 50–75% cost cho prompt lặp) |
+| Trả về | giống OpenAI; `deepseek-reasoner` thêm field `reasoning_content` |
 
-## Trạng thái hiện tại (2026-05-18)
-- ✅ **Phase 1 DONE**: schema/cron/storage exported vào `infra/snapshots/`, OAuth migration doc, function manifest 247 functions × 46 secrets
-- ✅ **Phase 2 DONE**: shim `_shared/lovable-gateway.ts` + `_shared/embedding.ts`; codemod refactor 44 functions; 4 embedding sites manual; ZERO hard-coded gateway URL còn sót. Chi tiết: `infra/PHASE-2-COMPLETED.md`
-- ⏸ **Phase 3 READY**: configs + scripts sẵn sàng (`docker-compose.local.yml`, `20-bootstrap-local-stack.sh`, `21-smoke-test-local.sh`, `22-deploy-edge-functions-local.sh`). Cần chạy trên laptop có Docker. Hướng dẫn: `infra/PHASE-3-LOCAL-TEST.md`
+So sánh với cách hiện tại:
+- `deepseek/*` đang được map qua **OpenRouter** (markup ~5%).
+- `9router/deepseek-v3.2`, `9router/deepseek-r1` chạy qua 9Router self-host.
+- Chưa có direct path → thêm provider `deepseek` cho phép user nhập key DeepSeek thẳng, tận dụng prompt caching native + giá gốc.
 
----
+## Phạm vi thay đổi
 
-## Phase 1 — Export & Version-Control Config (1-2 ngày)
+### A. Backend — `supabase/functions/_shared/ai-provider.ts`
+1. Thêm endpoint:
+   ```
+   PROVIDER_ENDPOINTS.deepseek = "https://api.deepseek.com/v1/chat/completions"
+   ```
+2. Thêm mapping prefix (đặt **trên** dòng `"deepseek/": "openrouter"`):
+   ```
+   "deepseek-chat": "deepseek"
+   "deepseek-reasoner": "deepseek"
+   "deepseek-v4": "deepseek"        // bắt deepseek-v4-flash, deepseek-v4-pro
+   "deepseek/native/": "deepseek"   // explicit override để force direct
+   ```
+   Giữ `deepseek/*` (vd `deepseek/deepseek-chat`) tiếp tục qua OpenRouter để không phá legacy override.
+3. Thêm `callDeepSeek()` — clone từ `callDashScope()`:
+   - Đọc API key: `apiKeyOverride || Deno.env.get("DEEPSEEK_API_KEY")`.
+   - Strip prefix `deepseek/native/` nếu có.
+   - Body OpenAI shape: `model`, `messages`, `max_tokens`, `temperature`, `tools`, `tool_choice`, `stream`.
+   - Map lỗi 401 → "Invalid API key", 402 → Payment required, 429 → rate-limited, 5xx → retryable.
+   - Hỗ trợ `stream` (trả `response.body`).
+4. Thêm `case "deepseek":` trong switch dispatch (line ~950) và trong fallback tier logic.
+5. Circuit breaker registration: thêm `"deepseek"` vào danh sách provider tracked.
 
-Mục tiêu: Snapshot toàn bộ trạng thái Lovable Cloud hiện tại vào `/infra/snapshots/` để có thể restore deterministic.
+### B. Provider catalog — `src/types/aiProvider.ts`
+1. Mở rộng `AIProviderType`:
+   ```ts
+   export type AIProviderType = ... | 'deepseek';
+   ```
+2. Thêm entry vào `PROVIDER_PRESETS` (giữa `dashscope` và `ninerouter`):
+   ```ts
+   {
+     id: 'deepseek',
+     name: 'DeepSeek',
+     description: 'API trực tiếp từ DeepSeek (deepseek-chat, deepseek-reasoner, deepseek-v4-*). Giá rẻ nhất + prompt caching tự động.',
+     getKeyUrl: 'https://platform.deepseek.com/api_keys',
+     models: [
+       'deepseek-chat',
+       'deepseek-reasoner',
+       'deepseek-v4-flash',
+       'deepseek-v4-pro',
+     ],
+   }
+   ```
+3. Thêm helper `isDeepSeekModel(id)` tương tự `isDashScopeModel`.
 
-### 1.1 Database schema + functions + triggers
-- Tạo script `infra/scripts/10-export-schema.sh` chạy `pg_dump --schema-only` (qua connection string read-only)
-- Output: `infra/snapshots/schema.sql` (commit vào git)
-- Bao gồm: 268 migrations đã apply, 90+ database functions (đã thấy trong context), RLS policies, triggers, materialized views
+### C. Admin UI
+1. `src/components/admin/ai/AIProviderManager.tsx`
+   - Icon map: `deepseek: <Bot className="h-5 w-5 text-blue-600" />` (hoặc Sparkles).
+   - URL map: thêm key URL.
+2. `src/components/admin/ai/ModelSelector.tsx`
+   - `ProviderFilter` thêm `'deepseek'`.
+   - Filter & count tương tự dashscope.
+3. `src/hooks/useAIConfig.ts` (nếu có whitelist) — thêm `deepseek-*` models vào `AI_MODELS_AVAILABLE` để Admin Functions tab chọn được.
 
-### 1.2 pg_cron jobs
-- Viết `infra/scripts/11-export-cron-jobs.sql`: `SELECT * FROM cron.job` → JSON
-- Output: `infra/snapshots/cron-jobs.json`
-- Bao gồm: cron 2-min publishing, 30-min token refresh, daily cleanup, daily aggregate stats
+### D. Secret
+- Thêm secret runtime: **`DEEPSEEK_API_KEY`** (user nhập qua add_secret).
+- Không bắt buộc nếu org tự cấu hình key qua `ai_provider_configs` (đã có infra).
 
-### 1.3 Storage buckets + policies
-- Viết script Deno query `storage.buckets` + `storage.objects` policies
-- Output: `infra/snapshots/storage-config.json` + `infra/snapshots/buckets-manifest.json` (list bucket names, public/private, size)
-- KHÔNG export file content (làm sau ở cutover thật)
+### E. Cost tracking — `supabase/functions/_shared/cost-estimator.ts`
+- Thêm entries pricing (USD per 1M tokens):
+  - `deepseek-chat`: in 0.27 / out 1.10
+  - `deepseek-reasoner`: in 0.55 / out 2.19
+  - `deepseek-v4-flash`: in 0.07 / out 0.27
+  - `deepseek-v4-pro`: in 0.27 / out 1.10
+  *(Sẽ verify lại số chính xác khi implement — bảng pricing thay đổi theo tháng.)*
 
-### 1.4 Auth providers + email templates
-- Query GoTrue config qua Supabase Management API
-- Output: `infra/snapshots/auth-providers.json` (21 OAuth providers + redirect URIs + scopes)
-- Output: `infra/snapshots/email-templates/` (signup, reset, magic-link, invite)
+### F. Docs/Memory
+- Update `mem://ai-system/providers/...` thêm dòng "DeepSeek direct".
+- README provider table.
 
-### 1.5 Edge function manifest + secrets requirements
-- Script scan `supabase/functions/*/index.ts` tìm tất cả `Deno.env.get(...)` calls
-- Output: `infra/snapshots/functions-manifest.json`: 250 functions × secrets cần có
-- Tạo `infra/.env.required` checklist (đã có `.env.example`, bổ sung secrets thiếu)
+## Không làm trong scope này
+- Không refactor route các edge function đang gọi cụ thể (chúng tự dùng `callAI` → routing tự kích hoạt khi Admin chọn model `deepseek-*`).
+- Không bật Anthropic-compatible endpoint của DeepSeek (chỉ OpenAI shape).
+- Không xử lý `reasoning_content` field riêng cho `deepseek-reasoner` ở vòng này — chỉ pass-through text (có thể bổ sung sau nếu cần show chain-of-thought).
+- Không sửa runtime DashScope 400 hiện có (issue riêng).
 
-### 1.6 OAuth provider checklist
-- Tạo `infra/OAUTH-MIGRATION.md`: bảng 21 providers × console URL × redirect URI hiện tại × redirect URI mới (`api.flowa.one`) × bước update
-- Reference: Google, Facebook, Zalo, TikTok, LinkedIn, X, Threads, Instagram, GBP, Blogger, Bluesky, Pinterest, Wix, Shopify, WordPress.com, Telegram
+## Acceptance
+1. Admin → AI Provider Manager thấy card "DeepSeek", nhập key DeepSeek thật, status = healthy.
+2. Admin → Functions chọn model `deepseek-chat` cho 1 function → call → log `ai_metrics.provider='deepseek'`, response OK.
+3. Circuit breaker fail-fast khi key sai.
+4. Stream mode hoạt động (test với `generate-script` hoặc `chat-topics`).
 
-**Output Phase 1**: 1 thư mục `infra/snapshots/` ~ 5-20 MB commit vào git, có thể replay bất cứ lúc nào.
-
----
-
-## Phase 2 — Refactor AI Provider triệt để (2-3 ngày)
-
-Mục tiêu: Bỏ hoàn toàn dependency vào Lovable Gateway. Mọi AI call đi qua `_shared/ai-provider.ts` → OpenRouter / 9Router / DashScope direct.
-
-### 2.1 Audit hard-coded gateway calls
-- `rg "ai.gateway.lovable.dev"` toàn repo → list ra functions còn bypass `callAI()`
-- Confirmed culprits cần fix:
-  - `supabase/functions/embed-content/index.ts` (gọi trực tiếp `/v1/embeddings`)
-  - Có thể còn `health-check`, các function streaming chat dùng `createLovableAiGatewayProvider`
-- Output: `infra/AI-MIGRATION-AUDIT.md` (function nào còn bypass, mức độ risk)
-
-### 2.2 Migrate embeddings sang OpenAI/DashScope native
-- Hiện dùng `google/text-embedding-004` qua Lovable Gateway (768-dim) + truncate xuống 384
-- Đổi sang `openai/text-embedding-3-small` (1536-dim, support truncate API native xuống 384) HOẶC DashScope `text-embedding-v3` (1024-dim)
-- Cập nhật `_shared/ai-provider.ts` thêm helper `callEmbedding({ text, dims: 384 })`
-- Refactor `embed-content`, `match_blackboard_context` callers (DB function giữ nguyên vì chỉ cần vector 384-dim)
-
-### 2.3 Refactor streaming chat functions
-- Functions dùng `npm:ai` + `createLovableAiGatewayProvider` (vd `flowa-chat`, agent functions) → swap provider sang `createOpenAICompatible({ baseURL: openrouter })`
-- Giữ AI SDK API surface không đổi, chỉ swap baseURL/headers
-- Test với 3 functions critical trước: `generate-script`, `generate-carousel`, `flowa-chat`
-
-### 2.4 Mở rộng `isLovableGatewayDisabled` shim
-- Hiện shim chỉ reroute `lovable` provider
-- Bổ sung: detect `model.startsWith("google/")` → route qua OpenRouter (vì OpenRouter có Gemini)
-- Bổ sung warning log khi `SELF_HOSTED_MODE=true` mà còn function gọi gateway
-
-### 2.5 Test trên Lovable Cloud hiện tại (không break production)
-- Set 1 secret toggle `SELF_HOSTED_MODE=false` mặc định
-- Deploy refactor, verify mọi function vẫn pass khi flag off
-- Bật flag với 3 function pilot, đo error rate 24h
-- Document trong `infra/AI-CUTOVER-PLAN.md`
-
-**Output Phase 2**: AI layer hoạt động ở 2 mode (gateway / direct), toggle bằng 1 ENV var, đã test trên production live.
-
----
-
-## Phase 3 — Docker Stack Local (1-2 ngày)
-
-Mục tiêu: Boot full Supabase stack trên Docker Desktop/WSL2/máy Mac của bạn, verify mọi service. Khi mang lên server vật lý chỉ là copy-paste.
-
-### 3.1 Hoàn thiện `docker-compose.override.yml`
-- Đã scaffold ở `infra/docker-compose.override.yml`
-- Bổ sung: pin version cụ thể cho từng image (postgres 15.6, postgrest 12.x, gotrue 2.x...)
-- Bổ sung: healthcheck cho từng service
-- Bổ sung: resource limits (CPU/memory) phù hợp laptop
-
-### 3.2 Init extensions + apply snapshot
-- `infra/init-extensions.sql` đã có (`pgvector`, `pg_cron`, `pg_net`...)
-- Bổ sung script `infra/scripts/20-bootstrap-local-db.sh`: 
-  1. `docker compose up -d db`
-  2. Apply `init-extensions.sql`
-  3. Apply `infra/snapshots/schema.sql` (từ Phase 1)
-  4. Seed 1 row sample mỗi table critical
-
-### 3.3 Smoke test stack
-- Script `infra/scripts/21-smoke-test.sh`:
-  - `curl localhost:8000/auth/v1/health` → 200
-  - `curl localhost:8000/rest/v1/organizations?apikey=...` → 200
-  - WebSocket test Realtime
-  - Deploy 1 edge function test (`health-check`) → curl
-- Output checklist pass/fail
-
-### 3.4 Test edge function deploy pipeline local
-- Script `infra/scripts/22-deploy-edge-functions-local.sh` (variant của 02): deploy lên `http://localhost:8000`
-- Pilot: deploy 10 functions sample, verify hoạt động
-- Document deps issues (Deno version, npm: imports work hay không)
-
-### 3.5 Test pg_dump → pg_restore loop
-- Lấy `pg_dump --data-only --table=organizations` từ Lovable Cloud (1 org sample)
-- Restore vào local stack
-- Verify data + RLS hoạt động đúng với JWT mới
-
-**Output Phase 3**: Full stack chạy được trên máy local, dry-run migration 1 table thành công.
-
----
-
-## Phần CHƯA làm được (cần server vật lý)
-- Cài Ubuntu, RAID, network bonding (script `00-server-bootstrap.sh` đã sẵn)
-- Phát hành SSL Certbot cho `api.flowa.one`
-- Cutover production thật (script `06-migrate-cutover.sh` đã sẵn)
-- Migrate Storage files thật (rsync)
-- Update DNS
-
-→ Khi có server, theo `infra/CUTOVER.md` là xong.
-
----
-
-## Tổng thời gian
-~5-7 ngày làm việc thuần (solo, parallel với công việc Flowa thường ngày). Khi server sẵn sàng, cutover thật chỉ mất 4-6h như plan cũ.
-
-## Bắt đầu từ đâu?
-Tôi đề xuất **start Phase 1.1 (export schema)** ngay — read-only, zero risk, có ngay file ích lợi.
+## Sau khi approve
+Thực thi tuần tự: ai-provider.ts → aiProvider.ts → 2 component admin → cost-estimator → request secret `DEEPSEEK_API_KEY`.
