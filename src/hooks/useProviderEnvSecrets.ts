@@ -28,7 +28,7 @@ export function useProviderEnvSecrets() {
 
       // Re-key by providerType for easy consumption.
       const byProvider: Record<string, boolean> = {};
-      for (const p of AI_PROVIDERS as any[]) {
+      for (const p of AI_PROVIDERS as readonly any[]) {
         if (p.secretName && secrets[p.secretName]) {
           byProvider[p.type] = true;
         }
