@@ -753,6 +753,7 @@ function GalleryImageCard({
                 >
                   <Download className="w-3.5 h-3.5" />
                 </Button>
+                {IMAGE_DELETION_ENABLED && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -780,6 +781,7 @@ function GalleryImageCard({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                )}
               </div>
             </div>
           )}
