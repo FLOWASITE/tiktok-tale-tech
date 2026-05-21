@@ -150,6 +150,10 @@ export function useImageGeneration() {
     slideNumber: number,
     carouselId: string
   ): Promise<boolean> => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return false;
+    }
     const image = getImageForSlide(slideNumber);
     if (!image) {
       toast.error('Không tìm thấy ảnh để xóa');

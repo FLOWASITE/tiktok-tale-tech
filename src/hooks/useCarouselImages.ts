@@ -109,7 +109,13 @@ export function useCarouselImages(carouselId: string | null) {
   }, [carouselId, user, currentOrganization]);
 
   const deleteImage = useCallback(async (slideNumber: number): Promise<boolean> => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return false;
+    }
     if (!carouselId) return false;
+
+
 
     try {
       const { error } = await supabase

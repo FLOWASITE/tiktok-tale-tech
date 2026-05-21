@@ -520,6 +520,10 @@ export function useCarouselGallery() {
   };
 
   const deleteImage = async (imageId: string) => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return;
+    }
     const img = images.find(i => i.id === imageId);
     if (!img) return;
     try {
@@ -535,6 +539,10 @@ export function useCarouselGallery() {
   };
 
   const bulkDelete = useCallback(async (ids: string[]) => {
+    if (!IMAGE_DELETION_ENABLED) {
+      toast.info('Tính năng xóa ảnh đang tạm khoá');
+      return;
+    }
     if (!ids.length) return;
     const groups: Record<string, string[]> = {
       carousel_images: [], channel_image_history: [], video_generations: [], video_render_jobs: [],
