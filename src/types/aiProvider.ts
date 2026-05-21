@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen' | 'ninerouter' | 'deepseek';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -139,6 +139,18 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     ],
     icon: '☁️',
   },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek (Direct)',
+    description: 'API trực tiếp DeepSeek: deepseek-chat, deepseek-reasoner, deepseek-v4-flash, deepseek-v4-pro. Rẻ nhất + prompt caching tự động (giảm 50–75% cost prompt lặp).',
+    getKeyUrl: 'https://platform.deepseek.com/api_keys',
+    models: [
+      'deepseek-chat',
+      'deepseek-reasoner',
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
+    ],
+    icon: '🐋',
   {
     id: 'geminigen',
     name: 'GeminiGen.ai',
