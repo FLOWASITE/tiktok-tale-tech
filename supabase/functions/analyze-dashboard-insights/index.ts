@@ -623,6 +623,12 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
             });
           }
           
+          // Provider-specific incompatibility (e.g. DashScope/Qwen rejecting tool schema) -> fallback to default model
+          if (!useFallbackModel && adminModel && (aiResult.error?.includes('DashScope') || aiResult.error?.includes('400'))) {
+            console.warn(`[analyze-dashboard-insights] Admin model "${adminModel}" failed with provider error, falling back to default model`);
+            useFallbackModel = true;
+          }
+          
           throw new Error(aiResult.error || 'AI call failed');
         }
 
