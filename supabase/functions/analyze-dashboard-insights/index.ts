@@ -597,7 +597,7 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
           ],
           tools: [insightsTool],
           toolChoice: { type: "function", function: { name: "generate_insights" } },
-          modelOverride: useFallbackModel ? undefined : adminModel,
+          modelOverride: useFallbackModel ? 'google/gemini-2.5-flash' : adminModel,
           temperatureOverride: aiConfig?.temperature,
         });
 
