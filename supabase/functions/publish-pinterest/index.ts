@@ -320,8 +320,6 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           mediaUrls.map((u) => rehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
         );
       }
-      let safeFirst = safeMedia[0];
-
       // Helper that runs the actual publish with current access token
       const doPublish = async (
         token: string,
@@ -384,7 +382,6 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
             safeMedia = await Promise.all(
               safeMedia.map((u) => forceRehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
             );
-            safeFirst = safeMedia[0];
             usedLink = undefined;
             return await doPublish(token, { includeLink: false, mediaOverride: safeMedia });
           }
