@@ -10,7 +10,7 @@ interface MediaRetentionNoticeProps {
   variant?: "banner" | "inline";
 }
 
-const MESSAGE = "Ảnh và video tự động xóa sau 7 ngày. Tải về nếu muốn giữ lại.";
+const MESSAGE = "Ảnh và video hiện được lưu trữ vô thời hạn.";
 
 /**
  * Thông báo policy: ảnh/video tự động xóa sau 7 ngày.
@@ -59,7 +59,7 @@ function DismissableBanner({ storageKey, className }: { storageKey: string; clas
       <div className="flex items-center gap-2 min-w-0">
         <Info className="h-3.5 w-3.5 shrink-0 text-primary/70" />
         <span className="truncate">
-          💡 Ảnh và video tự động xóa sau <strong className="text-foreground">7 ngày</strong>. Tải về nếu muốn giữ lại.
+          💾 Ảnh và video hiện được <strong className="text-foreground">lưu trữ vô thời hạn</strong>.
         </span>
       </div>
       <button
