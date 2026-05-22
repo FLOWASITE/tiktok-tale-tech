@@ -78,6 +78,30 @@ async function pinterestFetch(
   return data;
 }
 
+async function forceRehostImageForPinterest(url: string, prefix = 'pinterest'): Promise<string> {
+  if (/^data:/i.test(url) || !/^https?:\/\//i.test(url)) {
+    return await rehostImageForPinterest(url, prefix);
+  }
+
+  console.log('[publish-pinterest] force rehosting image for Pinterest', { url: url.slice(0, 100) });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image for Pinterest rehost: HTTP ${res.status}`);
+
+  const blob = await res.blob();
+  const contentType = blob.type || res.headers.get('content-type') || 'image/jpeg';
+  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+  const path = `${prefix}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  const supabase = getServiceClient();
+  const { error } = await supabase.storage
+    .from('carousel-images')
+    .upload(path, blob, { contentType, upsert: false });
+  if (error) throw new Error(`Storage upload failed: ${error.message}`);
+
+  const { data } = supabase.storage.from('carousel-images').getPublicUrl(path);
+  console.log('[publish-pinterest] force rehosted image', { publicUrl: data.publicUrl });
+  return data.publicUrl;
+}
+
 // Create an image Pin (single image, hosted URL)
 async function createImagePin(
   apiBase: string,
@@ -296,56 +320,35 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           mediaUrls.map((u) => rehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
         );
       }
-      const safeFirst = safeMedia[0];
-
       // Helper that runs the actual publish with current access token
-      const doPublish = async (token: string): Promise<{ id: string; url: string }> => {
+      const doPublish = async (
+        token: string,
+        options: { includeLink?: boolean; mediaOverride?: string[] } = {},
+      ): Promise<{ id: string; url: string }> => {
+        const publishMedia = options.mediaOverride || safeMedia;
+        const publishFirst = publishMedia[0];
+        const publishLink = options.includeLink === false ? undefined : link;
         if (effectiveType === 'video') {
-          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
+          const cover = publishMedia[1] && !isVideoUrl(publishMedia[1]) ? publishMedia[1] : undefined;
           return await createVideoPin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link,
-            videoUrl: safeFirst, coverImageUrl: cover, altText,
+            boardId: resolvedBoard, title, description, link: publishLink,
+            videoUrl: publishFirst, coverImageUrl: cover, altText,
           });
         }
-        if (effectiveType === 'image' || safeMedia.length === 1) {
+        if (effectiveType === 'image' || publishMedia.length === 1) {
           return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link, altText, imageUrl: safeFirst,
+            boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrl: publishFirst,
           });
         }
-        const imageOnly = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
+        const imageOnly = publishMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
         if (imageOnly.length === 0) throw new Error('Không có ảnh hợp lệ để tạo carousel Pin');
         if (imageOnly.length === 1) {
           return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link, altText, imageUrl: imageOnly[0],
+            boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrl: imageOnly[0],
           });
         }
         return await createCarouselPin(apiBase, token, {
-          boardId: resolvedBoard, title, description, link, altText, imageUrls: imageOnly,
-        });
-      };
-
-      // Helper that retries without link if Pinterest rejects the destination URL
-      const doPublishNoLink = async (token: string): Promise<{ id: string; url: string }> => {
-        if (effectiveType === 'video') {
-          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
-          return await createVideoPin(apiBase, token, {
-            boardId: resolvedBoard, title, description,
-            videoUrl: safeFirst, coverImageUrl: cover, altText,
-          });
-        }
-        if (effectiveType === 'image' || safeMedia.length === 1) {
-          return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, altText, imageUrl: safeFirst,
-          });
-        }
-        const imageOnly2 = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
-        if (imageOnly2.length <= 1) {
-          return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, altText, imageUrl: imageOnly2[0] || safeFirst,
-          });
-        }
-        return await createCarouselPin(apiBase, token, {
-          boardId: resolvedBoard, title, description, altText, imageUrls: imageOnly2,
+          boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrls: imageOnly,
         });
       };
 
@@ -355,12 +358,12 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
       let usedLink: string | undefined = link;
       const tryWithLinkFallback = async (token: string): Promise<{ id: string; url: string }> => {
         try {
-          return await doPublish(token);
+          return await doPublish(token, { includeLink: true });
         } catch (e: any) {
-          const msg = String(e?.message || '');
-          if (link && isLinkRejected(msg)) {
-            console.warn('[publish-pinterest] link rejected, retrying without link', { link, msg });
-            const r = await doPublishNoLink(token);
+          const msg = [e?.message, e?.body?.message, e?.body?.error, e?.body?.raw].filter(Boolean).join(' ');
+          if (isLinkRejected(msg)) {
+            console.warn('[publish-pinterest] Pinterest rejected a URL, retrying with no destination link', { link, msg });
+            const r = await doPublish(token, { includeLink: false });
             usedLink = undefined;
             console.log('[publish-pinterest] succeeded after stripping link');
             return r;
@@ -369,15 +372,32 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
         }
       };
 
+      const tryWithMediaFallback = async (token: string): Promise<{ id: string; url: string }> => {
+        try {
+          return await tryWithLinkFallback(token);
+        } catch (e: any) {
+          const msg = [e?.message, e?.body?.message, e?.body?.error, e?.body?.raw].filter(Boolean).join(' ');
+          if (effectiveType !== 'video' && isLinkRejected(msg)) {
+            console.warn('[publish-pinterest] Pinterest rejected source media domain, rehosting all images and retrying', { msg });
+            safeMedia = await Promise.all(
+              safeMedia.map((u) => forceRehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
+            );
+            usedLink = undefined;
+            return await doPublish(token, { includeLink: false, mediaOverride: safeMedia });
+          }
+          throw e;
+        }
+      };
+
       // Try once; on 401 refresh token then retry (also with link fallback)
       let result: { id: string; url: string };
       try {
-        result = await tryWithLinkFallback(accessToken);
+        result = await tryWithMediaFallback(accessToken);
       } catch (e: any) {
         if (e?.status === 401) {
           console.log('[publish-pinterest] 401 — refreshing token and retrying');
           accessToken = await refreshPinterestToken(connectionId);
-          result = await tryWithLinkFallback(accessToken);
+          result = await tryWithMediaFallback(accessToken);
         } else {
           throw e;
         }
