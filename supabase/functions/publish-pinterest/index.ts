@@ -78,6 +78,30 @@ async function pinterestFetch(
   return data;
 }
 
+async function forceRehostImageForPinterest(url: string, prefix = 'pinterest'): Promise<string> {
+  if (/^data:/i.test(url) || !/^https?:\/\//i.test(url)) {
+    return await rehostImageForPinterest(url, prefix);
+  }
+
+  console.log('[publish-pinterest] force rehosting image for Pinterest', { url: url.slice(0, 100) });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image for Pinterest rehost: HTTP ${res.status}`);
+
+  const blob = await res.blob();
+  const contentType = blob.type || res.headers.get('content-type') || 'image/jpeg';
+  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+  const path = `${prefix}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  const supabase = getServiceClient();
+  const { error } = await supabase.storage
+    .from('carousel-images')
+    .upload(path, blob, { contentType, upsert: false });
+  if (error) throw new Error(`Storage upload failed: ${error.message}`);
+
+  const { data } = supabase.storage.from('carousel-images').getPublicUrl(path);
+  console.log('[publish-pinterest] force rehosted image', { publicUrl: data.publicUrl });
+  return data.publicUrl;
+}
+
 // Create an image Pin (single image, hosted URL)
 async function createImagePin(
   apiBase: string,
