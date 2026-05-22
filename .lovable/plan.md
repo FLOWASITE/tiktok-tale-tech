@@ -1,39 +1,50 @@
 ## Mục tiêu
-Tạm tắt tính năng **Chấm GEO** trên toàn app để tránh gọi `geo-score-content` (đang lỗi DashScope 400 / IDLE_TIMEOUT 504) và tránh tốn credit, nhưng **giữ nguyên code** để bật lại dễ dàng sau này.
+Dừng việc hệ thống tự xóa ảnh/video và tránh ảnh hưởng tới bài đã post qua kênh Website của Flowa.
 
-## Phạm vi (frontend-only, không đụng edge function/DB)
+## Kết luận sau khi kiểm tra
+- `Admin Social Settings` có kênh `Website / Custom API` — đây là cấu hình Website của hệ thống.
+- Job `cleanup-old-media` đang có retention `7 ngày` và đang xóa:
+  - `channel_image_history`
+  - `carousel_images`
+  - `video_generations`
+  - file trong bucket `carousel-images`, bao gồm cả file mồ côi cũ hơn 7 ngày
+- Luồng `publish-website` không thấy lệnh xóa bài; vấn đề chính nằm ở cleanup media 7 ngày có thể làm mất ảnh/video liên quan bài sau khi đăng.
 
-1. **Thêm flag tắt cứng** `src/lib/featureFlags.ts` (tạo mới hoặc thêm vào file flags hiện có nếu có):
-   ```ts
-   export const GEO_SCORING_ENABLED = false;
-   ```
+## Kế hoạch sửa
 
-2. **`src/hooks/useMultiChannelContents.ts`** — short-circuit `triggerAutoGEOScore`:
-   - Đầu hàm `triggerAutoGEOScore` (line ~111): `if (!GEO_SCORING_ENABLED) return;`
-   - Auto-trigger sau generate/regenerate/update không còn gọi edge.
+### 1. Tắt hẳn cleanup 7 ngày ở backend function
+Trong `supabase/functions/cleanup-old-media/index.ts`, thêm flag:
+```ts
+const CLEANUP_ENABLED = false;
+```
+Và cho function trả về ngay:
+```ts
+{ success: true, disabled: true, message: 'Media retention cleanup is temporarily disabled' }
+```
+Kết quả: dù cron hoặc admin bấm chạy tay, function cũng không xóa ảnh/video/bản ghi nào.
 
-3. **`src/components/MultiChannelViewer.tsx`**:
-   - Auto-trigger GEO effect (line ~388–416): `if (!GEO_SCORING_ENABLED) return;` ở đầu.
-   - `handleTriggerGEO` (line ~419): early return + toast "Tính năng Chấm GEO đang tạm khóa".
-   - Nút toggle GEO Score (line ~1093–1105): ẩn nút (`{GEO_SCORING_ENABLED && ...}`) — không hiển thị panel & nút bấm.
-   - `<GEOScorePanel>` render (line ~1258): wrap `{GEO_SCORING_ENABLED && <GEOScorePanel ... />}`.
-   - Prop `onTriggerGEO`/`isGEOLoading` (line ~1833) giữ nguyên (no-op khi flag off).
+### 2. Gỡ lịch chạy cron cleanup
+Chạy lệnh backend:
+```sql
+select cron.unschedule('cleanup-old-media');
+```
+Kết quả: job tự động hằng ngày không còn chạy nữa.
 
-4. **`src/pages/GEODashboard.tsx`** — ẩn tab **GEO Score**:
-   - Khi `!GEO_SCORING_ENABLED`: bỏ `<TabsTrigger value="optimizer">` và `<TabsContent value="optimizer">`; đổi `grid-cols-6` → `grid-cols-5`.
-   - Các tab còn lại (Tổng quan, Prompts, Đối thủ, Actions, Cấu hình) vẫn hoạt động bình thường vì chúng không gọi `geo-score-content`.
-
-5. **`src/components/geo/GEOContentOptimizerTab.tsx`** — không cần sửa (tab đã ẩn ở bước 4). `GEOScorePanel` component giữ nguyên.
+### 3. Cập nhật thông báo UI
+Trong `src/components/MediaRetentionNotice.tsx`, đổi nội dung từ “tự động xóa sau 7 ngày” sang:
+```text
+Ảnh và video hiện được lưu trữ vô thời hạn.
+```
+Kết quả: người dùng không còn bị báo sai policy.
 
 ## Không làm
-- Không xóa code GEO, không sửa edge function `geo-score-content`, không sửa DB/RLS.
-- Không đổi DashScope/ai-provider (lỗi DashScope arrears đã được fallback ở turn trước).
-- `AgentDirectoryPage.tsx` chỉ là text mô tả → giữ nguyên.
+- Không xóa bài đã đăng.
+- Không xóa dữ liệu cũ.
+- Không đổi logic publish Website, WordPress, Blogger, Wix.
+- Không đụng storage/RLS/schema.
+- Không xóa code cleanup, chỉ tạm khóa để có thể bật lại sau.
 
-## Bật lại
-Đổi `GEO_SCORING_ENABLED = true` trong 1 file là xong.
-
-## Verify
-- Mở `/multichannel` → không còn auto-call `geo-score-content` (Network tab sạch), không còn lỗi 504/500.
-- Mở Viewer 1 content → không thấy nút/panel GEO Score.
-- Vào `/geo` (GEO Engine) → tab "GEO Score" biến mất, các tab khác vẫn vào được.
+## Cách bật lại nếu cần
+- Đổi `CLEANUP_ENABLED = true`.
+- Schedule lại cron `cleanup-old-media`.
+- Đổi lại banner retention 7 ngày.

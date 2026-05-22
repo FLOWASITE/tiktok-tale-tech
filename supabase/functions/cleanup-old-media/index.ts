@@ -7,6 +7,9 @@ const corsHeaders = {
 };
 
 const RETENTION_DAYS = 7;
+// TẠM KHÓA cleanup media (bài/ảnh/video không bị xóa sau 7 ngày).
+// Đổi sang `true` để bật lại retention.
+const CLEANUP_ENABLED = false;
 
 // Buckets quét để xóa file media cũ. KHÔNG đụng tới brand-logos hoặc các bucket asset thương hiệu.
 const MEDIA_BUCKETS = ["carousel-images"] as const;
@@ -113,6 +116,32 @@ Deno.serve(withPerf({ functionName: "cleanup-old-media", slowThresholdMs: 60000 
   };
 
   try {
+    // Short-circuit: retention tạm khóa, không xóa bất cứ thứ gì.
+    if (!CLEANUP_ENABLED) {
+      console.log("[cleanup-old-media] DISABLED — skipping all deletion (CLEANUP_ENABLED=false)");
+      await writeLog("success", {
+        channel_images_deleted: 0,
+        carousel_images_deleted: 0,
+        videos_deleted: 0,
+        storage_files_removed: 0,
+        storage_files_skipped_protected: 0,
+        storage_files_skipped_missing: 0,
+        orphan_storage_files_found: 0,
+        orphan_storage_files_removed: 0,
+        orphan_storage_files_skipped_protected: 0,
+        errors: [],
+      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          disabled: true,
+          message: "Media retention cleanup is temporarily disabled. Ảnh/video không bị xóa.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+
     const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
     const cutoff = new Date(cutoffMs).toISOString();
     const summary: CleanupSummary = {
