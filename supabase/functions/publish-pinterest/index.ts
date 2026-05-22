@@ -320,56 +320,37 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           mediaUrls.map((u) => rehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
         );
       }
-      const safeFirst = safeMedia[0];
+      let safeFirst = safeMedia[0];
 
       // Helper that runs the actual publish with current access token
-      const doPublish = async (token: string): Promise<{ id: string; url: string }> => {
+      const doPublish = async (
+        token: string,
+        options: { includeLink?: boolean; mediaOverride?: string[] } = {},
+      ): Promise<{ id: string; url: string }> => {
+        const publishMedia = options.mediaOverride || safeMedia;
+        const publishFirst = publishMedia[0];
+        const publishLink = options.includeLink === false ? undefined : link;
         if (effectiveType === 'video') {
-          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
+          const cover = publishMedia[1] && !isVideoUrl(publishMedia[1]) ? publishMedia[1] : undefined;
           return await createVideoPin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link,
-            videoUrl: safeFirst, coverImageUrl: cover, altText,
+            boardId: resolvedBoard, title, description, link: publishLink,
+            videoUrl: publishFirst, coverImageUrl: cover, altText,
           });
         }
-        if (effectiveType === 'image' || safeMedia.length === 1) {
+        if (effectiveType === 'image' || publishMedia.length === 1) {
           return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link, altText, imageUrl: safeFirst,
+            boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrl: publishFirst,
           });
         }
-        const imageOnly = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
+        const imageOnly = publishMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
         if (imageOnly.length === 0) throw new Error('Không có ảnh hợp lệ để tạo carousel Pin');
         if (imageOnly.length === 1) {
           return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, link, altText, imageUrl: imageOnly[0],
+            boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrl: imageOnly[0],
           });
         }
         return await createCarouselPin(apiBase, token, {
-          boardId: resolvedBoard, title, description, link, altText, imageUrls: imageOnly,
-        });
-      };
-
-      // Helper that retries without link if Pinterest rejects the destination URL
-      const doPublishNoLink = async (token: string): Promise<{ id: string; url: string }> => {
-        if (effectiveType === 'video') {
-          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
-          return await createVideoPin(apiBase, token, {
-            boardId: resolvedBoard, title, description,
-            videoUrl: safeFirst, coverImageUrl: cover, altText,
-          });
-        }
-        if (effectiveType === 'image' || safeMedia.length === 1) {
-          return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, altText, imageUrl: safeFirst,
-          });
-        }
-        const imageOnly2 = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
-        if (imageOnly2.length <= 1) {
-          return await createImagePin(apiBase, token, {
-            boardId: resolvedBoard, title, description, altText, imageUrl: imageOnly2[0] || safeFirst,
-          });
-        }
-        return await createCarouselPin(apiBase, token, {
-          boardId: resolvedBoard, title, description, altText, imageUrls: imageOnly2,
+          boardId: resolvedBoard, title, description, link: publishLink, altText, imageUrls: imageOnly,
         });
       };
 
