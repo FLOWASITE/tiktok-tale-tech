@@ -324,48 +324,60 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
         });
       };
 
-      // Try once; on 401 auto-refresh; on "site doesn't allow" retry without link
-      let result: { id: string; url: string };
+      // Helper that retries without link if Pinterest rejects the destination URL
+      const doPublishNoLink = async (token: string): Promise<{ id: string; url: string }> => {
+        if (effectiveType === 'video') {
+          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
+          return await createVideoPin(apiBase, token, {
+            boardId: resolvedBoard, title, description,
+            videoUrl: safeFirst, coverImageUrl: cover, altText,
+          });
+        }
+        if (effectiveType === 'image' || safeMedia.length === 1) {
+          return await createImagePin(apiBase, token, {
+            boardId: resolvedBoard, title, description, altText, imageUrl: safeFirst,
+          });
+        }
+        const imageOnly2 = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
+        if (imageOnly2.length <= 1) {
+          return await createImagePin(apiBase, token, {
+            boardId: resolvedBoard, title, description, altText, imageUrl: imageOnly2[0] || safeFirst,
+          });
+        }
+        return await createCarouselPin(apiBase, token, {
+          boardId: resolvedBoard, title, description, altText, imageUrls: imageOnly2,
+        });
+      };
+
+      const isLinkRejected = (msg: string) =>
+        /doesn't allow you to save Pins|site doesn.t allow|invalid.*link|blocked/i.test(msg);
+
       let usedLink: string | undefined = link;
+      const tryWithLinkFallback = async (token: string): Promise<{ id: string; url: string }> => {
+        try {
+          return await doPublish(token);
+        } catch (e: any) {
+          const msg = String(e?.message || '');
+          if (link && isLinkRejected(msg)) {
+            console.warn('[publish-pinterest] link rejected, retrying without link', { link, msg });
+            const r = await doPublishNoLink(token);
+            usedLink = undefined;
+            console.log('[publish-pinterest] succeeded after stripping link');
+            return r;
+          }
+          throw e;
+        }
+      };
+
+      // Try once; on 401 refresh token then retry (also with link fallback)
+      let result: { id: string; url: string };
       try {
-        result = await doPublish(accessToken);
+        result = await tryWithLinkFallback(accessToken);
       } catch (e: any) {
-        const msg = String(e?.message || '');
         if (e?.status === 401) {
           console.log('[publish-pinterest] 401 — refreshing token and retrying');
           accessToken = await refreshPinterestToken(connectionId);
-          result = await doPublish(accessToken);
-        } else if (
-          link &&
-          /doesn't allow you to save Pins|site doesn.t allow|invalid.*link|blocked/i.test(msg)
-        ) {
-          console.warn('[publish-pinterest] link rejected by Pinterest, retrying without link', { link, msg });
-          const doPublishNoLink = async (token: string): Promise<{ id: string; url: string }> => {
-            if (effectiveType === 'video') {
-              const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
-              return await createVideoPin(apiBase, token, {
-                boardId: resolvedBoard, title, description,
-                videoUrl: safeFirst, coverImageUrl: cover, altText,
-              });
-            }
-            if (effectiveType === 'image' || safeMedia.length === 1) {
-              return await createImagePin(apiBase, token, {
-                boardId: resolvedBoard, title, description, altText, imageUrl: safeFirst,
-              });
-            }
-            const imageOnly2 = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
-            if (imageOnly2.length <= 1) {
-              return await createImagePin(apiBase, token, {
-                boardId: resolvedBoard, title, description, altText, imageUrl: imageOnly2[0] || safeFirst,
-              });
-            }
-            return await createCarouselPin(apiBase, token, {
-              boardId: resolvedBoard, title, description, altText, imageUrls: imageOnly2,
-            });
-          };
-          result = await doPublishNoLink(accessToken);
-          usedLink = undefined;
-          console.log('[publish-pinterest] succeeded after stripping link');
+          result = await tryWithLinkFallback(accessToken);
         } else {
           throw e;
         }
