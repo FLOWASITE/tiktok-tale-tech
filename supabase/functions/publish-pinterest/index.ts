@@ -360,12 +360,12 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
       let usedLink: string | undefined = link;
       const tryWithLinkFallback = async (token: string): Promise<{ id: string; url: string }> => {
         try {
-          return await doPublish(token);
+          return await doPublish(token, { includeLink: true });
         } catch (e: any) {
-          const msg = String(e?.message || '');
-          if (link && isLinkRejected(msg)) {
-            console.warn('[publish-pinterest] link rejected, retrying without link', { link, msg });
-            const r = await doPublishNoLink(token);
+          const msg = [e?.message, e?.body?.message, e?.body?.error, e?.body?.raw].filter(Boolean).join(' ');
+          if (isLinkRejected(msg)) {
+            console.warn('[publish-pinterest] Pinterest rejected a URL, retrying with no destination link', { link, msg });
+            const r = await doPublish(token, { includeLink: false });
             usedLink = undefined;
             console.log('[publish-pinterest] succeeded after stripping link');
             return r;
@@ -374,15 +374,33 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
         }
       };
 
+      const tryWithMediaFallback = async (token: string): Promise<{ id: string; url: string }> => {
+        try {
+          return await tryWithLinkFallback(token);
+        } catch (e: any) {
+          const msg = [e?.message, e?.body?.message, e?.body?.error, e?.body?.raw].filter(Boolean).join(' ');
+          if (effectiveType !== 'video' && isLinkRejected(msg)) {
+            console.warn('[publish-pinterest] Pinterest rejected source media domain, rehosting all images and retrying', { msg });
+            safeMedia = await Promise.all(
+              safeMedia.map((u) => forceRehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
+            );
+            safeFirst = safeMedia[0];
+            usedLink = undefined;
+            return await doPublish(token, { includeLink: false, mediaOverride: safeMedia });
+          }
+          throw e;
+        }
+      };
+
       // Try once; on 401 refresh token then retry (also with link fallback)
       let result: { id: string; url: string };
       try {
-        result = await tryWithLinkFallback(accessToken);
+        result = await tryWithMediaFallback(accessToken);
       } catch (e: any) {
         if (e?.status === 401) {
           console.log('[publish-pinterest] 401 — refreshing token and retrying');
           accessToken = await refreshPinterestToken(connectionId);
-          result = await tryWithLinkFallback(accessToken);
+          result = await tryWithMediaFallback(accessToken);
         } else {
           throw e;
         }
