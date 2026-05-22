@@ -7,6 +7,9 @@ const corsHeaders = {
 };
 
 const RETENTION_DAYS = 7;
+// TẠM KHÓA cleanup media (bài/ảnh/video không bị xóa sau 7 ngày).
+// Đổi sang `true` để bật lại retention.
+const CLEANUP_ENABLED = false;
 
 // Buckets quét để xóa file media cũ. KHÔNG đụng tới brand-logos hoặc các bucket asset thương hiệu.
 const MEDIA_BUCKETS = ["carousel-images"] as const;
