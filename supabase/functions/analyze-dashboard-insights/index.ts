@@ -578,10 +578,11 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
 
     console.log(`[analyze-dashboard-insights] Calling AI with model override: ${adminModel || 'default'}...`);
 
-    // Retry logic for transient AI errors (MALFORMED_FUNCTION_CALL, empty tool_calls)
+    // Retry logic for transient AI errors (MALFORMED_FUNCTION_CALL, empty tool_calls, provider 400s like DashScope)
     const MAX_RETRIES = 2;
     let insights: any[] = [];
     let lastError: Error | null = null;
+    let useFallbackModel = false;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -596,7 +597,7 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
           ],
           tools: [insightsTool],
           toolChoice: { type: "function", function: { name: "generate_insights" } },
-          modelOverride: adminModel,
+          modelOverride: useFallbackModel ? undefined : adminModel,
           temperatureOverride: aiConfig?.temperature,
         });
 
@@ -620,6 +621,12 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
               status: 402,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
+          }
+          
+          // Provider-specific incompatibility (e.g. DashScope/Qwen rejecting tool schema) -> fallback to default model
+          if (!useFallbackModel && adminModel && (aiResult.error?.includes('DashScope') || aiResult.error?.includes('400'))) {
+            console.warn(`[analyze-dashboard-insights] Admin model "${adminModel}" failed with provider error, falling back to default model`);
+            useFallbackModel = true;
           }
           
           throw new Error(aiResult.error || 'AI call failed');
