@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
     let validationVersion = 0;
-    let initialAuthFallback: ReturnType<typeof window.setTimeout> | undefined;
+    let initialAuthFallback: number | undefined;
 
     const applyAuthState = (nextSession: Session | null, nextUser: User | null, version: number) => {
       if (!isMounted || version !== validationVersion) return;
