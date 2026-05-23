@@ -157,8 +157,8 @@ export async function extractBrandSuggestions(
   // Try primary model + multi-provider fallbacks (DashScope/Alibaba → Lovable Gateway)
   // to survive 402/429 quota errors from any single provider.
   const FALLBACK_MODELS = [
-    undefined,                       // primary từ admin config (default qwen-plus)
-    "qwen-turbo",                    // DashScope rẻ hơn, cùng provider
+    undefined,                       // primary từ admin config (default deepseek-chat)
+    "deepseek-v4-flash",             // DeepSeek tier rẻ hơn
     "google/gemini-2.5-flash",       // sang Lovable Gateway
     "google/gemini-2.5-flash-lite",  // Lovable Gateway tier rẻ nhất
   ];
