@@ -213,18 +213,54 @@ async function persistGeneratedImage(
     .eq('content_id', contentId)
     .eq('channel', channel);
 
+async function persistGeneratedImage(
+  supabase: any,
+  payload: PersistencePayload,
+) {
+  const {
+    taskId,
+    contentId,
+    channel,
+    imageUrl,
+    prompt,
+    aspectRatio,
+    modelUsed,
+    organizationId,
+    userId,
+    existingRowId,
+  } = payload;
+
+  // Unselect previous rows for this content+channel
   await supabase
     .from('channel_image_history')
-    .insert({
-      content_id: contentId,
-      channel,
-      image_url: imageUrl,
-      prompt,
-      aspect_ratio: aspectRatio,
-      is_selected: true,
-      organization_id: organizationId,
-      created_by: userId,
-    });
+    .update({ is_selected: false })
+    .eq('content_id', contentId)
+    .eq('channel', channel);
+
+  if (existingRowId) {
+    // Update the pending row created at prompt-build time
+    await supabase
+      .from('channel_image_history')
+      .update({
+        image_url: imageUrl,
+        is_selected: true,
+      })
+      .eq('id', existingRowId);
+  } else {
+    // Fallback: no early row was created — insert fresh
+    await supabase
+      .from('channel_image_history')
+      .insert({
+        content_id: contentId,
+        channel,
+        image_url: imageUrl,
+        prompt,
+        aspect_ratio: aspectRatio,
+        is_selected: true,
+        organization_id: organizationId,
+        created_by: userId,
+      });
+  }
 
   const { data: currentContent } = await supabase
     .from('multi_channel_contents')
