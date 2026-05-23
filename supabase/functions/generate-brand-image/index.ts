@@ -235,7 +235,9 @@ const DEFAULT_IMAGE_MODELS = {
 // Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
 // 150s. Keep provider polling well below that and use fast fallback paths.
 const EXTERNAL_PROVIDER_POLL_BUDGET = {
-  geminigenAttempts: 40, // 40 × 3s = 120s (under 150s idle timeout)
+  // Keep primary provider polling well under 150s idle limit so PoYo fallback
+  // still has budget to run. 25 × 3s = 75s primary, ~70s left for fallback.
+  geminigenAttempts: 25,
 } as const;
 
 function isProviderCreditOrAuthError(message: string): boolean {
