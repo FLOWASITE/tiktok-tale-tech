@@ -74,7 +74,14 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
 
   // Build usage map: for each provider type, list functions/agents/channels using it
-  type UsageItem = { name: string; model: string; shortName: string; source: 'F' | 'A' | 'C' };
+  type UsageItem = {
+    id: string;
+    name: string;
+    model: string;
+    shortName: string;
+    source: 'F' | 'A' | 'C';
+    functionType: AIFunctionType;
+  };
   const providerUsageMap = useMemo(() => {
     const map: Record<string, UsageItem[]> = {};
 
@@ -85,7 +92,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
       const effectiveModel = model || fn.currentModel;
       const provider = dbConfig?.forceProvider || getModelInfo(effectiveModel).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F' });
+      map[provider].push({ id: fn.name, name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F', functionType: fn.type });
     });
 
     // Agents
@@ -94,7 +101,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
       const model = dbConfig?.modelOverride || agent.defaultModel;
       const provider = getModelInfo(model).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A' });
+      map[provider].push({ id: agent.id, name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A', functionType: 'text' });
     });
 
     // Channels
@@ -104,12 +111,36 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
         const model = dbConfig.modelOverride;
         const provider = dbConfig.forceProvider || getModelInfo(model).provider;
         if (!map[provider]) map[provider] = [];
-        map[provider].push({ name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C' });
+        map[provider].push({ id: ch.id, name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C', functionType: 'text' });
       }
     });
 
     return map;
-  }, [functionConfigs, agentConfigs, channelConfigs]);
+  }, [functionConfigs, agentConfigs, channelConfigs, getEffectiveModel]);
+
+  const handleInlineModelChange = (item: UsageItem, newModel: string | null) => {
+    try {
+      if (item.source === 'F') {
+        const fn = AI_FUNCTIONS.find(f => f.name === item.id);
+        upsertFunction({
+          functionName: item.id,
+          modelOverride: newModel,
+          isEnabled: true,
+          parameters: {},
+          cacheTtlHours: 24,
+          priorityLevel: 'normal',
+        } as any);
+        toast.success(`Đã cập nhật model cho ${fn?.name || item.name}`);
+      } else if (item.source === 'A') {
+        upsertAgentConfig({ agentName: item.id, modelOverride: newModel });
+      } else if (item.source === 'C') {
+        upsertChannelConfig({ channel: item.id, modelOverride: newModel });
+      }
+    } catch (e) {
+      console.error('Inline model change failed:', e);
+      toast.error('Không thể cập nhật model');
+    }
+  };
 
   const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
