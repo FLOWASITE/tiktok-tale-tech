@@ -709,12 +709,14 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
     
     // Check if it's a payment/credits error that wasn't caught earlier
     if (errorMessage.includes('Payment required') || errorMessage.includes('402') || errorMessage.includes('credits')) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: "AI credits exhausted. Please top up.", 
-        errorCode: "CREDITS_EXHAUSTED" 
+      return new Response(JSON.stringify({
+        success: false,
+        insights: [],
+        fallback: true,
+        error: "AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.",
+        errorCode: "CREDITS_EXHAUSTED"
       }), {
-        status: 402,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
