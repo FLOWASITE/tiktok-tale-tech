@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight } from 'lucide-react';
+import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight, FileText, Copy } from 'lucide-react';
+import { useAdmin } from '@/hooks/useAdmin';
 import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
