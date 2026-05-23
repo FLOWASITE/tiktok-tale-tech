@@ -67,7 +67,7 @@ export function ChannelImageHistory({
     try {
       const { data, error } = await supabase
         .from('channel_image_history')
-        .select('id, image_url, prompt, aspect_ratio, is_selected, created_at, version')
+        .select('id, image_url, aspect_ratio, is_selected, created_at, version')
         .eq('content_id', contentId)
         .eq('channel', channel)
         .order('version', { ascending: false });
