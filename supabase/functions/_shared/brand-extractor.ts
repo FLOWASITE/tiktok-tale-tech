@@ -190,13 +190,13 @@ export async function extractBrandSuggestions(
     } as any);
     if (result.success) break;
     lastError = result.error || "";
-    const isQuota = /402|429|quota|payment|rate limit/i.test(lastError);
-    if (!isQuota) break;
+    const isRetryable = /\b(400|402|429|500|502|503)\b|quota|payment|rate limit|arrearage|insufficient|invalid model|dashscope/i.test(lastError);
+    if (!isRetryable) break;
     console.warn(`[brand-extractor] model failed (${modelLabel}): ${lastError} — trying next`);
   }
 
   if (!result?.success) {
-    const isQuota = /402|429|quota|payment|rate limit/i.test(lastError);
+    const isQuota = /402|429|quota|payment|rate limit|arrearage/i.test(lastError);
     return {
       success: false,
       error: isQuota ? "AI_QUOTA_EXHAUSTED" : (lastError || "AI extraction failed"),
