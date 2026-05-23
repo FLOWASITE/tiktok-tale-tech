@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, getModelInfo } from '@/hooks/useAIConfig';
+import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, AIFunctionType, getModelInfo } from '@/hooks/useAIConfig';
 import { ALL_AGENTS, useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useProviderEnvSecrets } from '@/hooks/useProviderEnvSecrets';
+import { InlineModelPicker } from './InlineModelPicker';
 
 interface AIProviderManagerProps {
   organizationId?: string;
@@ -59,10 +60,10 @@ interface TestResult {
 }
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
-  const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
+  const { providers, functions: functionConfigs, isLoading, upsertProvider, upsertFunction, deleteProvider, refetchAll } = useAIConfig(organizationId);
   const { data: envSecrets } = useProviderEnvSecrets();
-  const { configs: agentConfigs } = useAgentModelConfig(organizationId);
-  const { configs: channelConfigs } = useChannelModelConfig(organizationId);
+  const { configs: agentConfigs, upsertConfig: upsertAgentConfig } = useAgentModelConfig(organizationId);
+  const { configs: channelConfigs, upsertConfig: upsertChannelConfig } = useChannelModelConfig(organizationId);
   const { getEffectiveModel } = useGroupModelConfig(organizationId);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
@@ -73,7 +74,14 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
 
   // Build usage map: for each provider type, list functions/agents/channels using it
-  type UsageItem = { name: string; model: string; shortName: string; source: 'F' | 'A' | 'C' };
+  type UsageItem = {
+    id: string;
+    name: string;
+    model: string;
+    shortName: string;
+    source: 'F' | 'A' | 'C';
+    functionType: AIFunctionType;
+  };
   const providerUsageMap = useMemo(() => {
     const map: Record<string, UsageItem[]> = {};
 
@@ -84,7 +92,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
       const effectiveModel = model || fn.currentModel;
       const provider = dbConfig?.forceProvider || getModelInfo(effectiveModel).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F' });
+      map[provider].push({ id: fn.name, name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F', functionType: fn.type });
     });
 
     // Agents
@@ -93,7 +101,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
       const model = dbConfig?.modelOverride || agent.defaultModel;
       const provider = getModelInfo(model).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A' });
+      map[provider].push({ id: agent.id, name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A', functionType: 'text' });
     });
 
     // Channels
@@ -103,12 +111,36 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
         const model = dbConfig.modelOverride;
         const provider = dbConfig.forceProvider || getModelInfo(model).provider;
         if (!map[provider]) map[provider] = [];
-        map[provider].push({ name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C' });
+        map[provider].push({ id: ch.id, name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C', functionType: 'text' });
       }
     });
 
     return map;
-  }, [functionConfigs, agentConfigs, channelConfigs]);
+  }, [functionConfigs, agentConfigs, channelConfigs, getEffectiveModel]);
+
+  const handleInlineModelChange = (item: UsageItem, newModel: string | null) => {
+    try {
+      if (item.source === 'F') {
+        const fn = AI_FUNCTIONS.find(f => f.name === item.id);
+        upsertFunction({
+          functionName: item.id,
+          modelOverride: newModel,
+          isEnabled: true,
+          parameters: {},
+          cacheTtlHours: 24,
+          priorityLevel: 'normal',
+        } as any);
+        toast.success(`Đã cập nhật model cho ${fn?.name || item.name}`);
+      } else if (item.source === 'A') {
+        upsertAgentConfig({ agentName: item.id, modelOverride: newModel });
+      } else if (item.source === 'C') {
+        upsertChannelConfig({ channel: item.id, modelOverride: newModel });
+      }
+    } catch (e) {
+      console.error('Inline model change failed:', e);
+      toast.error('Không thể cập nhật model');
+    }
+  };
 
   const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
@@ -220,13 +252,21 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
         <p className="text-xs font-medium text-muted-foreground mb-2">📋 Đang sử dụng ({items.length})</p>
         <div className="space-y-1">
           {displayItems.map((item, i) => (
-            <div key={`${item.source}-${item.name}-${i}`} className="flex items-center gap-1.5 text-xs">
+            <div key={`${item.source}-${item.id}-${i}`} className="flex items-center gap-1.5 text-xs">
               <span className={`px-1 py-0.5 rounded text-[10px] font-bold leading-none ${sourceBadgeClass[item.source]}`}>
                 {item.source}
               </span>
               <span className="text-foreground truncate max-w-[120px]" title={item.name}>{item.name}</span>
               <span className="text-muted-foreground">→</span>
-              <span className="text-muted-foreground truncate max-w-[80px]" title={item.model}>{item.shortName}</span>
+              <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                <InlineModelPicker
+                  functionType={item.functionType}
+                  selectedModel={item.model}
+                  defaultModel={item.model}
+                  onSelect={(m) => handleInlineModelChange(item, m)}
+                  compact
+                />
+              </div>
             </div>
           ))}
         </div>
