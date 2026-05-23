@@ -12867,6 +12867,18 @@ export type Database = {
           status: string
         }[]
       }
+      get_image_prompt: {
+        Args: { p_image_id: string }
+        Returns: {
+          aspect_ratio: string
+          channel: string
+          created_at: string
+          id: string
+          model: string
+          prompt: string
+          version: number
+        }[]
+      }
       get_industry_regulations: {
         Args: { p_global_pack_id: string; p_include_inherited?: boolean }
         Returns: {
