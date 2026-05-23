@@ -28,7 +28,6 @@ import { ImageCompareMode } from './ImageCompareMode';
 interface ImageHistoryItem {
   id: string;
   image_url: string;
-  prompt: string | null;
   aspect_ratio: string | null;
   is_selected: boolean;
   created_at: string;
