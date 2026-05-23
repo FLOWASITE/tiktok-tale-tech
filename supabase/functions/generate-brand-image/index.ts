@@ -991,6 +991,18 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.log(`[generate-brand-image] AI Render: added Vietnamese text accuracy rules for "${effectiveTextToInclude.slice(0, 40)}..."`);
     }
 
+    // EARLY-WRITE: persist prompt before AI call so it survives timeouts/failures.
+    // Admin-only viewable (column SELECT revoked from authenticated).
+    const pendingHistoryId = await insertPendingPromptRow(supabase, {
+      contentId,
+      channel,
+      prompt: enhancedPrompt,
+      aspectRatio: finalAspectRatio,
+      organizationId: brandTemplate.organization_id,
+      userId,
+    });
+    console.log(`[generate-brand-image] Pending prompt row id: ${pendingHistoryId}`);
+
     console.log("[generate-brand-image] Starting image generation...");
 
     // Read model config from Admin Panel (DB) — falls back to default if not configured
