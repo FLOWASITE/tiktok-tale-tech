@@ -191,27 +191,6 @@ async function updateImageTaskStatus(
   }
 }
 
-async function persistGeneratedImage(
-  supabase: any,
-  payload: PersistencePayload,
-) {
-  const {
-    taskId,
-    contentId,
-    channel,
-    imageUrl,
-    prompt,
-    aspectRatio,
-    modelUsed,
-    organizationId,
-    userId,
-  } = payload;
-
-  await supabase
-    .from('channel_image_history')
-    .update({ is_selected: false })
-    .eq('content_id', contentId)
-    .eq('channel', channel);
 
 async function persistGeneratedImage(
   supabase: any,
