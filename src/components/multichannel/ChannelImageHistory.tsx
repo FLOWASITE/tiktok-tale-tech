@@ -292,10 +292,21 @@ export function ChannelImageHistory({
                         {image.aspect_ratio}
                       </Badge>
                     )}
-                    {image.prompt && (
-                      <p className="text-xs text-muted-foreground line-clamp-2" title={image.prompt}>
-                        {image.prompt.substring(0, 100)}...
-                      </p>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full justify-start gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => handleViewPrompt(image.id)}
+                        disabled={loadingPromptId === image.id}
+                      >
+                        {loadingPromptId === image.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <FileText className="w-3 h-3" />
+                        )}
+                        Xem prompt (admin)
+                      </Button>
                     )}
                   </div>
                 </div>
