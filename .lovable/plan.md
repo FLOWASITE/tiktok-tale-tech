@@ -1,50 +1,36 @@
 ## Mục tiêu
-Dừng việc hệ thống tự xóa ảnh/video và tránh ảnh hưởng tới bài đã post qua kênh Website của Flowa.
+Trong **Cài đặt AI → Provider Manager**, mỗi card provider (vd DashScope) đã liệt kê "📋 Đang sử dụng (10)" gồm Functions (F) / Agents (A) / Channels (C) → model hiện tại. Hiện tại chỉ hiển thị text. Cần cho phép **đổi model trực tiếp từ chính dòng đó**, không phải mở tab khác.
 
-## Kết luận sau khi kiểm tra
-- `Admin Social Settings` có kênh `Website / Custom API` — đây là cấu hình Website của hệ thống.
-- Job `cleanup-old-media` đang có retention `7 ngày` và đang xóa:
-  - `channel_image_history`
-  - `carousel_images`
-  - `video_generations`
-  - file trong bucket `carousel-images`, bao gồm cả file mồ côi cũ hơn 7 ngày
-- Luồng `publish-website` không thấy lệnh xóa bài; vấn đề chính nằm ở cleanup media 7 ngày có thể làm mất ảnh/video liên quan bài sau khi đăng.
+## Thay đổi
 
-## Kế hoạch sửa
+### 1. `src/components/admin/ai/AIProviderManager.tsx`
+- Lấy thêm các mutation từ hooks đã có:
+  - `upsertFunctionConfig` từ `useAIConfig` (đã có sẵn cho Functions)
+  - `upsertConfig` từ `useAgentModelConfig` (cho Agents)
+  - `upsertConfig` từ `useChannelModelConfig` (cho Channels)
+- Mở rộng `UsageItem` thêm field `id` (function name / agent id / channel id) để mutation biết target.
+- Trong `renderUsageSection`, thay `<span>{item.shortName}</span>` ở cột model bằng một **InlineModelPicker** (popover compact):
+  - Reuse `InlineModelPicker` đã có (chế độ `compact`), truyền `functionType` phù hợp:
+    - F → lấy `type` từ `AI_FUNCTIONS.find(...).type` (text/image/video/...)
+    - A → 'text'
+    - C → 'text'
+  - `onSelect(model)` → gọi mutation tương ứng theo `source`:
+    - F: `upsertFunctionConfig({ functionName: id, modelOverride: model })`
+    - A: `upsertConfig({ agentName: id, modelOverride: model })`
+    - C: `upsertConfig({ channel: id, modelOverride: model })`
+  - Sau khi save: TanStack Query tự invalidate → `providerUsageMap` re-tính → item có thể chuyển sang provider khác (UX hợp lý).
+- Giữ nguyên badge F/A/C, tên target, dấu →; chỉ đổi cụm model bên phải thành trigger picker (style nhẹ, hover viền).
 
-### 1. Tắt hẳn cleanup 7 ngày ở backend function
-Trong `supabase/functions/cleanup-old-media/index.ts`, thêm flag:
-```ts
-const CLEANUP_ENABLED = false;
-```
-Và cho function trả về ngay:
-```ts
-{ success: true, disabled: true, message: 'Media retention cleanup is temporarily disabled' }
-```
-Kết quả: dù cron hoặc admin bấm chạy tay, function cũng không xóa ảnh/video/bản ghi nào.
+### 2. Không đụng business logic khác
+- Không sửa edge functions, không sửa schema, không sửa cascade ưu tiên (Individual > Group > Default vẫn giữ).
+- Không sửa các tab AIFunctionConfig / AIChannelModelConfig khác — chỉ thêm inline shortcut.
 
-### 2. Gỡ lịch chạy cron cleanup
-Chạy lệnh backend:
-```sql
-select cron.unschedule('cleanup-old-media');
-```
-Kết quả: job tự động hằng ngày không còn chạy nữa.
+## Lưu ý kỹ thuật
+- `InlineModelPicker` yêu cầu `functionType` để filter model list — với Agent/Channel mặc định 'text' là đủ cho 95% case.
+- Với Functions, cần map đúng `type` để picker show đúng model (vd image function không show LLM text).
+- Width của row hiện cố định (`max-w-[80px]` cho model). Khi đổi sang picker compact, cho phép trigger rộng hơn (~140-160px) và truncate label.
+- Click vào picker không trigger expand/collapse của card.
 
-### 3. Cập nhật thông báo UI
-Trong `src/components/MediaRetentionNotice.tsx`, đổi nội dung từ “tự động xóa sau 7 ngày” sang:
-```text
-Ảnh và video hiện được lưu trữ vô thời hạn.
-```
-Kết quả: người dùng không còn bị báo sai policy.
-
-## Không làm
-- Không xóa bài đã đăng.
-- Không xóa dữ liệu cũ.
-- Không đổi logic publish Website, WordPress, Blogger, Wix.
-- Không đụng storage/RLS/schema.
-- Không xóa code cleanup, chỉ tạm khóa để có thể bật lại sau.
-
-## Cách bật lại nếu cần
-- Đổi `CLEANUP_ENABLED = true`.
-- Schedule lại cron `cleanup-old-media`.
-- Đổi lại banner retention 7 ngày.
+## Out of scope
+- Không thêm khả năng đổi model cho item "Email" connector (source `C` đặc biệt) nếu hook channel không support — giữ readonly.
+- Không thay đổi UX của tab Functions/Agents/Channels riêng.
