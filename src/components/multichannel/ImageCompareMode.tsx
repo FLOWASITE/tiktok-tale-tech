@@ -17,7 +17,7 @@ import { vi } from 'date-fns/locale';
 interface ImageVersion {
   id: string;
   image_url: string;
-  prompt: string | null;
+  prompt?: string | null;
   aspect_ratio: string | null;
   is_selected: boolean;
   created_at: string;
