@@ -611,14 +611,16 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
             });
           }
           
-          // Payment / credits exhausted - return 402 with structured error
+          // Payment / credits exhausted - return 200 with fallback to avoid frontend crash
           if (aiResult.error?.includes('402') || aiResult.error?.includes('Payment required') || aiResult.error?.includes('credits') || aiResult.error?.includes('payment_required')) {
-            return new Response(JSON.stringify({ 
-              success: false, 
-              error: "AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.", 
-              errorCode: "CREDITS_EXHAUSTED" 
+            return new Response(JSON.stringify({
+              success: false,
+              insights: [],
+              fallback: true,
+              error: "AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.",
+              errorCode: "CREDITS_EXHAUSTED"
             }), {
-              status: 402,
+              status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
