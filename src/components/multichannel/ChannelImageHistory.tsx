@@ -357,6 +357,29 @@ export function ChannelImageHistory({
           setCompareOpen(false);
         }}
       />
+
+      {/* Admin prompt viewer */}
+      <Dialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Prompt ảnh (admin only)
+            </DialogTitle>
+            <DialogDescription>
+              Prompt đầy đủ đã gửi lên model. Chỉ admin Flowa xem được.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[55vh] rounded border bg-muted/40 p-3">
+            <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed">{promptText}</pre>
+          </ScrollArea>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={handleCopyPrompt} className="gap-1">
+              <Copy className="w-4 h-4" /> Copy
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
