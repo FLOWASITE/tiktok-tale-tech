@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight } from 'lucide-react';
+import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight, FileText, Copy } from 'lucide-react';
+import { useAdmin } from '@/hooks/useAdmin';
 import { IMAGE_DELETION_ENABLED } from '@/lib/featureFlags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +28,6 @@ import { ImageCompareMode } from './ImageCompareMode';
 interface ImageHistoryItem {
   id: string;
   image_url: string;
-  prompt: string | null;
   aspect_ratio: string | null;
   is_selected: boolean;
   created_at: string;
@@ -49,11 +49,40 @@ export function ChannelImageHistory({
   channel,
   onSelectImage,
 }: ChannelImageHistoryProps) {
+  const { isAdmin } = useAdmin();
   const [images, setImages] = useState<ImageHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
+  const [promptText, setPromptText] = useState<string>('');
+  const [loadingPromptId, setLoadingPromptId] = useState<string | null>(null);
+
+  const handleViewPrompt = async (imageId: string) => {
+    setLoadingPromptId(imageId);
+    try {
+      const { data, error } = await supabase.rpc('get_image_prompt', { p_image_id: imageId });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      setPromptText(row?.prompt || '(prompt rỗng — ảnh có thể tạo trước khi observability bật)');
+      setPromptDialogOpen(true);
+    } catch (err: any) {
+      console.error('get_image_prompt failed:', err);
+      toast.error(err?.message || 'Không thể tải prompt (cần quyền admin)');
+    } finally {
+      setLoadingPromptId(null);
+    }
+  };
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      toast.success('Đã copy prompt');
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
 
   // Fetch image history
   useEffect(() => {
@@ -67,7 +96,7 @@ export function ChannelImageHistory({
     try {
       const { data, error } = await supabase
         .from('channel_image_history')
-        .select('id, image_url, prompt, aspect_ratio, is_selected, created_at, version')
+        .select('id, image_url, aspect_ratio, is_selected, created_at, version')
         .eq('content_id', contentId)
         .eq('channel', channel)
         .order('version', { ascending: false });
@@ -292,10 +321,21 @@ export function ChannelImageHistory({
                         {image.aspect_ratio}
                       </Badge>
                     )}
-                    {image.prompt && (
-                      <p className="text-xs text-muted-foreground line-clamp-2" title={image.prompt}>
-                        {image.prompt.substring(0, 100)}...
-                      </p>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-full justify-start gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => handleViewPrompt(image.id)}
+                        disabled={loadingPromptId === image.id}
+                      >
+                        {loadingPromptId === image.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <FileText className="w-3 h-3" />
+                        )}
+                        Xem prompt (admin)
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -317,6 +357,29 @@ export function ChannelImageHistory({
           setCompareOpen(false);
         }}
       />
+
+      {/* Admin prompt viewer */}
+      <Dialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Prompt ảnh (admin only)
+            </DialogTitle>
+            <DialogDescription>
+              Prompt đầy đủ đã gửi lên model. Chỉ admin Flowa xem được.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[55vh] rounded border bg-muted/40 p-3">
+            <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed">{promptText}</pre>
+          </ScrollArea>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={handleCopyPrompt} className="gap-1">
+              <Copy className="w-4 h-4" /> Copy
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

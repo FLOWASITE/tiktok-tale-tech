@@ -91,6 +91,50 @@ interface PersistencePayload {
   modelUsed: string;
   organizationId?: string | null;
   userId?: string | null;
+  existingRowId?: string | null;
+}
+
+/**
+ * Early-write: persist the prompt to channel_image_history BEFORE the AI provider
+ * is called, so the prompt is debuggable even if the function times out or the
+ * provider fails. Returns the row id (or null on failure — non-blocking).
+ */
+async function insertPendingPromptRow(
+  supabase: any,
+  params: {
+    contentId: string;
+    channel: string;
+    prompt: string;
+    aspectRatio: string;
+    organizationId?: string | null;
+    userId?: string | null;
+  },
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('channel_image_history')
+      .insert({
+        content_id: params.contentId,
+        channel: params.channel,
+        image_url: 'pending://generation',
+        prompt: params.prompt,
+        aspect_ratio: params.aspectRatio,
+        is_selected: false,
+        organization_id: params.organizationId,
+        created_by: params.userId,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.warn('[generate-brand-image] insertPendingPromptRow failed:', error.message);
+      return null;
+    }
+    return (data as any)?.id ?? null;
+  } catch (err) {
+    console.warn('[generate-brand-image] insertPendingPromptRow exception:', err);
+    return null;
+  }
 }
 
 const OVERLAY_TEXT_LIMITS = {
@@ -147,6 +191,7 @@ async function updateImageTaskStatus(
   }
 }
 
+
 async function persistGeneratedImage(
   supabase: any,
   payload: PersistencePayload,
@@ -161,26 +206,40 @@ async function persistGeneratedImage(
     modelUsed,
     organizationId,
     userId,
+    existingRowId,
   } = payload;
 
+  // Unselect previous rows for this content+channel
   await supabase
     .from('channel_image_history')
     .update({ is_selected: false })
     .eq('content_id', contentId)
     .eq('channel', channel);
 
-  await supabase
-    .from('channel_image_history')
-    .insert({
-      content_id: contentId,
-      channel,
-      image_url: imageUrl,
-      prompt,
-      aspect_ratio: aspectRatio,
-      is_selected: true,
-      organization_id: organizationId,
-      created_by: userId,
-    });
+  if (existingRowId) {
+    // Update the pending row created at prompt-build time
+    await supabase
+      .from('channel_image_history')
+      .update({
+        image_url: imageUrl,
+        is_selected: true,
+      })
+      .eq('id', existingRowId);
+  } else {
+    // Fallback: no early row was created — insert fresh
+    await supabase
+      .from('channel_image_history')
+      .insert({
+        content_id: contentId,
+        channel,
+        image_url: imageUrl,
+        prompt,
+        aspect_ratio: aspectRatio,
+        is_selected: true,
+        organization_id: organizationId,
+        created_by: userId,
+      });
+  }
 
   const { data: currentContent } = await supabase
     .from('multi_channel_contents')
@@ -932,6 +991,18 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.log(`[generate-brand-image] AI Render: added Vietnamese text accuracy rules for "${effectiveTextToInclude.slice(0, 40)}..."`);
     }
 
+    // EARLY-WRITE: persist prompt before AI call so it survives timeouts/failures.
+    // Admin-only viewable (column SELECT revoked from authenticated).
+    const pendingHistoryId = await insertPendingPromptRow(supabase, {
+      contentId,
+      channel,
+      prompt: enhancedPrompt,
+      aspectRatio: finalAspectRatio,
+      organizationId: brandTemplate.organization_id,
+      userId,
+    });
+    console.log(`[generate-brand-image] Pending prompt row id: ${pendingHistoryId}`);
+
     console.log("[generate-brand-image] Starting image generation...");
 
     // Read model config from Admin Panel (DB) — falls back to default if not configured
@@ -1295,6 +1366,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       modelUsed,
       organizationId: brandTemplate.organization_id,
       userId,
+      existingRowId: pendingHistoryId,
     }).catch((historyErr) => {
       console.error('[generate-brand-image] History save error:', historyErr);
       return updateImageTaskStatus(supabase, taskId, {
