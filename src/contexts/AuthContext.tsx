@@ -15,6 +15,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function clearCachedAuthSession() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    Object.keys(window.localStorage).forEach((key) => {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        window.localStorage.removeItem(key);
+      }
+    });
+  } catch (err) {
+    console.warn('Unable to clear cached auth session:', err);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -23,9 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
     let validationVersion = 0;
+    let initialAuthFallback: number | undefined;
 
     const applyAuthState = (nextSession: Session | null, nextUser: User | null, version: number) => {
       if (!isMounted || version !== validationVersion) return;
+
+      if (initialAuthFallback) {
+        window.clearTimeout(initialAuthFallback);
+        initialAuthFallback = undefined;
+      }
 
       setSession(nextSession);
       setUser(nextUser);
@@ -107,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (refreshError || !refreshed.session?.user) {
           console.warn('Session recovery failed, signing out:', refreshError ?? userError);
           await supabase.auth.signOut().catch(() => undefined);
+          clearCachedAuthSession();
           applyAuthState(null, null, version);
           return;
         }
@@ -119,25 +140,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     // Set up auth state listener FIRST
+    initialAuthFallback = window.setTimeout(() => {
+      if (!isMounted) return;
+
+      console.warn('Auth initialization timed out; clearing cached session.');
+      const version = ++validationVersion;
+      clearCachedAuthSession();
+      applyAuthState(null, null, version);
+    }, 8000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, nextSession) => {
+      (event, nextSession) => {
         if (event === 'SIGNED_OUT') {
           const version = ++validationVersion;
+          clearCachedAuthSession();
           applyAuthState(null, null, version);
           return;
         }
 
-        await validateOrRecoverSession(nextSession, event === 'SIGNED_IN');
+        setTimeout(() => {
+          void validateOrRecoverSession(nextSession, event === 'SIGNED_IN');
+        }, 0);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      void validateOrRecoverSession(existingSession);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session: existingSession } }) => {
+        void validateOrRecoverSession(existingSession);
+      })
+      .catch((err) => {
+        console.error('Failed to initialize auth session:', err);
+        const version = ++validationVersion;
+        clearCachedAuthSession();
+        applyAuthState(null, null, version);
+      });
 
     return () => {
       isMounted = false;
+      if (initialAuthFallback) window.clearTimeout(initialAuthFallback);
       subscription.unsubscribe();
     };
   }, []);
@@ -167,7 +208,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      clearCachedAuthSession();
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+    }
   };
 
   const resetPassword = async (email: string) => {
