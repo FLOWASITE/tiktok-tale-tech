@@ -91,6 +91,50 @@ interface PersistencePayload {
   modelUsed: string;
   organizationId?: string | null;
   userId?: string | null;
+  existingRowId?: string | null;
+}
+
+/**
+ * Early-write: persist the prompt to channel_image_history BEFORE the AI provider
+ * is called, so the prompt is debuggable even if the function times out or the
+ * provider fails. Returns the row id (or null on failure — non-blocking).
+ */
+async function insertPendingPromptRow(
+  supabase: any,
+  params: {
+    contentId: string;
+    channel: string;
+    prompt: string;
+    aspectRatio: string;
+    organizationId?: string | null;
+    userId?: string | null;
+  },
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('channel_image_history')
+      .insert({
+        content_id: params.contentId,
+        channel: params.channel,
+        image_url: 'pending://generation',
+        prompt: params.prompt,
+        aspect_ratio: params.aspectRatio,
+        is_selected: false,
+        organization_id: params.organizationId,
+        created_by: params.userId,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.warn('[generate-brand-image] insertPendingPromptRow failed:', error.message);
+      return null;
+    }
+    return (data as any)?.id ?? null;
+  } catch (err) {
+    console.warn('[generate-brand-image] insertPendingPromptRow exception:', err);
+    return null;
+  }
 }
 
 const OVERLAY_TEXT_LIMITS = {
