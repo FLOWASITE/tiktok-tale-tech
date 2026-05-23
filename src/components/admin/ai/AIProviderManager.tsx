@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, getModelInfo } from '@/hooks/useAIConfig';
+import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, AIFunctionType, getModelInfo } from '@/hooks/useAIConfig';
 import { ALL_AGENTS, useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useProviderEnvSecrets } from '@/hooks/useProviderEnvSecrets';
+import { InlineModelPicker } from './InlineModelPicker';
 
 interface AIProviderManagerProps {
   organizationId?: string;
