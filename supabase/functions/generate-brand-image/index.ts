@@ -1366,6 +1366,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       modelUsed,
       organizationId: brandTemplate.organization_id,
       userId,
+      existingRowId: pendingHistoryId,
     }).catch((historyErr) => {
       console.error('[generate-brand-image] History save error:', historyErr);
       return updateImageTaskStatus(supabase, taskId, {
