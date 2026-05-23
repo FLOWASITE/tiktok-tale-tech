@@ -252,13 +252,21 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
         <p className="text-xs font-medium text-muted-foreground mb-2">📋 Đang sử dụng ({items.length})</p>
         <div className="space-y-1">
           {displayItems.map((item, i) => (
-            <div key={`${item.source}-${item.name}-${i}`} className="flex items-center gap-1.5 text-xs">
+            <div key={`${item.source}-${item.id}-${i}`} className="flex items-center gap-1.5 text-xs">
               <span className={`px-1 py-0.5 rounded text-[10px] font-bold leading-none ${sourceBadgeClass[item.source]}`}>
                 {item.source}
               </span>
               <span className="text-foreground truncate max-w-[120px]" title={item.name}>{item.name}</span>
               <span className="text-muted-foreground">→</span>
-              <span className="text-muted-foreground truncate max-w-[80px]" title={item.model}>{item.shortName}</span>
+              <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                <InlineModelPicker
+                  functionType={item.functionType}
+                  selectedModel={item.model}
+                  defaultModel={item.model}
+                  onSelect={(m) => handleInlineModelChange(item, m)}
+                  compact
+                />
+              </div>
             </div>
           ))}
         </div>
