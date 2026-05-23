@@ -1,36 +1,46 @@
 ## Mục tiêu
-Trong **Cài đặt AI → Provider Manager**, mỗi card provider (vd DashScope) đã liệt kê "📋 Đang sử dụng (10)" gồm Functions (F) / Agents (A) / Channels (C) → model hiện tại. Hiện tại chỉ hiển thị text. Cần cho phép **đổi model trực tiếp từ chính dòng đó**, không phải mở tab khác.
+1. Đổi default model 3 function `import-brand-*` từ `qwen-plus` (DashScope) → `deepseek-chat` (DeepSeek Direct, rẻ + ổn định, đã có ENV `DEEPSEEK_API_KEY`).
+2. Mở rộng fallback regex trong `brand-extractor.ts` để 400 cũng trigger fallback (tránh hard-fail khi provider trả 400).
+3. Bổ sung `suggest-products-from-website` (cũng đang `qwen-plus`) đồng bộ → `deepseek-chat`.
+4. Đảm bảo 4 function này hiển thị đúng trong Admin → AI Settings → Functions (chúng đã có trong `AI_FUNCTIONS`, chỉ cần cập nhật `currentModel` để UI hiển thị default mới).
 
-## Thay đổi
+## Thay đổi cụ thể
 
-### 1. `src/components/admin/ai/AIProviderManager.tsx`
-- Lấy thêm các mutation từ hooks đã có:
-  - `upsertFunctionConfig` từ `useAIConfig` (đã có sẵn cho Functions)
-  - `upsertConfig` từ `useAgentModelConfig` (cho Agents)
-  - `upsertConfig` từ `useChannelModelConfig` (cho Channels)
-- Mở rộng `UsageItem` thêm field `id` (function name / agent id / channel id) để mutation biết target.
-- Trong `renderUsageSection`, thay `<span>{item.shortName}</span>` ở cột model bằng một **InlineModelPicker** (popover compact):
-  - Reuse `InlineModelPicker` đã có (chế độ `compact`), truyền `functionType` phù hợp:
-    - F → lấy `type` từ `AI_FUNCTIONS.find(...).type` (text/image/video/...)
-    - A → 'text'
-    - C → 'text'
-  - `onSelect(model)` → gọi mutation tương ứng theo `source`:
-    - F: `upsertFunctionConfig({ functionName: id, modelOverride: model })`
-    - A: `upsertConfig({ agentName: id, modelOverride: model })`
-    - C: `upsertConfig({ channel: id, modelOverride: model })`
-  - Sau khi save: TanStack Query tự invalidate → `providerUsageMap` re-tính → item có thể chuyển sang provider khác (UX hợp lý).
-- Giữ nguyên badge F/A/C, tên target, dấu →; chỉ đổi cụm model bên phải thành trigger picker (style nhẹ, hover viền).
+### A. `supabase/functions/_shared/ai-config.ts` (lines 133-156)
+Đổi `model: 'qwen-plus'` → `model: 'deepseek-chat'` cho:
+- `import-brand-extractor`
+- `import-brand-from-website`
+- `import-brand-from-fanpage`
 
-### 2. Không đụng business logic khác
-- Không sửa edge functions, không sửa schema, không sửa cascade ưu tiên (Individual > Group > Default vẫn giữ).
-- Không sửa các tab AIFunctionConfig / AIChannelModelConfig khác — chỉ thêm inline shortcut.
+Tìm thêm entry `suggest-products-from-website` (nếu có) → đổi cùng.
 
-## Lưu ý kỹ thuật
-- `InlineModelPicker` yêu cầu `functionType` để filter model list — với Agent/Channel mặc định 'text' là đủ cho 95% case.
-- Với Functions, cần map đúng `type` để picker show đúng model (vd image function không show LLM text).
-- Width của row hiện cố định (`max-w-[80px]` cho model). Khi đổi sang picker compact, cho phép trigger rộng hơn (~140-160px) và truncate label.
-- Click vào picker không trigger expand/collapse của card.
+### B. `src/hooks/useAIConfig.ts` (lines 104-107)
+Đổi `currentModel: 'qwen-plus'` → `currentModel: 'deepseek-chat'` cho 4 function brand import. Đây là metadata UI để Admin → Functions hiển thị "Default: deepseek-chat" + cho phép override.
 
-## Out of scope
-- Không thêm khả năng đổi model cho item "Email" connector (source `C` đặc biệt) nếu hook channel không support — giữ readonly.
-- Không thay đổi UX của tab Functions/Agents/Channels riêng.
+### C. `supabase/functions/_shared/brand-extractor.ts` (line 193, 199)
+Mở rộng regex retry:
+```ts
+const isRetryable = /\b(400|402|429|500|502|503)\b|quota|payment|rate limit|arrearage|insufficient|invalid model/i.test(lastError);
+```
+→ DashScope/DeepSeek 400 (key hết, model sai, arrearage) sẽ rơi xuống fallback chain thay vì hard-fail.
+
+Cập nhật FALLBACK_MODELS chain (line 159-164) ưu tiên DeepSeek trước:
+```ts
+const FALLBACK_MODELS = [
+  undefined,                       // primary (deepseek-chat sau khi đổi default)
+  "deepseek-v4-flash",             // DeepSeek rẻ hơn
+  "google/gemini-2.5-flash",       // Lovable Gateway
+  "google/gemini-2.5-flash-lite",  // Lovable cheapest
+];
+```
+
+## Phạm vi không động tới
+- KHÔNG đổi default các function khác đang dùng DashScope/Gemini.
+- KHÔNG đổi schema DB.
+- KHÔNG sửa UI component (AI_FUNCTIONS list đã có sẵn 4 entry).
+- KHÔNG cần migration — `ai_function_configs` chỉ cần khi user muốn override; default được đọc từ `DEFAULT_CONFIGS` trong code.
+
+## Kết quả
+- Brand import gọi DeepSeek trực tiếp (rẻ ~5%, có prompt caching).
+- 400 errors auto-fallback → không còn lỗi UI "DashScope error 400".
+- Admin → AI Settings → Functions thấy 4 function này với default mới + option override sang DeepSeek/Gemini/OpenAI qua dropdown ModelSelector hiện có.

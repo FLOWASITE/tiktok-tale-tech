@@ -131,7 +131,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-extractor': {
-    model: 'qwen-plus',
+    model: 'deepseek-chat',
     temperature: 0.3,
     max_tokens: 4096,
     cache_ttl_seconds: 0,
@@ -139,7 +139,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-from-website': {
-    model: 'qwen-plus',
+    model: 'deepseek-chat',
     temperature: 0.3,
     max_tokens: 1024,
     cache_ttl_seconds: 0,
@@ -147,9 +147,17 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'import-brand-from-fanpage': {
-    model: 'qwen-plus',
+    model: 'deepseek-chat',
     temperature: 0.3,
     max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'suggest-products-from-website': {
+    model: 'deepseek-chat',
+    temperature: 0.3,
+    max_tokens: 2048,
     cache_ttl_seconds: 0,
     is_enabled: true,
     priority_level: 'normal',
