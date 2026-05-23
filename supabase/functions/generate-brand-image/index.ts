@@ -650,12 +650,25 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     }
 
     // === Layer B: In-flight dedupe ===
-    // Chặn duplicate request cho cùng (contentId, channel) trong 30 phút.
-    // Window dài (30m) vì auto-pipeline có thể chạy ~90s và user có thể reload nhiều lần.
-    // Manual regenerate dùng force=true để bypass.
+    // Window 3 phút — đủ cho 1 image gen (~60s) + buffer; tránh stale lock khi edge timeout 504.
+    // Auto-cleanup task cũ hơn window (edge function 504 không kịp update status).
     if (contentId && channel && !isForceRegenerate) {
       try {
-        const dedupeWindowStart = new Date(Date.now() - 30 * 60_000).toISOString();
+        const STALE_MS = 3 * 60_000;
+        const dedupeWindowStart = new Date(Date.now() - STALE_MS).toISOString();
+
+        await supabase
+          .from('generation_tasks')
+          .update({
+            status: 'failed',
+            error_message: 'Stale task — auto-cleaned (edge timeout)',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('task_type', 'image_generation')
+          .contains('input_params', { contentId, channel })
+          .in('status', ['pending', 'generating'])
+          .lt('created_at', dedupeWindowStart);
+
         const { data: recentTasks } = await supabase
           .from('generation_tasks')
           .select('id, status, created_at')
@@ -683,7 +696,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
             JSON.stringify({
               success: false,
               error: 'duplicate_request',
-              message: `Đã có request đang xử lý cho ${channel} (task ${otherActive[0].id}). Vui lòng đợi.`,
+              message: `Đã có request đang xử lý cho ${channel} (task ${otherActive[0].id}). Vui lòng đợi ~2 phút.`,
               activeTaskId: otherActive[0].id,
             }),
             { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
