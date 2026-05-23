@@ -49,11 +49,40 @@ export function ChannelImageHistory({
   channel,
   onSelectImage,
 }: ChannelImageHistoryProps) {
+  const { isAdmin } = useAdmin();
   const [images, setImages] = useState<ImageHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
+  const [promptText, setPromptText] = useState<string>('');
+  const [loadingPromptId, setLoadingPromptId] = useState<string | null>(null);
+
+  const handleViewPrompt = async (imageId: string) => {
+    setLoadingPromptId(imageId);
+    try {
+      const { data, error } = await supabase.rpc('get_image_prompt', { p_image_id: imageId });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      setPromptText(row?.prompt || '(prompt rỗng — ảnh có thể tạo trước khi observability bật)');
+      setPromptDialogOpen(true);
+    } catch (err: any) {
+      console.error('get_image_prompt failed:', err);
+      toast.error(err?.message || 'Không thể tải prompt (cần quyền admin)');
+    } finally {
+      setLoadingPromptId(null);
+    }
+  };
+
+  const handleCopyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      toast.success('Đã copy prompt');
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
 
   // Fetch image history
   useEffect(() => {
