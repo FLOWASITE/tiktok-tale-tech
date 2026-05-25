@@ -608,7 +608,7 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
     const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
-    const { connectionId, content, mediaUrls, scheduleId, contentId } = body;
+    const { connectionId, content, mediaUrls, scheduleId, contentId, tiktokOptions } = body;
 
     if (!connectionId) throw new Error("Connection ID is required");
     if (!mediaUrls || mediaUrls.length === 0) {
