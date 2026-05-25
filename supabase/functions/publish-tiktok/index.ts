@@ -395,6 +395,7 @@ async function publishPhotoPost(
   title: string,
   description: string,
   imageUrls: string[],
+  composer?: TikTokComposerOptions,
 ): Promise<{ publishId: string; statusResult: { status: string; failReason?: string } }> {
   if (imageUrls.length < 1) {
     throw new Error("TikTok photo post requires at least 1 image");
@@ -412,9 +413,37 @@ async function publishPhotoPost(
   // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
   const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
 
-  const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
-    accessToken,
-  );
+  const {
+    privacyLevel: autoPrivacyLevel,
+    privacyLevelOptions,
+    disableComment: creatorCommentDisabled,
+  } = await getCreatorPostSettings(accessToken);
+
+  // Validate user-chosen privacy level (if provided) against creator allowed options
+  let preferredPrivacyLevel = autoPrivacyLevel;
+  if (composer?.privacyLevel) {
+    if (!privacyLevelOptions.includes(composer.privacyLevel)) {
+      throw new TikTokPublishError(
+        `Privacy level ${composer.privacyLevel} không được TikTok cho phép. Cho phép: ${privacyLevelOptions.join(", ")}`,
+        { errorCode: "TIKTOK_INVALID_PRIVACY", statusCode: 400 },
+      );
+    }
+    // TikTok policy: branded content cannot be SELF_ONLY
+    if (composer.isBrandedContent && composer.privacyLevel === "SELF_ONLY") {
+      throw new TikTokPublishError(
+        "Branded content không được đặt Privacy = Only me. Hãy chọn Public/Friends.",
+        { errorCode: "TIKTOK_BRANDED_PRIVACY_CONFLICT", statusCode: 400 },
+      );
+    }
+    preferredPrivacyLevel = composer.privacyLevel;
+  }
+
+  // Comment off if creator-side hard-disabled OR user toggled off
+  const disableComment = creatorCommentDisabled || Boolean(composer?.disableComment);
+  const disableDuet = Boolean(composer?.disableDuet);
+  const disableStitch = Boolean(composer?.disableStitch);
+  const brandContentToggle = Boolean(composer?.isBrandedContent);
+  const brandOrganicToggle = Boolean(composer?.isYourBrand);
 
   const sendPublishRequest = async (privacyLevel: string) => {
     const body = {
@@ -423,11 +452,16 @@ async function publishPhotoPost(
         description: truncateUtf16(description, 4000),
         privacy_level: privacyLevel,
         disable_comment: disableComment,
+        disable_duet: disableDuet,
+        disable_stitch: disableStitch,
+        brand_content_toggle: brandContentToggle,
+        brand_organic_toggle: brandOrganicToggle,
         auto_add_music: true,
       },
       source_info: {
         source: "PULL_FROM_URL",
         photo_cover_index: 0,
+
         photo_images: finalUrls,
       },
       post_mode: "DIRECT_POST",
