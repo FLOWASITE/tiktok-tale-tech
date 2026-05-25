@@ -8,13 +8,31 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+type TikTokPrivacyLevel =
+  | "PUBLIC_TO_EVERYONE"
+  | "FOLLOWER_OF_CREATOR"
+  | "MUTUAL_FOLLOW_FRIENDS"
+  | "SELF_ONLY";
+
+interface TikTokComposerOptions {
+  privacyLevel?: TikTokPrivacyLevel;
+  disableComment?: boolean;
+  disableDuet?: boolean;
+  disableStitch?: boolean;
+  isCommercialContent?: boolean;
+  isYourBrand?: boolean;
+  isBrandedContent?: boolean;
+}
+
 interface PublishRequest {
   connectionId: string;
   content: string;
   mediaUrls?: string[];
   scheduleId?: string;
   contentId?: string;
+  tiktokOptions?: TikTokComposerOptions;
 }
+
 
 class TikTokPublishError extends Error {
   errorCode?: string;
