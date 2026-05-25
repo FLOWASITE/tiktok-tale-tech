@@ -718,6 +718,7 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
         title,
         description,
         mediaUrls,
+        tiktokOptions,
       );
 
       // Update attempt
