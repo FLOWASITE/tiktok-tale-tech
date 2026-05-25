@@ -18,6 +18,7 @@ import { useDirectPublish } from '@/hooks/useDirectPublish';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { ChannelIcon } from '@/components/ui/channel-icon';
 import { toast } from 'sonner';
+import { TikTokComposerDialog, type TikTokSubmitPayload } from '@/components/publishing/TikTokComposerDialog';
 
 interface Props {
   videoUrl: string;
