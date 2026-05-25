@@ -18,6 +18,7 @@ import { useDirectPublish } from '@/hooks/useDirectPublish';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { ChannelIcon } from '@/components/ui/channel-icon';
 import { toast } from 'sonner';
+import { TikTokComposerDialog, type TikTokSubmitPayload } from '@/components/publishing/TikTokComposerDialog';
 
 interface Props {
   videoUrl: string;
@@ -85,20 +86,34 @@ export function PublishVideoMenu({
     setCaption(defaultCaption);
   };
 
-  const submit = async () => {
+  const submit = async (tiktokPayload?: TikTokSubmitPayload) => {
     if (!pickedPlatform || !pickedConnectionId || !videoUrl) return;
-    const opts = {
+    const baseOpts = {
       connectionId: pickedConnectionId,
-      content: caption.trim(),
+      content: (tiktokPayload?.caption ?? caption).trim(),
       mediaUrls: [videoUrl],
     };
     try {
       let result;
       switch (pickedPlatform) {
-        case 'tiktok': result = await publishToTikTok(opts); break;
-        case 'facebook': result = await publishToFacebook(opts); break;
-        case 'instagram': result = await publishToInstagram(opts); break;
-        case 'linkedin': result = await publishToLinkedIn(opts); break;
+        case 'tiktok':
+          if (!tiktokPayload) return; // wait for composer
+          result = await publishToTikTok({
+            ...baseOpts,
+            tiktokOptions: {
+              privacyLevel: tiktokPayload.privacyLevel,
+              disableComment: tiktokPayload.disableComment,
+              disableDuet: tiktokPayload.disableDuet,
+              disableStitch: tiktokPayload.disableStitch,
+              isCommercialContent: tiktokPayload.isCommercialContent,
+              isYourBrand: tiktokPayload.isYourBrand,
+              isBrandedContent: tiktokPayload.isBrandedContent,
+            },
+          });
+          break;
+        case 'facebook': result = await publishToFacebook(baseOpts); break;
+        case 'instagram': result = await publishToInstagram(baseOpts); break;
+        case 'linkedin': result = await publishToLinkedIn(baseOpts); break;
         default:
           toast.error(`Chưa hỗ trợ publish video lên ${pickedPlatform}`);
           return;
@@ -114,6 +129,7 @@ export function PublishVideoMenu({
       console.error('[publish-video] error', e);
     }
   };
+
 
   const conns = pickedPlatform
     ? activeConnections.filter((c) => c.platform === pickedPlatform)
@@ -156,7 +172,26 @@ export function PublishVideoMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={!!pickedPlatform} onOpenChange={(o) => !o && setPickedPlatform(null)}>
+      {/* TikTok uses dedicated compliant composer */}
+      <TikTokComposerDialog
+        open={pickedPlatform === 'tiktok'}
+        onOpenChange={(o) => !o && setPickedPlatform(null)}
+        connection={
+          pickedPlatform === 'tiktok'
+            ? conns.find((c) => c.id === pickedConnectionId) ?? null
+            : null
+        }
+        mediaUrl={videoUrl}
+        defaultCaption={defaultCaption}
+        isPublishing={isPublishing}
+        onSubmit={(payload) => submit(payload)}
+      />
+
+      {/* Generic dialog for non-TikTok platforms */}
+      <Dialog
+        open={!!pickedPlatform && pickedPlatform !== 'tiktok'}
+        onOpenChange={(o) => !o && setPickedPlatform(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -212,12 +247,13 @@ export function PublishVideoMenu({
             <Button variant="ghost" size="sm" onClick={() => setPickedPlatform(null)} disabled={isPublishing}>
               Hủy
             </Button>
-            <Button size="sm" onClick={submit} disabled={isPublishing || !pickedConnectionId}>
+            <Button size="sm" onClick={() => submit()} disabled={isPublishing || !pickedConnectionId}>
               {isPublishing ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Đang đăng...</> : <><Send className="w-3.5 h-3.5 mr-1.5" />Đăng ngay</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 }

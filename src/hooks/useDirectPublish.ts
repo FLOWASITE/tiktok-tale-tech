@@ -31,6 +31,16 @@ export interface PublishOptions {
     tags?: string[];
     isPublic?: boolean;
   };
+  /** TikTok-specific composer options (privacy, interactions, commercial disclosure) */
+  tiktokOptions?: {
+    privacyLevel: 'PUBLIC_TO_EVERYONE' | 'FOLLOWER_OF_CREATOR' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY';
+    disableComment: boolean;
+    disableDuet: boolean;
+    disableStitch: boolean;
+    isCommercialContent: boolean;
+    isYourBrand: boolean;
+    isBrandedContent: boolean;
+  };
 }
 
 export function useDirectPublish() {
