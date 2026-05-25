@@ -1,124 +1,108 @@
-## Mục tiêu
 
-Lưu lại prompt của mọi ảnh do `generate-brand-image` sinh ra để **debug**, nhưng **chỉ admin hệ thống Flowa** được xem (user thường không thấy). Backfill prompt cho 2 ảnh FinAI đã có để admin review ngay.
+# Fix TikTok Direct Post — Compliance UX + App Name
 
----
+## Phần 1 — Sửa trên TikTok Developer Portal (user thao tác, không cần code)
 
-## Bước 1 — Persist prompt vào `channel_image_history` (early write + late update)
+Vào https://developers.tiktok.com → app của bạn → **Basic Information**:
+- Đặt **App Name** = **Organization Name** (cùng giá trị, ví dụ `Flowa`).
+- Lưu, chờ portal cập nhật vài phút.
 
-**File:** `supabase/functions/generate-brand-image/index.ts`
+→ Khắc phục lỗi *"App Name & Organization Name should be the same"*.
 
-1. Sau khi `buildImagePrompt(...)` xong, **insert ngay 1 row** vào `channel_image_history`:
-   - `content_id`, `channel`, `organization_id`, `prompt` (full)
-   - `aspect_ratio`, `version = next_version`
-   - `image_url = ''` (placeholder), `is_selected = false`
-2. Lưu `historyRowId`
-3. Khi PoYo/Gemini trả ảnh thành công → **UPDATE** row đó: `image_url = <url>`, `is_selected = true`
-4. Fail giữa chừng → row vẫn còn prompt với `image_url = ''` → admin debug được
+## Phần 2 — Build TikTok-compliant composer (code)
 
-Best-effort: insert history fail vẫn KHÔNG block generation (try/catch warn).
+TikTok bắt buộc UI đăng bài phải có đủ 5 thành phần, đúng thứ tự. Hiện tại `PublishVideoMenu.tsx` chỉ có 1 ô caption — vi phạm cả 5 điểm. Sẽ tách riêng một dialog dành cho TikTok thay vì dùng chung dialog generic.
 
----
+### 2.1 Tạo mới `src/components/publishing/TikTokComposerDialog.tsx`
 
-## Bước 2 — RLS: chỉ admin Flowa xem được prompt
+UI sẽ hiển thị theo **đúng thứ tự TikTok yêu cầu**:
 
-**Migration mới** trên `channel_image_history`:
+1. **Account info row** (avatar + display_name + @username) — lấy từ `social_connections.platform_avatar_url` + `platform_display_name` + `platform_username`.
+2. **Caption** (Textarea, max 4000 ký tự, có counter).
+3. **Privacy level** — RadioGroup, options lấy động từ TikTok creator info API (PUBLIC_TO_EVERYONE / FOLLOWER_OF_CREATOR / MUTUAL_FOLLOW_FRIENDS / SELF_ONLY). Hiển thị label tiếng Việt + tiếng Anh ("Mọi người · Public", "Bạn bè · Friends", "Chỉ mình tôi · Only me").
+4. **Allow users to** — 3 Switch: Comment / Duet / Stitch (mặc định ON; disable Comment nếu creator info trả `comment_disabled=true`).
+5. **Disclose video content** (Commercial Content Disclosure):
+   - Master Switch "Disclose video content"
+   - Khi ON: 2 Checkbox độc lập — "Your brand" và "Branded content"
+   - Hiển thị 1 banner cảnh báo:
+     - Off → "Your video will be labeled 'Promotional content'." (chỉ hiện khi user bật Your brand)
+     - Branded content ON → "Your video will be labeled 'Paid partnership'." + bắt buộc privacy level **không được** SELF_ONLY (disable option đó)
+   - Link đọc thêm: `https://www.tiktok.com/legal/page/global/bc-policy/en`
+6. **Confirmation footer**:
+   - Text rõ ràng: *"By posting, you agree to TikTok's "[Music Usage Confirmation](https://www.tiktok.com/legal/page/global/music-usage-confirmation/en)"."* (hoặc bản branded content nếu bật).
+   - Nút **"Post to TikTok"** (không dùng từ chung chung "Đăng ngay").
 
-- Drop policy SELECT hiện tại (nếu cho phép user xem prompt)
-- Tạo 2 policy SELECT:
-  - **Org members**: được SELECT nhưng **CHỈ qua VIEW** (xem dưới) — view này KHÔNG expose cột `prompt`
-  - **Admin Flowa**: được SELECT full bảng base bao gồm `prompt`, qua hàm `public.has_role(auth.uid(), 'admin')`
+Reference UI tham khảo: https://developers.tiktok.com/doc/content-sharing-guidelines (TikTok cung cấp design spec chính thức).
 
-**View public:**
-```sql
-CREATE OR REPLACE VIEW public.channel_image_history_safe
-WITH (security_invoker=on) AS
-SELECT id, content_id, channel, image_url, aspect_ratio,
-       is_selected, version, organization_id, created_at, last_accessed_at
-FROM public.channel_image_history;
--- KHÔNG có cột prompt và created_by
-```
+### 2.2 Sửa `PublishVideoMenu.tsx`
 
-Base table policy SELECT:
-```sql
--- Chỉ admin Flowa SELECT trực tiếp base table (có prompt)
-CREATE POLICY "admin_full_select" ON channel_image_history
-  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
-```
+- Khi `pickedPlatform === 'tiktok'` → mở `<TikTokComposerDialog>` thay vì dialog generic.
+- Các platform khác giữ nguyên dialog hiện tại.
 
-Org members query qua **view** sẽ chỉ thấy URL ảnh (cần cho hiển thị gallery), không thấy prompt.
+### 2.3 Sửa `useDirectPublish` + `publish-tiktok` edge function
 
-→ Frontend hiện tại nếu query `channel_image_history` để show ảnh phải đổi sang `channel_image_history_safe`. Tôi sẽ grep + update.
+Hiện tại edge function tự chọn `privacy_level` và đọc `disable_comment` từ creator info. Cần cho phép UI override:
 
----
+- `publishToTikTok(opts)` nhận thêm:
+  ```ts
+  tiktokOptions: {
+    privacyLevel: 'PUBLIC_TO_EVERYONE' | 'FOLLOWER_OF_CREATOR' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY';
+    disableComment: boolean;
+    disableDuet: boolean;
+    disableStitch: boolean;
+    isCommercialContent: boolean;
+    isYourBrand: boolean;
+    isBrandedContent: boolean;
+  }
+  ```
+- `publish-tiktok/index.ts`:
+  - Bỏ logic auto-pick `PRIVACY_PRIORITY`, dùng `privacyLevel` từ request (vẫn validate nằm trong `privacy_level_options` từ creator info, sai → 400).
+  - Body `post_info` thêm:
+    ```json
+    {
+      "privacy_level": "...",
+      "disable_comment": ...,
+      "disable_duet": ...,
+      "disable_stitch": ...,
+      "brand_content_toggle": isBrandedContent,
+      "brand_organic_toggle": isYourBrand
+    }
+    ```
+  - Validate: nếu `isBrandedContent === true` và `privacyLevel === 'SELF_ONLY'` → 400 (theo policy TikTok).
 
-## Bước 3 — Sample 100% prompt vào `ai_metrics` (admin-only)
+### 2.4 Endpoint mới `get-tiktok-creator-info`
 
-`ai_metrics.sampled_response` đã có RLS admin-only sẵn (theo memory `Carousel Cache & Circuit Breaker`). Image gen volume thấp → ép sample **100%**:
-```ts
-sampled_response: { prompt: fullPrompt, model: modelUsed, provider }
-```
-Backup thứ 2 ngoài `channel_image_history` — kể cả history insert lỗi vẫn còn metric.
+UI cần biết privacy options + comment_disabled **trước** khi cho user chọn. Tách logic `getCreatorPostSettings()` hiện có trong `publish-tiktok` thành endpoint GET riêng:
 
----
+- `supabase/functions/get-tiktok-creator-info/index.ts` — input `{ connectionId }`, output `{ privacyLevelOptions, commentDisabled, duetDisabled, stitchDisabled, creatorAvatarUrl, creatorNickname, creatorUsername, maxVideoPostDurationSec }`.
+- TikTokComposerDialog gọi endpoint này khi mở để render đúng options.
 
-## Bước 4 — Backfill prompt cho 2 ảnh FinAI hiện có
+## Phần 3 — Tài liệu reapply
 
-Script offline (Deno) tái dựng prompt cho content `1e518499` (FB + IG):
-- Brand FinAI (`9a532865`) colors/industry/style
-- Channel FB 16:9 + IG 4:5
-- Dùng cùng `_shared/image-prompt-builder.ts` → đảm bảo output y hệt
+Tạo `docs/tiktok-reapply-checklist.md` ghi rõ:
+- 5 UX bullet points (kèm screenshot mỗi điểm sau khi build xong).
+- App Name = Org Name.
+- Script quay video demo: kết nối → mở composer → bật từng option → submit.
 
-Insert 2 row vào `channel_image_history` với note `version=backfill_v1`. Admin mở admin panel thấy được prompt ngay.
+## Phần 4 — Files thay đổi
 
----
+**Tạo mới:**
+- `src/components/publishing/TikTokComposerDialog.tsx`
+- `src/hooks/useTikTokCreatorInfo.ts`
+- `supabase/functions/get-tiktok-creator-info/index.ts`
+- `docs/tiktok-reapply-checklist.md`
 
-## Bước 5 — UI: nút "Xem prompt" chỉ hiện cho admin
+**Sửa:**
+- `src/components/video/PublishVideoMenu.tsx` — route TikTok vào composer riêng.
+- `src/hooks/useDirectPublish.ts` — thêm `tiktokOptions` cho `publishToTikTok`.
+- `supabase/functions/publish-tiktok/index.ts` — accept options từ client, thêm `disable_duet/disable_stitch/brand_*_toggle`.
 
-**File:** `src/components/multichannel/<ChannelImageCard>` (sẽ locate trong build)
+**Không động:** logic media proxy (`media.flowa.one`), JPEG normalize, polling status.
 
-- Dùng hook role check (`useUserRole` hoặc tương đương đã có trong codebase)
-- Nếu `isAdmin === true` → render icon ℹ️ "Xem prompt"
-- Click → mở Dialog hiển thị prompt + model + provider + version, có copy-to-clipboard
-- User thường: KHÔNG thấy icon
+## Phần 5 — Verify
 
-Query: `channel_image_history` (base table) — chỉ admin pass được RLS, user thường nhận empty array. UI fallback: dùng `channel_image_history_safe` view cho gallery (mọi user).
+1. Mở `/video-studio` → nút "Đăng ngay" → chọn TikTok → dialog mới hiển thị đủ 5 phần đúng thứ tự.
+2. Bật Branded content → option SELF_ONLY bị disable + label "Paid partnership" hiển thị.
+3. Submit → kiểm tra `edge_function_logs` thấy body TikTok có `brand_content_toggle/brand_organic_toggle/disable_duet/disable_stitch`.
+4. Quay 1 video demo 60s theo flow trên → upload vào form Reapply của TikTok kèm note "App Name updated to match Org Name".
 
----
-
-## Technical details
-
-**Schema:** không cần thêm cột mới, chỉ tạo view + đổi RLS policy. Migration là additive.
-
-**Code search cần làm khi build:**
-- `rg "channel_image_history" src/` → đổi sang view name cho mọi query non-admin
-- `rg "has_role|useUserRole|isAdmin" src/` → reuse hook hiện có
-
-**Files sẽ chạm:**
-```text
-supabase/migrations/<timestamp>_image_prompt_admin_only.sql  (mới — view + RLS)
-supabase/functions/generate-brand-image/index.ts             (bước 1+3)
-src/components/multichannel/<ChannelImageCard>               (bước 5)
-src/hooks/<useChannelImageHistory hoặc tương đương>          (đổi sang view)
-scripts/backfill-finai-prompts.ts                            (bước 4 — chạy 1 lần)
-mem://features/multichannel/image-prompt-admin-observability-vn  (memory mới)
-```
-
-**Không chạm:**
-- `_shared/image-prompt-builder.ts` (logic prompt giữ nguyên)
-- Các function khác
-
-**Verify khi xong:**
-1. Tạo 1 ảnh mới với account user thường → query `channel_image_history` trả 0 rows; query view trả URL không có prompt ✅
-2. Login admin → query base table → thấy prompt ✅
-3. UI user thường: không thấy icon "Xem prompt" ✅
-4. UI admin: thấy + click ra prompt full ✅
-
----
-
-## Kết quả
-
-- ✅ Mọi ảnh mới → prompt tự lưu, **chỉ admin Flowa xem được**
-- ✅ User thường vẫn xem ảnh bình thường, không thấy prompt
-- ✅ 2 ảnh FinAI hiện tại được backfill prompt cho admin review
-- ✅ Function timeout 150s vẫn lưu được prompt nhờ early-write
