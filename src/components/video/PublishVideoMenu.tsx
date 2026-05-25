@@ -172,7 +172,26 @@ export function PublishVideoMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={!!pickedPlatform} onOpenChange={(o) => !o && setPickedPlatform(null)}>
+      {/* TikTok uses dedicated compliant composer */}
+      <TikTokComposerDialog
+        open={pickedPlatform === 'tiktok'}
+        onOpenChange={(o) => !o && setPickedPlatform(null)}
+        connection={
+          pickedPlatform === 'tiktok'
+            ? conns.find((c) => c.id === pickedConnectionId) ?? null
+            : null
+        }
+        mediaUrl={videoUrl}
+        defaultCaption={defaultCaption}
+        isPublishing={isPublishing}
+        onSubmit={(payload) => submit(payload)}
+      />
+
+      {/* Generic dialog for non-TikTok platforms */}
+      <Dialog
+        open={!!pickedPlatform && pickedPlatform !== 'tiktok'}
+        onOpenChange={(o) => !o && setPickedPlatform(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -228,12 +247,13 @@ export function PublishVideoMenu({
             <Button variant="ghost" size="sm" onClick={() => setPickedPlatform(null)} disabled={isPublishing}>
               Hủy
             </Button>
-            <Button size="sm" onClick={submit} disabled={isPublishing || !pickedConnectionId}>
+            <Button size="sm" onClick={() => submit()} disabled={isPublishing || !pickedConnectionId}>
               {isPublishing ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Đang đăng...</> : <><Send className="w-3.5 h-3.5 mr-1.5" />Đăng ngay</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 }
