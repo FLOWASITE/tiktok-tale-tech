@@ -1109,6 +1109,20 @@ export function DirectPublishButton({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* TikTok dedicated compliant composer */}
+      <TikTokComposerDialog
+        open={tiktokDialogOpen}
+        onOpenChange={(o) => {
+          setTiktokDialogOpen(o);
+          if (!o) setPublishedResult(null);
+        }}
+        connection={platform === 'tiktok' ? (connection as any) : null}
+        mediaUrl={mediaUrls?.[0] || ''}
+        defaultCaption={editableContent}
+        isPublishing={isPublishing}
+        onSubmit={handleTikTokSubmit}
+      />
     </>
   );
 }
