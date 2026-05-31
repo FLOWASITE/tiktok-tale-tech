@@ -401,6 +401,40 @@ export function DirectPublishButton({
     setPublishedResult(null);
   };
 
+  const handleTikTokSubmit = async (payload: TikTokSubmitPayload) => {
+    if (!connection) return;
+    try {
+      const result = await publishToTikTok({
+        connectionId: connection.id,
+        contentId,
+        content: payload.caption,
+        mediaUrls,
+        tiktokOptions: {
+          privacyLevel: payload.privacyLevel,
+          disableComment: payload.disableComment,
+          disableDuet: payload.disableDuet,
+          disableStitch: payload.disableStitch,
+          isCommercialContent: payload.isCommercialContent,
+          isYourBrand: payload.isYourBrand,
+          isBrandedContent: payload.isBrandedContent,
+        },
+      });
+      setTiktokDialogOpen(false);
+      setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
+      onPublishSuccess?.();
+      if (result?.postUrl) {
+        sonnerToast.success('Đã đăng lên TikTok', {
+          action: { label: 'Mở bài đăng', onClick: () => window.open(result.postUrl!, '_blank') },
+        });
+      } else {
+        sonnerToast.success('Đã gửi bài lên TikTok');
+      }
+    } catch (e) {
+      // useDirectPublish đã toast error
+      console.error('[direct-publish-tiktok] error', e);
+    }
+  };
+
   const handleScheduleClick = () => {
     if (!connection) {
       navigate('/connections');
