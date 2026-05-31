@@ -380,6 +380,14 @@ export function DirectPublishButton({
       return;
     }
 
+    // TikTok: dùng composer riêng theo chính sách UX của TikTok
+    if (platform === 'tiktok') {
+      setEditableContent(content);
+      setPublishedResult(null);
+      setTiktokDialogOpen(true);
+      return;
+    }
+
     setEditableContent(content);
     setLinkUrl(blogBacklink || '');
     setPublishedResult(null);
