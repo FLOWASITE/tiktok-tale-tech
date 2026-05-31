@@ -194,6 +194,7 @@ export function DirectPublishButton({
   const [blogExcerpt, setBlogExcerpt] = useState('');
   const [blogIsPublic, setBlogIsPublic] = useState(false);
   const [pinTitle, setPinTitle] = useState('');
+  const [tiktokDialogOpen, setTiktokDialogOpen] = useState(false);
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
