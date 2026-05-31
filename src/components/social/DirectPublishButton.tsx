@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { stripSeoMetadata } from '@/utils/contentFormatter';
 import { useNavigate } from 'react-router-dom';
 import { toast as sonnerToast } from 'sonner';
+import { TikTokComposerDialog, type TikTokSubmitPayload } from '@/components/publishing/TikTokComposerDialog';
 
 interface DirectPublishButtonProps {
   content: string;
@@ -193,6 +194,7 @@ export function DirectPublishButton({
   const [blogExcerpt, setBlogExcerpt] = useState('');
   const [blogIsPublic, setBlogIsPublic] = useState(false);
   const [pinTitle, setPinTitle] = useState('');
+  const [tiktokDialogOpen, setTiktokDialogOpen] = useState(false);
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
@@ -378,6 +380,14 @@ export function DirectPublishButton({
       return;
     }
 
+    // TikTok: dùng composer riêng theo chính sách UX của TikTok
+    if (platform === 'tiktok') {
+      setEditableContent(content);
+      setPublishedResult(null);
+      setTiktokDialogOpen(true);
+      return;
+    }
+
     setEditableContent(content);
     setLinkUrl(blogBacklink || '');
     setPublishedResult(null);
@@ -389,6 +399,40 @@ export function DirectPublishButton({
     setConfirmDialog({ open: false, platform: null });
     setDialogState('confirm');
     setPublishedResult(null);
+  };
+
+  const handleTikTokSubmit = async (payload: TikTokSubmitPayload) => {
+    if (!connection) return;
+    try {
+      const result = await publishToTikTok({
+        connectionId: connection.id,
+        contentId,
+        content: payload.caption,
+        mediaUrls,
+        tiktokOptions: {
+          privacyLevel: payload.privacyLevel,
+          disableComment: payload.disableComment,
+          disableDuet: payload.disableDuet,
+          disableStitch: payload.disableStitch,
+          isCommercialContent: payload.isCommercialContent,
+          isYourBrand: payload.isYourBrand,
+          isBrandedContent: payload.isBrandedContent,
+        },
+      });
+      setTiktokDialogOpen(false);
+      setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
+      onPublishSuccess?.();
+      if (result?.postUrl) {
+        sonnerToast.success('Đã đăng lên TikTok', {
+          action: { label: 'Mở bài đăng', onClick: () => window.open(result.postUrl!, '_blank') },
+        });
+      } else {
+        sonnerToast.success('Đã gửi bài lên TikTok');
+      }
+    } catch (e) {
+      // useDirectPublish đã toast error
+      console.error('[direct-publish-tiktok] error', e);
+    }
   };
 
   const handleScheduleClick = () => {
@@ -1065,6 +1109,20 @@ export function DirectPublishButton({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* TikTok dedicated compliant composer */}
+      <TikTokComposerDialog
+        open={tiktokDialogOpen}
+        onOpenChange={(o) => {
+          setTiktokDialogOpen(o);
+          if (!o) setPublishedResult(null);
+        }}
+        connection={platform === 'tiktok' ? (connection as any) : null}
+        mediaUrl={mediaUrls?.[0] || ''}
+        defaultCaption={editableContent}
+        isPublishing={isPublishing}
+        onSubmit={handleTikTokSubmit}
+      />
     </>
   );
 }
