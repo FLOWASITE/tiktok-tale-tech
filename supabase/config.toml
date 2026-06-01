@@ -489,6 +489,24 @@ verify_jwt = false
 [functions.test-gsc-connection]
 verify_jwt = false
 
+[functions.tiktok-oauth-callback]
+verify_jwt = false
+
+[functions.publish-tiktok]
+verify_jwt = false
+
+[functions.refresh-tiktok-token]
+verify_jwt = false
+
+[functions.test-tiktok-credentials]
+verify_jwt = false
+
+[functions.test-tiktok-connection]
+verify_jwt = false
+
+[functions.get-tiktok-creator-info]
+verify_jwt = false
+
 
 [functions.sync-external-links]
 verify_jwt = false
