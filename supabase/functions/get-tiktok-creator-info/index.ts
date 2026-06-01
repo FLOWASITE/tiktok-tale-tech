@@ -47,7 +47,7 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
 
     const { data: connection, error: connErr } = await supabase
       .from("social_connections")
-      .select("id, platform, access_token, organization_id, token_expires_at, metadata")
+      .select("id, platform, access_token, organization_id, user_id, token_expires_at, metadata")
       .eq("id", connectionId)
       .single();
 
