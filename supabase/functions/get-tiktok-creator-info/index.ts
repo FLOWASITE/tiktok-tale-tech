@@ -82,6 +82,39 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
       );
     }
 
+    const callTikTok = async (token: string) =>
+      fetch("https://open.tiktokapis.com/v2/post/publish/creator_info/query/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: "{}",
+      });
+
+    const refreshAndGetToken = async (): Promise<string | null> => {
+      try {
+        const { data: refreshed, error: refreshErr } = await supabase.functions.invoke(
+          "refresh-tiktok-token",
+          { body: { connectionId } },
+        );
+        if (refreshErr || !refreshed?.success) {
+          console.error("[get-tiktok-creator-info] refresh failed", refreshErr, refreshed);
+          return null;
+        }
+        const { data: fresh } = await supabase
+          .from("social_connections")
+          .select("access_token")
+          .eq("id", connectionId)
+          .single();
+        if (!fresh?.access_token) return null;
+        return await decryptCredential(fresh.access_token);
+      } catch (e) {
+        console.error("[get-tiktok-creator-info] refresh exception", e);
+        return null;
+      }
+    };
+
     let accessToken = connection.access_token;
     if (!accessToken) {
       return new Response(
@@ -91,19 +124,25 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
     }
     accessToken = await decryptCredential(accessToken);
 
-    const response = await fetch(
-      "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json; charset=UTF-8",
-        },
-        body: "{}",
-      },
-    );
+    // Proactive refresh if token expired or near expiry (< 5 min)
+    const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
+    if (expiresAt && expiresAt - Date.now() < 5 * 60 * 1000) {
+      const newToken = await refreshAndGetToken();
+      if (newToken) accessToken = newToken;
+    }
 
-    const result = await response.json().catch(() => ({}));
+    let response = await callTikTok(accessToken);
+    let result: any = await response.json().catch(() => ({}));
+
+    // Reactive refresh on 401 / invalid token
+    if (response.status === 401 || result?.error?.code === "access_token_invalid") {
+      const newToken = await refreshAndGetToken();
+      if (newToken) {
+        accessToken = newToken;
+        response = await callTikTok(accessToken);
+        result = await response.json().catch(() => ({}));
+      }
+    }
     if (!response.ok || (result?.error?.code && result.error.code !== "ok")) {
       console.error("[get-tiktok-creator-info] error", response.status, result);
       return new Response(
