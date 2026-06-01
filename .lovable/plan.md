@@ -1,108 +1,83 @@
 
-# Fix TikTok Direct Post — Compliance UX + App Name
+# Polish TikTok Composer Dialog
 
-## Phần 1 — Sửa trên TikTok Developer Portal (user thao tác, không cần code)
+Mục tiêu: dialog hiện tại đã có đủ 5 phần theo compliance nhưng còn "web-ish" — spacing, typography, hierarchy chưa đúng phong cách TikTok native. Lượt này chỉ refine **UI/UX**, không đụng logic publish hay edge function.
 
-Vào https://developers.tiktok.com → app của bạn → **Basic Information**:
-- Đặt **App Name** = **Organization Name** (cùng giá trị, ví dụ `Flowa`).
-- Lưu, chờ portal cập nhật vài phút.
+## Những điểm khác biệt so với TikTok native
 
-→ Khắc phục lỗi *"App Name & Organization Name should be the same"*.
+So sánh với composer thật (TikTok app v34+ "Post to TikTok"):
 
-## Phần 2 — Build TikTok-compliant composer (code)
+| Yếu tố | Hiện tại | TikTok native |
+|---|---|---|
+| Header | Chỉ "Đăng lên TikTok" | "Đăng bài" + avatar account ở giữa hoặc dòng "Đăng dưới tên @username" |
+| Caption block | Textarea + thumbnail 88×140 nằm cạnh | Caption full-width, thumbnail nhỏ 56×72 góc phải nổi trên |
+| Chip Hashtag/Mention | Pill nhỏ rời rạc | Toolbar dính ngay dưới caption, kèm icon location, music |
+| Section rows | Card có border, divider mảnh | Row liền mạch, chỉ divider mảnh 1px, không border bo |
+| Privacy row | Mở ra RadioGroup inline | Mở ra **bottom sheet riêng** hoặc list full-width không indent |
+| Toggle Comment/Duet/Stitch | 3 toggle dọc trong "Tùy chọn khác" | 3 row độc lập ở cấp gốc, mỗi row 1 dòng + switch phải |
+| Disclose section | Card với checkbox indent | Row gốc → mở ra panel có 2 card lớn "Your brand" / "Branded content" với mô tả + icon |
+| Footer | 2 nút Nháp + Đăng pill đỏ | 1 nút "Đăng" full-width đỏ, "Nháp" là link text nhỏ phía trên hoặc ở top-right |
+| Font weight | font-medium đều | Tiêu đề row semibold 15px, summary text-muted 13px |
+| Padding | px-4 dày | px-4 nhưng row height đồng đều 56px |
+| Màu accent | Đỏ destructive | TikTok đỏ `#FE2C55` (pure brand red) cho CTA chính |
 
-TikTok bắt buộc UI đăng bài phải có đủ 5 thành phần, đúng thứ tự. Hiện tại `PublishVideoMenu.tsx` chỉ có 1 ô caption — vi phạm cả 5 điểm. Sẽ tách riêng một dialog dành cho TikTok thay vì dùng chung dialog generic.
+## Files thay đổi
 
-### 2.1 Tạo mới `src/components/publishing/TikTokComposerDialog.tsx`
-
-UI sẽ hiển thị theo **đúng thứ tự TikTok yêu cầu**:
-
-1. **Account info row** (avatar + display_name + @username) — lấy từ `social_connections.platform_avatar_url` + `platform_display_name` + `platform_username`.
-2. **Caption** (Textarea, max 4000 ký tự, có counter).
-3. **Privacy level** — RadioGroup, options lấy động từ TikTok creator info API (PUBLIC_TO_EVERYONE / FOLLOWER_OF_CREATOR / MUTUAL_FOLLOW_FRIENDS / SELF_ONLY). Hiển thị label tiếng Việt + tiếng Anh ("Mọi người · Public", "Bạn bè · Friends", "Chỉ mình tôi · Only me").
-4. **Allow users to** — 3 Switch: Comment / Duet / Stitch (mặc định ON; disable Comment nếu creator info trả `comment_disabled=true`).
-5. **Disclose video content** (Commercial Content Disclosure):
-   - Master Switch "Disclose video content"
-   - Khi ON: 2 Checkbox độc lập — "Your brand" và "Branded content"
-   - Hiển thị 1 banner cảnh báo:
-     - Off → "Your video will be labeled 'Promotional content'." (chỉ hiện khi user bật Your brand)
-     - Branded content ON → "Your video will be labeled 'Paid partnership'." + bắt buộc privacy level **không được** SELF_ONLY (disable option đó)
-   - Link đọc thêm: `https://www.tiktok.com/legal/page/global/bc-policy/en`
-6. **Confirmation footer**:
-   - Text rõ ràng: *"By posting, you agree to TikTok's "[Music Usage Confirmation](https://www.tiktok.com/legal/page/global/music-usage-confirmation/en)"."* (hoặc bản branded content nếu bật).
-   - Nút **"Post to TikTok"** (không dùng từ chung chung "Đăng ngay").
-
-Reference UI tham khảo: https://developers.tiktok.com/doc/content-sharing-guidelines (TikTok cung cấp design spec chính thức).
-
-### 2.2 Sửa `PublishVideoMenu.tsx`
-
-- Khi `pickedPlatform === 'tiktok'` → mở `<TikTokComposerDialog>` thay vì dialog generic.
-- Các platform khác giữ nguyên dialog hiện tại.
-
-### 2.3 Sửa `useDirectPublish` + `publish-tiktok` edge function
-
-Hiện tại edge function tự chọn `privacy_level` và đọc `disable_comment` từ creator info. Cần cho phép UI override:
-
-- `publishToTikTok(opts)` nhận thêm:
-  ```ts
-  tiktokOptions: {
-    privacyLevel: 'PUBLIC_TO_EVERYONE' | 'FOLLOWER_OF_CREATOR' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY';
-    disableComment: boolean;
-    disableDuet: boolean;
-    disableStitch: boolean;
-    isCommercialContent: boolean;
-    isYourBrand: boolean;
-    isBrandedContent: boolean;
-  }
-  ```
-- `publish-tiktok/index.ts`:
-  - Bỏ logic auto-pick `PRIVACY_PRIORITY`, dùng `privacyLevel` từ request (vẫn validate nằm trong `privacy_level_options` từ creator info, sai → 400).
-  - Body `post_info` thêm:
-    ```json
-    {
-      "privacy_level": "...",
-      "disable_comment": ...,
-      "disable_duet": ...,
-      "disable_stitch": ...,
-      "brand_content_toggle": isBrandedContent,
-      "brand_organic_toggle": isYourBrand
-    }
-    ```
-  - Validate: nếu `isBrandedContent === true` và `privacyLevel === 'SELF_ONLY'` → 400 (theo policy TikTok).
-
-### 2.4 Endpoint mới `get-tiktok-creator-info`
-
-UI cần biết privacy options + comment_disabled **trước** khi cho user chọn. Tách logic `getCreatorPostSettings()` hiện có trong `publish-tiktok` thành endpoint GET riêng:
-
-- `supabase/functions/get-tiktok-creator-info/index.ts` — input `{ connectionId }`, output `{ privacyLevelOptions, commentDisabled, duetDisabled, stitchDisabled, creatorAvatarUrl, creatorNickname, creatorUsername, maxVideoPostDurationSec }`.
-- TikTokComposerDialog gọi endpoint này khi mở để render đúng options.
-
-## Phần 3 — Tài liệu reapply
-
-Tạo `docs/tiktok-reapply-checklist.md` ghi rõ:
-- 5 UX bullet points (kèm screenshot mỗi điểm sau khi build xong).
-- App Name = Org Name.
-- Script quay video demo: kết nối → mở composer → bật từng option → submit.
-
-## Phần 4 — Files thay đổi
-
-**Tạo mới:**
+**Sửa duy nhất:**
 - `src/components/publishing/TikTokComposerDialog.tsx`
-- `src/hooks/useTikTokCreatorInfo.ts`
-- `supabase/functions/get-tiktok-creator-info/index.ts`
-- `docs/tiktok-reapply-checklist.md`
 
-**Sửa:**
-- `src/components/video/PublishVideoMenu.tsx` — route TikTok vào composer riêng.
-- `src/hooks/useDirectPublish.ts` — thêm `tiktokOptions` cho `publishToTikTok`.
-- `supabase/functions/publish-tiktok/index.ts` — accept options từ client, thêm `disable_duet/disable_stitch/brand_*_toggle`.
+**Không động:**
+- `useTikTokCreatorInfo.ts`, `publish-tiktok/index.ts`, `get-tiktok-creator-info/index.ts`, `useDirectPublish.ts`, `PublishVideoMenu.tsx`.
 
-**Không động:** logic media proxy (`media.flowa.one`), JPEG normalize, polling status.
+## Refinements cụ thể
 
-## Phần 5 — Verify
+### 1. Header
+- Thay title bằng cụm 2 dòng: "Đăng bài" (semibold 15px) + dòng phụ "Đăng dưới tên @username" (text-muted-foreground 11px).
+- Nút "Nháp" chuyển thành text link ở góc phải header (thay vì button viền dưới footer).
+- Footer chỉ còn duy nhất nút **Đăng** full-width, h-12, bg `#FE2C55`, text trắng, rounded-md.
 
-1. Mở `/video-studio` → nút "Đăng ngay" → chọn TikTok → dialog mới hiển thị đủ 5 phần đúng thứ tự.
-2. Bật Branded content → option SELF_ONLY bị disable + label "Paid partnership" hiển thị.
-3. Submit → kiểm tra `edge_function_logs` thấy body TikTok có `brand_content_toggle/brand_organic_toggle/disable_duet/disable_stitch`.
-4. Quay 1 video demo 60s theo flow trên → upload vào form Reapply của TikTok kèm note "App Name updated to match Org Name".
+### 2. Caption + thumbnail
+- Thumbnail thu nhỏ 64×84, bo `rounded-lg`, đặt floating góc phải-trên của khối caption (absolute), caption full-width bên dưới.
+- Counter `0/4000` lùi xuống dưới-phải caption, font 11px.
+- Bỏ label "Xem trước" overlay; chỉ hiện icon ▶ nhỏ nếu là video.
 
+### 3. Toolbar dưới caption
+- Pill chuyển sang dạng inline text + icon, không border, gap-4: `# Hashtag`, `@ Bạn bè`, gắn separator dọc mảnh giữa các item.
+
+### 4. Section rows (privacy / disclose / interactions)
+- Bỏ border bo từng row, dùng divider mảnh `border-b border-border/40`.
+- Row chính cao 56px, layout: `[icon 20px] [title + summary 2 dòng] [chevron]`.
+- Title: text-sm font-medium. Summary: text-[12px] text-muted-foreground, ellipsis 1 dòng.
+
+### 5. Privacy
+- Tách "Ai có thể xem video này" thành row riêng, mở ra list full-width (không indent thụt vào), mỗi option là row 48px với icon trái + radio phải.
+- Option SELF_ONLY khi disable hiện badge nhỏ "Không khả dụng với Branded".
+
+### 6. Allow Comment/Duet/Stitch
+- Bỏ collapsible "Tùy chọn khác". Đưa 3 toggle thành 3 row độc lập cùng cấp với Privacy, mỗi row 56px, switch bên phải.
+- Khi tài khoản forced-off: switch grey + dòng summary "TikTok đã tắt".
+
+### 7. Disclose
+- Khi mở: thay 2 checkbox dòng → 2 **card lựa chọn** dọc full-width:
+  - Card "Thương hiệu của bạn" (icon Megaphone) — label "Promotional content".
+  - Card "Nội dung có thương hiệu" (icon Handshake) — label "Paid partnership".
+- Card được chọn → border `foreground/40` + tick góc phải; bỏ Checkbox primitive.
+- Warning Branded + SELF_ONLY hiển thị banner màu amber dưới card, không destructive.
+
+### 8. Tokens màu & typography
+- Thêm const `TIKTOK_RED = '#FE2C55'` dùng cho CTA chính (inline style — đây là brand red bắt buộc, không dùng semantic destructive đỏ tối).
+- Tiêu đề row: `text-[15px] font-semibold tracking-tight`.
+- Footnote Music Usage Confirmation: căn giữa, max-w-xs mx-auto, text-[11px].
+
+### 9. Micro-interaction
+- Khi nhấn vào row → background flash `bg-muted/60` 150ms (active:bg).
+- Chevron xoay 90° khi row mở.
+- Switch dùng màu `#25F4EE` (TikTok cyan) khi ON — đồng bộ brand TikTok.
+
+## Verify
+
+1. Mở `/video-studio` → Đăng ngay → TikTok.
+2. So sánh layout với ảnh native TikTok đính kèm (nếu có) hoặc reference: https://developers.tiktok.com/doc/content-sharing-guidelines.
+3. Check responsive ở viewport 360, 414, 768 — dialog full-screen mobile, max-w-md desktop.
+4. Bật Branded content → SELF_ONLY hiển thị badge "Không khả dụng", không cho chọn.
+5. Toggle Comment/Duet/Stitch hoạt động độc lập, forced-off hiển thị đúng note.
