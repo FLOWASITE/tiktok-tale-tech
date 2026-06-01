@@ -47,7 +47,7 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
 
     const { data: connection, error: connErr } = await supabase
       .from("social_connections")
-      .select("id, platform, access_token, organization_id, token_expires_at, metadata")
+      .select("id, platform, access_token, organization_id, user_id, token_expires_at, metadata")
       .eq("id", connectionId)
       .single();
 
@@ -64,14 +64,18 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
       );
     }
 
-    // Verify caller belongs to org
-    const { data: membership } = await supabase
-      .from("organization_members")
-      .select("organization_id")
-      .eq("organization_id", connection.organization_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!membership) {
+    // Verify caller: owner of connection, OR member of connection.organization_id (if set)
+    let authorized = (connection as any).user_id === user.id;
+    if (!authorized && connection.organization_id) {
+      const { data: membership } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("organization_id", connection.organization_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      authorized = Boolean(membership);
+    }
+    if (!authorized) {
       return new Response(
         JSON.stringify({ success: false, error: "Forbidden" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
