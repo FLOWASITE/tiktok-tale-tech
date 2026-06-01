@@ -1,83 +1,93 @@
 
-# Polish TikTok Composer Dialog
+# Refine TikTok Composer — match screenshot native
 
-Mục tiêu: dialog hiện tại đã có đủ 5 phần theo compliance nhưng còn "web-ish" — spacing, typography, hierarchy chưa đúng phong cách TikTok native. Lượt này chỉ refine **UI/UX**, không đụng logic publish hay edge function.
+Chỉ sửa `src/components/publishing/TikTokComposerDialog.tsx`. Không động logic publish, hook, edge function.
 
-## Những điểm khác biệt so với TikTok native
+## So sánh với screenshot native
 
-So sánh với composer thật (TikTok app v34+ "Post to TikTok"):
-
-| Yếu tố | Hiện tại | TikTok native |
+| Phần | Hiện tại (sai) | Native TikTok (đúng) |
 |---|---|---|
-| Header | Chỉ "Đăng lên TikTok" | "Đăng bài" + avatar account ở giữa hoặc dòng "Đăng dưới tên @username" |
-| Caption block | Textarea + thumbnail 88×140 nằm cạnh | Caption full-width, thumbnail nhỏ 56×72 góc phải nổi trên |
-| Chip Hashtag/Mention | Pill nhỏ rời rạc | Toolbar dính ngay dưới caption, kèm icon location, music |
-| Section rows | Card có border, divider mảnh | Row liền mạch, chỉ divider mảnh 1px, không border bo |
-| Privacy row | Mở ra RadioGroup inline | Mở ra **bottom sheet riêng** hoặc list full-width không indent |
-| Toggle Comment/Duet/Stitch | 3 toggle dọc trong "Tùy chọn khác" | 3 row độc lập ở cấp gốc, mỗi row 1 dòng + switch phải |
-| Disclose section | Card với checkbox indent | Row gốc → mở ra panel có 2 card lớn "Your brand" / "Branded content" với mô tả + icon |
-| Footer | 2 nút Nháp + Đăng pill đỏ | 1 nút "Đăng" full-width đỏ, "Nháp" là link text nhỏ phía trên hoặc ở top-right |
-| Font weight | font-medium đều | Tiêu đề row semibold 15px, summary text-muted 13px |
-| Padding | px-4 dày | px-4 nhưng row height đồng đều 56px |
-| Màu accent | Đỏ destructive | TikTok đỏ `#FE2C55` (pure brand red) cho CTA chính |
+| Header | Back + "Đăng bài" + "@username" giữa + "Nháp" góc phải | **Chỉ icon back `<`**, không title, không username, không nút Nháp |
+| Caption placeholder | "Thêm mô tả, hashtag (#)..." | Không có placeholder text — chỉ caret nhấp nháy |
+| Thumbnail | 72×96 ring + Play icon overlay giữa | ~96×128 bo nhẹ, có **badge "Xem trước"** góc trên + nút **"Sửa ảnh bìa"** chip mờ dưới đáy thumbnail |
+| Hashtag / Mention | Inline text + icon + dấu separator dọc | **Pill rounded-full `bg-muted` cao 36px**, có gap-2 giữa 2 chip, không separator |
+| Counter `0/4000` | Hiển thị inline cạnh toolbar | **Ẩn hoàn toàn** (native không show) |
+| Row layout | Title 15px + summary 12px 2 dòng | **1 dòng duy nhất** — icon + title 16px, KHÔNG summary (trừ row "Thêm liên kết" có hint phải) |
+| Row Privacy | "Ai có thể xem video này" + summary "Mọi người" | **Title chính là giá trị đang chọn**: "Ai cũng có thể xem bài đăng này" / "Bạn bè" / "Chỉ mình tôi" |
+| Comment/Duet/Stitch | 3 flat row top-level | **Nằm trong "Tùy chọn khác"** collapsible — không lộ ở cấp gốc |
+| Section "Music Usage" footnote | Khối text dài giữa rows | **Xoá** — native không có ở composer |
+| Footer | 1 nút đỏ full-width | **2 pill rounded-full**: "Nháp" (icon hộp, bg muted, ~45% width) trái + "Đăng" (icon mũi tên-tròn, bg `#FE2C55`, ~50% width) phải, gap-3 |
 
-## Files thay đổi
+## Thay đổi cụ thể
 
-**Sửa duy nhất:**
-- `src/components/publishing/TikTokComposerDialog.tsx`
-
-**Không động:**
-- `useTikTokCreatorInfo.ts`, `publish-tiktok/index.ts`, `get-tiktok-creator-info/index.ts`, `useDirectPublish.ts`, `PublishVideoMenu.tsx`.
-
-## Refinements cụ thể
-
-### 1. Header
-- Thay title bằng cụm 2 dòng: "Đăng bài" (semibold 15px) + dòng phụ "Đăng dưới tên @username" (text-muted-foreground 11px).
-- Nút "Nháp" chuyển thành text link ở góc phải header (thay vì button viền dưới footer).
-- Footer chỉ còn duy nhất nút **Đăng** full-width, h-12, bg `#FE2C55`, text trắng, rounded-md.
+### 1. Header (px-2 h-12)
+- Chỉ giữ icon back trái (`ArrowLeft`, h-10 w-10 ghost).
+- Bỏ block title 2 dòng + bỏ nút "Nháp" góc phải.
 
 ### 2. Caption + thumbnail
-- Thumbnail thu nhỏ 64×84, bo `rounded-lg`, đặt floating góc phải-trên của khối caption (absolute), caption full-width bên dưới.
-- Counter `0/4000` lùi xuống dưới-phải caption, font 11px.
-- Bỏ label "Xem trước" overlay; chỉ hiện icon ▶ nhỏ nếu là video.
+- Textarea: bỏ `placeholder`, giữ `maxLength=4000`, min-h-[140px] để có chỗ trống.
+- Thumbnail: `w-[96px] h-[128px] rounded-lg` floating top-right.
+  - Pill nhỏ "Xem trước" góc trên (`absolute top-1 right-1 bg-black/55 text-white text-[10px] px-2 py-0.5 rounded-full`).
+  - Bỏ Play icon giữa.
+  - Chip "Sửa ảnh bìa" dưới đáy thumbnail (disabled / no-op, chỉ visual): `absolute inset-x-1 bottom-1 bg-black/55 text-white text-[10px] py-1 rounded-md text-center`.
+- Bỏ counter `0/4000`.
 
-### 3. Toolbar dưới caption
-- Pill chuyển sang dạng inline text + icon, không border, gap-4: `# Hashtag`, `@ Bạn bè`, gắn separator dọc mảnh giữa các item.
+### 3. Hashtag / Mention chips (gap-2, mt-3)
+```tsx
+<button className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-muted text-[14px]">
+  <Hash className="w-4 h-4" /> Hashtag
+</button>
+<button ...> <AtSign /> Nhắc đến </button>
+```
+Bỏ separator dọc.
 
-### 4. Section rows (privacy / disclose / interactions)
-- Bỏ border bo từng row, dùng divider mảnh `border-b border-border/40`.
-- Row chính cao 56px, layout: `[icon 20px] [title + summary 2 dòng] [chevron]`.
-- Title: text-sm font-medium. Summary: text-[12px] text-muted-foreground, ellipsis 1 dòng.
+### 4. Section rows — đơn giản hoá `SectionRow`
+- Row chính: `h-14 px-4 flex items-center gap-3`, divider `border-b border-border/40`.
+- `[icon 20px outline] [title text-[15px] font-normal flex-1] [optional right hint text-muted-foreground text-[13px]] [ChevronRight w-5]`.
+- Bỏ subtitle 2 dòng. Chỉ row "Thêm liên kết" có right hint "Sản phẩm và nhiều hơn thế.".
 
-### 5. Privacy
-- Tách "Ai có thể xem video này" thành row riêng, mở ra list full-width (không indent thụt vào), mỗi option là row 48px với icon trái + radio phải.
-- Option SELF_ONLY khi disable hiện badge nhỏ "Không khả dụng với Branded".
+### 5. Privacy row
+- Title = `PRIVACY_META[currentPrivacy].nativeTitle`:
+  - PUBLIC: "Ai cũng có thể xem bài đăng này"
+  - MUTUAL: "Bạn bè"
+  - FOLLOWER: "Người theo dõi"
+  - SELF_ONLY: "Chỉ mình tôi"
+- Icon: Globe2 (giữ icon theo selection).
+- Khi expand → list full-width như cũ (giữ logic SELF_ONLY disabled khi Branded).
 
-### 6. Allow Comment/Duet/Stitch
-- Bỏ collapsible "Tùy chọn khác". Đưa 3 toggle thành 3 row độc lập cùng cấp với Privacy, mỗi row 56px, switch bên phải.
-- Khi tài khoản forced-off: switch grey + dòng summary "TikTok đã tắt".
+### 6. "Tùy chọn khác" → chứa toggles
+- Bỏ 3 `FlatToggleRow` ở top-level.
+- Đưa Comment / Duet / Stitch vào trong collapsible "Tùy chọn khác" (icon `Settings`/gear).
+- Mỗi toggle bên trong vẫn là row 56px với switch phải.
 
-### 7. Disclose
-- Khi mở: thay 2 checkbox dòng → 2 **card lựa chọn** dọc full-width:
-  - Card "Thương hiệu của bạn" (icon Megaphone) — label "Promotional content".
-  - Card "Nội dung có thương hiệu" (icon Handshake) — label "Paid partnership".
-- Card được chọn → border `foreground/40` + tick góc phải; bỏ Checkbox primitive.
-- Warning Branded + SELF_ONLY hiển thị banner màu amber dưới card, không destructive.
+### 7. Row "Chia sẻ với" (mới, optional)
+- Row tĩnh dưới "Tùy chọn khác" — chỉ visual, click → no-op (để khớp screenshot). Icon `Share2`.
+- Nếu thấy thừa, bỏ qua — giảm noise.
 
-### 8. Tokens màu & typography
-- Thêm const `TIKTOK_RED = '#FE2C55'` dùng cho CTA chính (inline style — đây là brand red bắt buộc, không dùng semantic destructive đỏ tối).
-- Tiêu đề row: `text-[15px] font-semibold tracking-tight`.
-- Footnote Music Usage Confirmation: căn giữa, max-w-xs mx-auto, text-[11px].
+### 8. Bỏ Music Usage footnote khối lớn
+- Chuyển thành 1 dòng text-[10px] text-muted-foreground căn giữa **ngay trên footer** (compact 1 dòng), giữ link để compliance.
 
-### 9. Micro-interaction
-- Khi nhấn vào row → background flash `bg-muted/60` 150ms (active:bg).
-- Chevron xoay 90° khi row mở.
-- Switch dùng màu `#25F4EE` (TikTok cyan) khi ON — đồng bộ brand TikTok.
+### 9. Footer — 2 pill buttons
+```tsx
+<div className="px-4 py-3 flex items-center gap-3 border-t">
+  <button className="flex-1 h-12 rounded-full bg-muted text-[15px] font-medium inline-flex items-center justify-center gap-2">
+    <Archive className="w-4 h-4" /> Nháp
+  </button>
+  <button style={{backgroundColor: TIKTOK_RED}} className="flex-1 h-12 rounded-full text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2">
+    <ArrowUpCircle className="w-4 h-4" /> Đăng
+  </button>
+</div>
+```
+- Disabled state: opacity-50.
+
+### 10. Icon set bổ sung
+Thêm imports: `Settings`, `Share2`, `Archive`, `ArrowUpCircle`. Bỏ unused: `ArrowLeft` giữ, `Play` bỏ, `MessageCircle/Video/Scissors` chuyển vào trong collapsible.
 
 ## Verify
 
 1. Mở `/video-studio` → Đăng ngay → TikTok.
-2. So sánh layout với ảnh native TikTok đính kèm (nếu có) hoặc reference: https://developers.tiktok.com/doc/content-sharing-guidelines.
-3. Check responsive ở viewport 360, 414, 768 — dialog full-screen mobile, max-w-md desktop.
-4. Bật Branded content → SELF_ONLY hiển thị badge "Không khả dụng", không cho chọn.
-5. Toggle Comment/Duet/Stitch hoạt động độc lập, forced-off hiển thị đúng note.
+2. So sánh side-by-side với screenshot native: header chỉ có back, thumbnail có "Xem trước" + "Sửa ảnh bìa", chips Hashtag/Nhắc đến là pill xám, rows 1-dòng, footer 2 pill (xám trái + đỏ phải).
+3. Privacy row đổi title theo selection.
+4. Comment/Duet/Stitch nằm trong "Tùy chọn khác" expand.
+5. Branded + SELF_ONLY vẫn block đúng, không regress logic submit.
+6. Test viewport 360 / 414 / 707 (current) — pill footer không tràn.
