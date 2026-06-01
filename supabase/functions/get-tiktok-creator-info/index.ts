@@ -1,5 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { decryptCredential } from "../_shared/crypto.ts";
+import { decryptCredential, encrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,21 +94,99 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
 
     const refreshAndGetToken = async (): Promise<string | null> => {
       try {
-        const { data: refreshed, error: refreshErr } = await supabase.functions.invoke(
-          "refresh-tiktok-token",
-          { body: { connectionId } },
-        );
-        if (refreshErr || !refreshed?.success) {
-          console.error("[get-tiktok-creator-info] refresh failed", refreshErr, refreshed);
+        if (!connection.refresh_token) {
+          await supabase
+            .from("social_connections")
+            .update({
+              is_active: false,
+              metadata: {
+                ...((connection as any).metadata || {}),
+                needs_reauth: true,
+                reauth_reason: "missing_refresh_token",
+              },
+            })
+            .eq("id", connectionId);
           return null;
         }
-        const { data: fresh } = await supabase
-          .from("social_connections")
-          .select("access_token")
-          .eq("id", connectionId)
+
+        const { data: settings, error: settingsError } = await supabase
+          .from("social_platform_settings")
+          .select("consumer_key, consumer_secret")
+          .eq("platform", "tiktok")
+          .eq("is_active", true)
           .single();
-        if (!fresh?.access_token) return null;
-        return await decryptCredential(fresh.access_token);
+
+        if (settingsError || !settings?.consumer_key || !settings?.consumer_secret) {
+          console.error("[get-tiktok-creator-info] TikTok platform settings not found", settingsError);
+          return null;
+        }
+
+        const [clientKey, clientSecret, refreshToken] = await Promise.all([
+          decryptCredential(settings.consumer_key),
+          decryptCredential(settings.consumer_secret),
+          decryptCredential(connection.refresh_token),
+        ]);
+
+        const tokenResponse = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_key: clientKey,
+            client_secret: clientSecret,
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          }).toString(),
+        });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+
+        if (!tokenResponse.ok || !tokenData.access_token) {
+          const refreshError = tokenData.error_description || tokenData.message || tokenData.error || "Failed to refresh TikTok token";
+          console.error("[get-tiktok-creator-info] refresh failed", tokenResponse.status, tokenData);
+          await supabase
+            .from("social_connections")
+            .update({
+              is_active: false,
+              metadata: {
+                ...((connection as any).metadata || {}),
+                needs_reauth: true,
+                reauth_reason: "refresh_failed",
+                refresh_error: refreshError,
+              },
+            })
+            .eq("id", connectionId);
+          return null;
+        }
+
+        const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 86400) * 1000).toISOString();
+        const encryptedAccessToken = await encrypt(tokenData.access_token);
+        const encryptedRefreshToken = tokenData.refresh_token
+          ? await encrypt(tokenData.refresh_token)
+          : connection.refresh_token;
+
+        const { error: updateError } = await supabase
+          .from("social_connections")
+          .update({
+            access_token: encryptedAccessToken,
+            refresh_token: encryptedRefreshToken,
+            token_expires_at: tokenExpiresAt,
+            is_active: true,
+            metadata: {
+              ...((connection as any).metadata || {}),
+              last_refreshed: new Date().toISOString(),
+              needs_reauth: false,
+              reauth_reason: null,
+              refresh_error: null,
+            },
+          })
+          .eq("id", connectionId);
+
+        if (updateError) {
+          console.error("[get-tiktok-creator-info] token update failed", updateError);
+          return null;
+        }
+
+        console.log("[get-tiktok-creator-info] token refreshed successfully");
+        return tokenData.access_token;
       } catch (e) {
         console.error("[get-tiktok-creator-info] refresh exception", e);
         return null;
