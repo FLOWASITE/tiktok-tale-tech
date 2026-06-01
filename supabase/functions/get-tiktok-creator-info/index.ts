@@ -231,6 +231,29 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
         );
       }
     }
+    if (response.status === 401 || result?.error?.code === "access_token_invalid") {
+      await supabase
+        .from("social_connections")
+        .update({
+          is_active: false,
+          metadata: {
+            ...((connection as any).metadata || {}),
+            needs_reauth: true,
+            reauth_reason: "access_token_invalid",
+          },
+        })
+        .eq("id", connectionId);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "TikTok token is invalid. Please reconnect your TikTok account.",
+          errorCode: "needs_reauth",
+          needsReauth: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (!response.ok || (result?.error?.code && result.error.code !== "ok")) {
       console.error("[get-tiktok-creator-info] error", response.status, result);
       return new Response(
