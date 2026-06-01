@@ -47,7 +47,7 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
 
     const { data: connection, error: connErr } = await supabase
       .from("social_connections")
-      .select("id, platform, access_token, organization_id, user_id, token_expires_at, metadata")
+      .select("id, platform, access_token, refresh_token, organization_id, user_id, token_expires_at, metadata")
       .eq("id", connectionId)
       .single();
 
@@ -219,6 +219,16 @@ Deno.serve(withPerf({ functionName: "get-tiktok-creator-info" }, async (req) => 
         accessToken = newToken;
         response = await callTikTok(accessToken);
         result = await response.json().catch(() => ({}));
+      } else {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "TikTok token is invalid. Please reconnect your TikTok account.",
+            errorCode: "needs_reauth",
+            needsReauth: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
     }
     if (!response.ok || (result?.error?.code && result.error.code !== "ok")) {
