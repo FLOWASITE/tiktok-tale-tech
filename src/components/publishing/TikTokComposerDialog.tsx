@@ -13,13 +13,15 @@ import {
   AlertTriangle,
   Info,
   ExternalLink,
-  Play,
   Handshake,
   Check,
-  Eye,
   MessageCircle,
   Video,
   Scissors,
+  Settings,
+  Share2,
+  Archive,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -62,12 +64,28 @@ const TIKTOK_RED = '#FE2C55';
 
 const PRIVACY_META: Record<
   TikTokPrivacyLevel,
-  { title: string; sub: string; Icon: typeof Globe2 }
+  { nativeTitle: string; shortTitle: string; Icon: typeof Globe2 }
 > = {
-  PUBLIC_TO_EVERYONE: { title: 'Mọi người', sub: 'Ai cũng có thể xem video này', Icon: Globe2 },
-  MUTUAL_FOLLOW_FRIENDS: { title: 'Bạn bè', sub: 'Người theo dõi lẫn nhau', Icon: Users2 },
-  FOLLOWER_OF_CREATOR: { title: 'Người theo dõi', sub: 'Chỉ người theo dõi bạn', Icon: UserCheck },
-  SELF_ONLY: { title: 'Chỉ mình tôi', sub: 'Riêng tư', Icon: Lock },
+  PUBLIC_TO_EVERYONE: {
+    nativeTitle: 'Ai cũng có thể xem bài đăng này',
+    shortTitle: 'Mọi người',
+    Icon: Globe2,
+  },
+  MUTUAL_FOLLOW_FRIENDS: {
+    nativeTitle: 'Bạn bè',
+    shortTitle: 'Bạn bè',
+    Icon: Users2,
+  },
+  FOLLOWER_OF_CREATOR: {
+    nativeTitle: 'Người theo dõi',
+    shortTitle: 'Người theo dõi',
+    Icon: UserCheck,
+  },
+  SELF_ONLY: {
+    nativeTitle: 'Chỉ mình tôi',
+    shortTitle: 'Chỉ mình tôi',
+    Icon: Lock,
+  },
 };
 
 const PRIVACY_ORDER: TikTokPrivacyLevel[] = [
@@ -168,30 +186,27 @@ export function TikTokComposerDialog({
   };
 
   const privacyMeta = privacyLevel ? PRIVACY_META[privacyLevel as TikTokPrivacyLevel] : null;
+  const PrivacyIcon = privacyMeta?.Icon ?? Globe2;
 
   const discloseSummary = !disclose
-    ? 'Tắt'
+    ? undefined
     : brandedContent && yourBrand
-    ? 'Brand · Paid partnership'
+    ? 'Brand · Paid'
     : brandedContent
     ? 'Paid partnership'
     : yourBrand
-    ? 'Promotional content'
+    ? 'Promotional'
     : 'Bật';
 
   const isVideo = /\.(mp4|mov|webm|m4v)(\?|$)/i.test(mediaUrl);
-  const username =
-    (connection as any)?.platform_username ||
-    (connection as any)?.platform_display_name ||
-    'tiktok';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="p-0 gap-0 max-w-md sm:max-w-md w-full h-[100dvh] sm:h-[92vh] sm:max-h-[880px] sm:rounded-2xl rounded-none overflow-hidden flex flex-col bg-background [&>button]:hidden"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-2 h-14 border-b border-border/50 shrink-0">
+        {/* Header — only back button */}
+        <div className="flex items-center px-2 h-12 shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -201,59 +216,43 @@ export function TikTokComposerDialog({
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="text-center leading-tight">
-            <div className="text-[15px] font-semibold">Đăng bài</div>
-            <div className="text-[11px] text-muted-foreground">Đăng dưới tên @{username}</div>
-          </div>
-          <button
-            type="button"
-            onClick={onSaveDraft ?? (() => onOpenChange(false))}
-            disabled={isPublishing}
-            className="px-3 h-10 text-[13px] font-medium text-foreground/70 hover:text-foreground disabled:opacity-50"
-          >
-            Nháp
-          </button>
         </div>
 
         {/* Body scroll */}
         <div className="flex-1 overflow-y-auto">
           {/* Caption + thumbnail */}
-          <div className="relative px-4 pt-4 pb-2">
-            <div className="pr-[84px]">
+          <div className="relative px-4 pt-1 pb-3">
+            <div className="pr-[108px]">
               <Textarea
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
-                placeholder="Thêm mô tả, hashtag (#) hoặc nhắc đến bạn bè (@)..."
                 maxLength={4000}
-                rows={5}
-                className="border-0 px-0 py-0 resize-none shadow-none focus-visible:ring-0 text-[15px] leading-relaxed placeholder:text-muted-foreground/70 min-h-[110px]"
+                rows={6}
+                className="border-0 px-0 py-0 resize-none shadow-none focus-visible:ring-0 text-[15px] leading-relaxed min-h-[140px]"
               />
             </div>
-            <div className="absolute top-4 right-4 w-[72px] h-[96px] rounded-lg overflow-hidden bg-muted shrink-0 ring-1 ring-border/60">
+            <div className="absolute top-1 right-4 w-[96px] h-[128px] rounded-lg overflow-hidden bg-muted shrink-0">
               {isVideo ? (
-                <>
-                  <video src={mediaUrl} muted playsInline className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                    <Play className="w-5 h-5 text-white drop-shadow fill-white/90" />
-                  </div>
-                </>
+                <video src={mediaUrl} muted playsInline className="w-full h-full object-cover" />
               ) : (
                 <img src={mediaUrl} alt="preview" className="w-full h-full object-cover" />
               )}
+              <span className="absolute top-1 right-1 bg-black/55 text-white text-[10px] px-2 py-0.5 rounded-full">
+                Xem trước
+              </span>
+              <span className="absolute inset-x-1 bottom-1 bg-black/55 text-white text-[10px] py-1 rounded-md text-center">
+                Sửa ảnh bìa
+              </span>
             </div>
 
-            {/* Toolbar */}
-            <div className="flex items-center gap-1 mt-2 -ml-2">
-              <ToolbarItem icon={<Hash className="w-4 h-4" />} onClick={() => insertToken('#')}>
-                Hashtag
-              </ToolbarItem>
-              <span className="w-px h-4 bg-border/60" />
-              <ToolbarItem icon={<AtSign className="w-4 h-4" />} onClick={() => insertToken('@')}>
-                Bạn bè
-              </ToolbarItem>
-              <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-                {caption.length}/4000
-              </span>
+            {/* Hashtag / Mention pills */}
+            <div className="flex items-center gap-2 mt-3">
+              <ChipButton onClick={() => insertToken('#')}>
+                <Hash className="w-4 h-4" /> Hashtag
+              </ChipButton>
+              <ChipButton onClick={() => insertToken('@')}>
+                <AtSign className="w-4 h-4" /> Nhắc đến
+              </ChipButton>
             </div>
           </div>
 
@@ -275,80 +274,11 @@ export function TikTokComposerDialog({
 
           {creatorInfo && (
             <div className="divide-y divide-border/40">
-              {/* Privacy */}
-              <SectionRow
-                icon={privacyMeta ? <privacyMeta.Icon className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
-                title="Ai có thể xem video này"
-                summary={privacyMeta?.title}
-              >
-                <div className="pb-2">
-                  <RadioGroup
-                    value={privacyLevel || ''}
-                    onValueChange={(v) => setPrivacyLevel(v as TikTokPrivacyLevel)}
-                    className="space-y-0"
-                  >
-                    {PRIVACY_ORDER.filter((p) => creatorInfo.privacyLevelOptions.includes(p)).map(
-                      (p) => {
-                        const disabledByBranded = brandedContent && p === 'SELF_ONLY';
-                        const meta = PRIVACY_META[p];
-                        const Icon = meta.Icon;
-                        return (
-                          <label
-                            key={p}
-                            className={cn(
-                              'flex items-center gap-3 px-4 h-12 cursor-pointer active:bg-muted/60 transition-colors',
-                              disabledByBranded && 'opacity-50 pointer-events-none',
-                            )}
-                          >
-                            <Icon className="w-[18px] h-[18px] text-foreground/70" />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[14px] font-medium leading-tight">{meta.title}</div>
-                              {disabledByBranded && (
-                                <div className="text-[11px] text-muted-foreground">
-                                  Không khả dụng với Branded content
-                                </div>
-                              )}
-                            </div>
-                            <RadioGroupItem value={p} disabled={disabledByBranded} />
-                          </label>
-                        );
-                      },
-                    )}
-                  </RadioGroup>
-                </div>
-              </SectionRow>
-
-              {/* Interaction toggles — flat rows */}
-              <FlatToggleRow
-                icon={<MessageCircle className="w-[18px] h-[18px]" />}
-                label="Cho phép bình luận"
-                checked={commentForcedOff ? false : allowComment}
-                disabled={commentForcedOff}
-                note={commentForcedOff ? 'TikTok đã tắt' : undefined}
-                onChange={setAllowComment}
-              />
-              <FlatToggleRow
-                icon={<Video className="w-[18px] h-[18px]" />}
-                label="Cho phép Duet"
-                checked={duetForcedOff ? false : allowDuet}
-                disabled={duetForcedOff}
-                note={duetForcedOff ? 'TikTok đã tắt' : undefined}
-                onChange={setAllowDuet}
-              />
-              <FlatToggleRow
-                icon={<Scissors className="w-[18px] h-[18px]" />}
-                label="Cho phép Stitch"
-                checked={stitchForcedOff ? false : allowStitch}
-                disabled={stitchForcedOff}
-                note={stitchForcedOff ? 'TikTok đã tắt' : undefined}
-                onChange={setAllowStitch}
-              />
-
               {/* Disclose commercial content */}
               <SectionRow
-                icon={<Megaphone className="w-[18px] h-[18px]" />}
-                title="Khai báo nội dung quảng cáo"
-                summary={discloseSummary}
+                icon={<Megaphone className="w-5 h-5" />}
+                title="Khai báo nội dung và quảng cáo"
+                rightHint={discloseSummary}
               >
                 <div className="space-y-3 px-4 pb-4">
                   <div className="flex items-start justify-between gap-3 pt-1">
@@ -404,8 +334,92 @@ export function TikTokComposerDialog({
                 </div>
               </SectionRow>
 
-              {/* Confirmation footnote */}
-              <div className="px-6 py-4 text-center text-[11px] text-muted-foreground leading-relaxed">
+              {/* Privacy — title reflects current selection */}
+              <SectionRow
+                icon={<PrivacyIcon className="w-5 h-5" />}
+                title={privacyMeta?.nativeTitle ?? 'Ai có thể xem'}
+              >
+                <div className="pb-2">
+                  <RadioGroup
+                    value={privacyLevel || ''}
+                    onValueChange={(v) => setPrivacyLevel(v as TikTokPrivacyLevel)}
+                    className="space-y-0"
+                  >
+                    {PRIVACY_ORDER.filter((p) => creatorInfo.privacyLevelOptions.includes(p)).map(
+                      (p) => {
+                        const disabledByBranded = brandedContent && p === 'SELF_ONLY';
+                        const meta = PRIVACY_META[p];
+                        const Icon = meta.Icon;
+                        return (
+                          <label
+                            key={p}
+                            className={cn(
+                              'flex items-center gap-3 px-4 h-12 cursor-pointer active:bg-muted/60 transition-colors',
+                              disabledByBranded && 'opacity-50 pointer-events-none',
+                            )}
+                          >
+                            <Icon className="w-[18px] h-[18px] text-foreground/70" />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[14px] font-medium leading-tight">
+                                {meta.shortTitle}
+                              </div>
+                              {disabledByBranded && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  Không khả dụng với Branded content
+                                </div>
+                              )}
+                            </div>
+                            <RadioGroupItem value={p} disabled={disabledByBranded} />
+                          </label>
+                        );
+                      },
+                    )}
+                  </RadioGroup>
+                </div>
+              </SectionRow>
+
+              {/* Tùy chọn khác → contains Comment / Duet / Stitch */}
+              <SectionRow
+                icon={<Settings className="w-5 h-5" />}
+                title="Tùy chọn khác"
+              >
+                <div className="pb-2">
+                  <FlatToggleRow
+                    icon={<MessageCircle className="w-[18px] h-[18px]" />}
+                    label="Cho phép bình luận"
+                    checked={commentForcedOff ? false : allowComment}
+                    disabled={commentForcedOff}
+                    note={commentForcedOff ? 'TikTok đã tắt' : undefined}
+                    onChange={setAllowComment}
+                  />
+                  <FlatToggleRow
+                    icon={<Video className="w-[18px] h-[18px]" />}
+                    label="Cho phép Duet"
+                    checked={duetForcedOff ? false : allowDuet}
+                    disabled={duetForcedOff}
+                    note={duetForcedOff ? 'TikTok đã tắt' : undefined}
+                    onChange={setAllowDuet}
+                  />
+                  <FlatToggleRow
+                    icon={<Scissors className="w-[18px] h-[18px]" />}
+                    label="Cho phép Stitch"
+                    checked={stitchForcedOff ? false : allowStitch}
+                    disabled={stitchForcedOff}
+                    note={stitchForcedOff ? 'TikTok đã tắt' : undefined}
+                    onChange={setAllowStitch}
+                  />
+                </div>
+              </SectionRow>
+
+              {/* Static "Chia sẻ với" — visual only */}
+              <div className="flex items-center gap-3 px-4 h-14">
+                <Share2 className="w-5 h-5 text-foreground/70" />
+                <span className="flex-1 text-[15px] font-normal">Chia sẻ với</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/70" />
+              </div>
+
+              {/* Compact music usage line above footer */}
+              <div className="px-4 py-3 text-center text-[10px] text-muted-foreground leading-relaxed">
                 Bằng việc đăng bài, bạn đồng ý với{' '}
                 <a
                   href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en"
@@ -434,26 +448,37 @@ export function TikTokComposerDialog({
           )}
         </div>
 
-        {/* Sticky footer */}
-        <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3">
+        {/* Sticky footer — 2 pill buttons */}
+        <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onSaveDraft ?? (() => onOpenChange(false))}
+            disabled={isPublishing}
+            className="flex-1 h-12 rounded-full bg-muted text-foreground text-[15px] font-medium inline-flex items-center justify-center gap-2 hover:bg-muted/80 active:opacity-80 disabled:opacity-50"
+          >
+            <Archive className="w-4 h-4" />
+            Nháp
+          </button>
           <button
             type="button"
             onClick={submit}
             disabled={!canSubmit}
             style={{ backgroundColor: canSubmit ? TIKTOK_RED : undefined }}
             className={cn(
-              'w-full h-12 rounded-md text-[15px] font-semibold text-white transition-opacity',
-              !canSubmit && 'bg-muted text-muted-foreground cursor-not-allowed',
-              canSubmit && 'hover:opacity-90 active:opacity-80',
+              'flex-1 h-12 rounded-full text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-opacity',
+              canSubmit ? 'text-white hover:opacity-90 active:opacity-80' : 'bg-muted text-muted-foreground cursor-not-allowed',
             )}
           >
             {isPublishing ? (
-              <span className="inline-flex items-center justify-center gap-2">
+              <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Đang đăng...
-              </span>
+              </>
             ) : (
-              'Đăng'
+              <>
+                <ArrowUpCircle className="w-4 h-4" />
+                Đăng
+              </>
             )}
           </button>
         </div>
@@ -462,12 +487,10 @@ export function TikTokComposerDialog({
   );
 }
 
-function ToolbarItem({
-  icon,
+function ChipButton({
   children,
   onClick,
 }: {
-  icon: React.ReactNode;
   children: React.ReactNode;
   onClick?: () => void;
 }) {
@@ -475,9 +498,8 @@ function ToolbarItem({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2 h-8 rounded-md text-[13px] text-foreground/80 hover:bg-muted/60"
+      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-muted text-[14px] text-foreground/85 hover:bg-muted/80 active:opacity-80"
     >
-      {icon}
       {children}
     </button>
   );
@@ -486,22 +508,22 @@ function ToolbarItem({
 function SectionRow({
   icon,
   title,
-  summary,
+  rightHint,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
-  summary?: string;
+  rightHint?: string;
   children: React.ReactNode;
 }) {
   return (
     <Collapsible>
       <CollapsibleTrigger className="group w-full flex items-center gap-3 px-4 h-14 hover:bg-muted/40 active:bg-muted/60 text-left transition-colors">
         <span className="text-foreground/70 shrink-0">{icon}</span>
-        <span className="flex-1 min-w-0 text-[14px] font-medium truncate">{title}</span>
-        {summary && (
-          <span className="text-[12px] text-muted-foreground truncate max-w-[160px]">
-            {summary}
+        <span className="flex-1 min-w-0 text-[15px] font-normal truncate">{title}</span>
+        {rightHint && (
+          <span className="text-[13px] text-muted-foreground truncate max-w-[140px]">
+            {rightHint}
           </span>
         )}
         <ChevronRight className="w-4 h-4 text-muted-foreground/70 transition-transform group-data-[state=open]:rotate-90" />
