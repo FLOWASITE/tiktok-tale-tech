@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 
 
 interface LocationState {
