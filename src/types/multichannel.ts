@@ -436,7 +436,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'longform', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
   { value: 'wix', label: 'Wix Blog', icon: 'Globe', color: 'slate', category: 'longform', description: 'Bài Wix 800-1500 từ, brand storytelling, hero featured image, đoạn ngắn 2-4 câu, format Ricos rich content (Editor X / Wix Studio)' },
   { value: 'medium', label: 'Medium', icon: 'BookOpen', color: 'foreground', category: 'longform', description: 'Bài Medium 1000-1800 từ, story-first, voice cá nhân/expert, không HTML, dùng Markdown thuần, kết bằng claps CTA' },
-  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'longform', description: 'Subject + body, CTA rõ ràng' },
+  
   // 💬 Mạng xã hội — post ngắn, social-first
   { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social', description: 'Post ngắn, hashtag, emoji phù hợp' },
   { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'social', description: 'Caption ngắn, 20-30 hashtag' },
@@ -445,7 +445,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'social', description: 'Text-based, tối đa 500 ký tự' },
   { value: 'bluesky', label: 'Bluesky', icon: 'Globe', color: 'sky', category: 'social', description: 'Post ngắn ≤300 ký tự, casual, không hashtag' },
   { value: 'pinterest', label: 'Pinterest', icon: 'Image', color: 'pinterest', category: 'social', description: 'Pin SEO: Title 100 ký tự, Description 500 ký tự, link về website' },
-  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'social', description: 'Markdown, link preview' },
+  
   { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'social', description: 'Tin nhắn ngắn, thân thiện' },
   { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'social', description: 'Bài đăng ngắn cho doanh nghiệp' },
   // ❌ TikTok / YouTube đã bị loại khỏi multichannel — chỉ post từ Video Studio
