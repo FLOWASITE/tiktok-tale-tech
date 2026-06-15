@@ -81,6 +81,7 @@ export default function MultiChannelCreate() {
   const { currentBrand } = useCurrentBrand();
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
   const { currentOrganization } = useOrganizationContext();
   const { user } = useAuth();
   
