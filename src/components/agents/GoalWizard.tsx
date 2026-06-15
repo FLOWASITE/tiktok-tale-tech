@@ -68,7 +68,7 @@ const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel; grou
   { id: 'threads',     label: 'Threads',     channelKey: 'threads',     group: 'social' },
   { id: 'bluesky',     label: 'Bluesky',     channelKey: 'bluesky',     group: 'social' },
   { id: 'pinterest',   label: 'Pinterest',   channelKey: 'pinterest',   group: 'social' },
-  { id: 'telegram',    label: 'Telegram',    channelKey: 'telegram',    group: 'social' },
+  
   { id: 'zalo',        label: 'Zalo OA',     channelKey: 'zalo_oa',     group: 'social' },
   { id: 'google_maps', label: 'Google Maps', channelKey: 'google_maps', group: 'social' },
   // ❌ TikTok / YouTube không nằm trong AI Campaign — chỉ post từ Video Studio
