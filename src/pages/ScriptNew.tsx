@@ -29,12 +29,22 @@ export default function ScriptNew() {
   const [viewerOpen, setViewerOpen] = useState(false);
 
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
-    const topicHistoryId = prefillData?.topicHistoryId;
+    let topicHistoryId = prefillData?.topicHistoryId;
     const newScript = await generateScript(formData);
     if (newScript) {
+      const topicText = (formData as any).topic || newScript.title;
+      if (!topicHistoryId && topicText) {
+        try {
+          const ensuredId = await ensureSelectedTopic(topicText, 'script');
+          if (ensuredId) topicHistoryId = ensuredId;
+        } catch (error) {
+          console.error('Failed to ensure topic in history:', error);
+        }
+      }
       if (topicHistoryId) {
         try {
           await createLink(topicHistoryId, newScript.id, 'script', newScript.title, newScript.status || 'draft');
+          await markAsUsed(topicHistoryId, newScript.id, 'script');
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
