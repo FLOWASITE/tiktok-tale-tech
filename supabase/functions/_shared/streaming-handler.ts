@@ -82,6 +82,9 @@ export interface GenerateChannelStreamingParams {
 
 // Max concurrent channel generations - tuned for optimal throughput
 const MAX_PARALLEL_CHANNELS = 4;
+// Long-form channels are heavy (1k-2k+ words) → throttle to avoid edge runtime CPU/wall-time kill
+const LONG_FORM_CHANNELS = new Set(['website', 'blogger', 'wordpress', 'medium', 'shopify', 'wix']);
+const MAX_PARALLEL_LONG_FORM = 2;
 
 // Pre-allocated buffers for streaming - reduces GC pressure
 const STREAM_BUFFER_SIZE = 64 * 1024; // 64KB
