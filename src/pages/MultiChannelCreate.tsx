@@ -16,6 +16,7 @@ import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useAutoImagePipeline } from '@/hooks/useAutoImagePipeline';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
