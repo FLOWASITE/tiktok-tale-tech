@@ -4,6 +4,8 @@ import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { useScripts } from '@/hooks/useScripts';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Clapperboard } from 'lucide-react';
 import { VideoCreationStepper, type VideoStep } from '@/components/video/VideoCreationStepper';
