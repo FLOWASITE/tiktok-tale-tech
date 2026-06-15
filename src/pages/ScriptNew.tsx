@@ -22,6 +22,8 @@ export default function ScriptNew() {
   const prefillData = location.state as LocationState | null;
   const { generating, generateScript, updateScript } = useScripts();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { currentBrand } = useCurrentBrand();
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
