@@ -220,13 +220,25 @@ export async function generateChannelsParallel(params: {
     }
   };
   
-  // Process all batches - optimized loop
-  const batchCount = Math.ceil(channels.length / MAX_PARALLEL_CHANNELS);
-  for (let i = 0; i < batchCount; i++) {
-    const start = i * MAX_PARALLEL_CHANNELS;
-    const batch = channels.slice(start, start + MAX_PARALLEL_CHANNELS);
-    await processBatch(batch);
-  }
+  // Split into long-form (heavy) and short-form (light) channels.
+  // Long-form runs first with smaller batch size (2) to avoid edge runtime CPU/wall-time kill
+  // when many heavy channels are requested together (e.g. website + blogger + wordpress + medium).
+  const longForm = channels.filter((c) => LONG_FORM_CHANNELS.has(c));
+  const shortForm = channels.filter((c) => !LONG_FORM_CHANNELS.has(c));
+
+  const runChunked = async (list: string[], size: number) => {
+    if (list.length === 0) return;
+    const batchCount = Math.ceil(list.length / size);
+    for (let i = 0; i < batchCount; i++) {
+      const start = i * size;
+      const batch = list.slice(start, start + size);
+      await processBatch(batch);
+    }
+  };
+
+  console.log(`[parallel-streaming] Chunking: ${longForm.length} long-form (batch=${MAX_PARALLEL_LONG_FORM}) + ${shortForm.length} short-form (batch=${MAX_PARALLEL_CHANNELS})`);
+  await runChunked(longForm, MAX_PARALLEL_LONG_FORM);
+  await runChunked(shortForm, MAX_PARALLEL_CHANNELS);
   
   const totalDuration = Date.now() - startTime;
   
