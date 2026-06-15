@@ -46,6 +46,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   const { templates: brandTemplates } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   // Filter strictly by current brand (UI-level isolation)
   const scripts = useMemo(() => {
