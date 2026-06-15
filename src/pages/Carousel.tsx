@@ -91,6 +91,7 @@ const CarouselPage = () => {
   const [trackerSlideCount, setTrackerSlideCount] = useState(6);
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   // Handle prefill from Topics Hub
   useEffect(() => {
