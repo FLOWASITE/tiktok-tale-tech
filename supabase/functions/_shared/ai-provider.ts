@@ -803,8 +803,11 @@ async function callDeepSeek(
       max_tokens: options.maxTokensOverride || config.max_tokens,
       temperature: config.temperature,
     };
+    // DeepSeek "thinking" models (v4-flash, v4-pro, reasoner) reject `tool_choice`.
+    // Server returns 400 "Thinking mode does not support this tool_choice".
+    const isThinkingModel = /reasoner|v4/i.test(cleanModel);
     if (options.tools) body.tools = options.tools;
-    if (options.toolChoice) body.tool_choice = options.toolChoice;
+    if (options.toolChoice && !isThinkingModel) body.tool_choice = options.toolChoice;
     if (options.stream) body.stream = true;
 
     const response = await fetch(PROVIDER_ENDPOINTS.deepseek, {
