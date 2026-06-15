@@ -12,6 +12,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useScriptsMediaStatus } from '@/hooks/useScriptsMediaStatus';
 import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
