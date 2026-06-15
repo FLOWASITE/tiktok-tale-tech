@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 
 
 interface LocationState {
@@ -90,6 +91,7 @@ const CarouselPage = () => {
   const [trackerSlideCount, setTrackerSlideCount] = useState(6);
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   // Handle prefill from Topics Hub
   useEffect(() => {
@@ -209,20 +211,31 @@ const CarouselPage = () => {
 
     const newCarousel = await generateCarousel(formData);
     if (newCarousel) {
-      // Create topic-to-content link if came from Topics Hub
-      if (formData.topicHistoryId) {
+      // Ensure topic exists in Kho chủ đề (auto-save or reuse) and link content
+      let topicHistoryIdToLink: string | undefined = formData.topicHistoryId;
+      if (!topicHistoryIdToLink && formData.topic) {
+        try {
+          const ensuredId = await ensureSelectedTopic(formData.topic, 'carousel');
+          if (ensuredId) topicHistoryIdToLink = ensuredId;
+        } catch (error) {
+          console.error('Failed to ensure topic in history:', error);
+        }
+      }
+
+      if (topicHistoryIdToLink) {
         try {
           await createLink(
-            formData.topicHistoryId,
+            topicHistoryIdToLink,
             newCarousel.id,
             'carousel',
             newCarousel.title,
             newCarousel.status
           );
+          await markAsUsed(topicHistoryIdToLink, newCarousel.id, 'carousel');
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
-        setTopicHistoryId(undefined);
+        if (formData.topicHistoryId) setTopicHistoryId(undefined);
       }
 
       if (formData.autoGenerateImages) {

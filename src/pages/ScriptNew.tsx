@@ -4,6 +4,8 @@ import { ScriptForm } from '@/components/ScriptForm';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { useScripts } from '@/hooks/useScripts';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Clapperboard } from 'lucide-react';
 import { VideoCreationStepper, type VideoStep } from '@/components/video/VideoCreationStepper';
@@ -20,17 +22,29 @@ export default function ScriptNew() {
   const prefillData = location.state as LocationState | null;
   const { generating, generateScript, updateScript } = useScripts();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { currentBrand } = useCurrentBrand();
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
 
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
-    const topicHistoryId = prefillData?.topicHistoryId;
+    let topicHistoryId = prefillData?.topicHistoryId;
     const newScript = await generateScript(formData);
     if (newScript) {
+      const topicText = (formData as any).topic || newScript.title;
+      if (!topicHistoryId && topicText) {
+        try {
+          const ensuredId = await ensureSelectedTopic(topicText, 'script');
+          if (ensuredId) topicHistoryId = ensuredId;
+        } catch (error) {
+          console.error('Failed to ensure topic in history:', error);
+        }
+      }
       if (topicHistoryId) {
         try {
           await createLink(topicHistoryId, newScript.id, 'script', newScript.title, newScript.status || 'draft');
+          await markAsUsed(topicHistoryId, newScript.id, 'script');
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }

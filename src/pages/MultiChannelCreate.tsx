@@ -16,6 +16,7 @@ import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useAutoImagePipeline } from '@/hooks/useAutoImagePipeline';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
@@ -80,6 +81,7 @@ export default function MultiChannelCreate() {
   const { currentBrand } = useCurrentBrand();
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
   const { currentOrganization } = useOrganizationContext();
   const { user } = useAuth();
   
@@ -288,10 +290,20 @@ export default function MultiChannelCreate() {
       // Refetch contents
       await refetch();
       
-      // Link to topic history if applicable
-      if (topicHistoryId) {
+      // Ensure topic exists in Kho chủ đề (auto-save or reuse) and link content
+      let topicHistoryIdToLink = topicHistoryId;
+      if (!topicHistoryIdToLink && formData.topic) {
         try {
-          await createLink(topicHistoryId, result.id, 'multichannel', result.title, result.status);
+          const ensuredId = await ensureSelectedTopic(formData.topic, 'multichannel');
+          if (ensuredId) topicHistoryIdToLink = ensuredId;
+        } catch (error) {
+          console.error('Failed to ensure topic in history:', error);
+        }
+      }
+      if (topicHistoryIdToLink) {
+        try {
+          await createLink(topicHistoryIdToLink, result.id, 'multichannel', result.title, result.status);
+          await markAsUsed(topicHistoryIdToLink, result.id, 'multichannel');
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }

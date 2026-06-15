@@ -12,6 +12,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useScriptsMediaStatus } from '@/hooks/useScriptsMediaStatus';
 import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
@@ -45,6 +46,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   const { templates: brandTemplates } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
   const { createLink } = useTopicContentLinks({ enabled: false });
+  const { ensureSelectedTopic, markAsUsed } = useTopicHistory({ brandTemplateId: currentBrand?.id, enabled: false });
 
   // Filter strictly by current brand (UI-level isolation)
   const scripts = useMemo(() => {
@@ -173,9 +175,20 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
     const newScript = await generateScript(formData);
     if (newScript) {
-      if (topicHistoryId) {
+      let topicHistoryIdToLink = topicHistoryId;
+      const topicText = (formData as any).topic || newScript.title;
+      if (!topicHistoryIdToLink && topicText) {
         try {
-          await createLink(topicHistoryId, newScript.id, 'script', newScript.title, newScript.status || 'draft');
+          const ensuredId = await ensureSelectedTopic(topicText, 'script');
+          if (ensuredId) topicHistoryIdToLink = ensuredId;
+        } catch (error) {
+          console.error('Failed to ensure topic in history:', error);
+        }
+      }
+      if (topicHistoryIdToLink) {
+        try {
+          await createLink(topicHistoryIdToLink, newScript.id, 'script', newScript.title, newScript.status || 'draft');
+          await markAsUsed(topicHistoryIdToLink, newScript.id, 'script');
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
