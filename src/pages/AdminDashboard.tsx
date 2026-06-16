@@ -26,7 +26,9 @@ import {
   Brain,
   Server,
   HardDrive,
-  Search
+  Search,
+  Activity
+
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
