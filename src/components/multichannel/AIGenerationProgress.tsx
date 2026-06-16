@@ -58,6 +58,7 @@ export function AIGenerationProgress({
   completedChannels: completedChannelsProp,
   totalChannels: totalChannelsProp,
   currentChannel,
+  currentBatch,
   streamingTexts,
   errorChannels = [],
   onRetryChannel,
