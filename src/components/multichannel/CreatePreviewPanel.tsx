@@ -36,6 +36,7 @@ interface CreatePreviewPanelProps {
   completedChannels?: string[];
   totalChannels?: string[];
   currentChannel?: string;
+  currentBatch?: ProgressEvent['batchInfo'] | null;
   onViewContent: () => void;
   onCreateAnother: () => void;
   // Auto Image Pipeline props
