@@ -324,6 +324,10 @@ export function MultiChannelFormWizard({
 }: MultiChannelFormWizardProps) {
   const navigate = useNavigate();
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
+  const { subscription } = useSubscription();
+  const tierPlan = (subscription?.plan_type ?? 'free') as 'free' | 'starter' | 'pro' | 'enterprise';
+  const maxChannelsPerRun = getMaxChannelsForTier(tierPlan);
+
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
