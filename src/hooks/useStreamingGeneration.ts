@@ -53,23 +53,23 @@ interface UseStreamingGenerationOptions {
 }
 
 // Abort reason types for selective error handling
-type AbortReason = 'user' | 'replaced' | 'watchdog' | null;
+type AbortReason = 'user' | 'replaced' | 'watchdog' | 'realtime_done' | null;
 
 export function useStreamingGeneration(options: UseStreamingGenerationOptions = {}) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  // Per-channel state isolation: useRef for accumulated text (no re-render),
-  // useState only for signaling which channel updated (targeted re-render)
   const streamingTextsRef = useRef<Record<string, string>>({});
   const [channelUpdateSignal, setChannelUpdateSignal] = useState<{ channel: string; version: number }>({ channel: '', version: 0 });
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const abortReasonRef = useRef<AbortReason>(null);
-  // Synchronous guard to prevent double-submit (ref updates immediately, unlike state)
   const generatingRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
+  const taskCompletedViaDbRef = useRef(false);
 
   const recoverFromTask = useCallback(async (params: {
     taskId: string;
@@ -113,47 +113,146 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     throw new Error(params.reason);
   }, [options]);
 
-  // Watchdog timeout in ms - cancel if no events received for this duration
-  // Increased to 180s to handle slow AI models and buffering without false positives
-  const WATCHDOG_TIMEOUT_MS = 180000; // 180 seconds
-  // Grace period for first byte - generous to allow heavy backend prep (smart context,
-  // knowledge graph, SEO cluster fetch) to complete before streaming begins.
-  const FIRST_BYTE_TIMEOUT_MS = 90000; // 90 seconds
+  // Watchdog timeout (180s no chunk = give up & try recover)
+  const WATCHDOG_TIMEOUT_MS = 180000;
+  const FIRST_BYTE_TIMEOUT_MS = 90000;
+  // Polling fallback: only start polling after this many ms of stream silence
+  const POLLING_SILENCE_THRESHOLD_MS = 30000;
+  const POLLING_INTERVAL_MS = 10000;
 
   const cleanupTimers = useCallback(() => {
     if (watchdogTimerRef.current) {
       clearTimeout(watchdogTimerRef.current);
       watchdogTimerRef.current = null;
     }
+    if (pollingTimerRef.current) {
+      clearInterval(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  }, []);
+
+  const cleanupRealtime = useCallback(() => {
+    if (realtimeChannelRef.current) {
+      try { supabase.removeChannel(realtimeChannelRef.current); } catch {}
+      realtimeChannelRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Subscribe to generation_tasks Realtime updates for this task.
+   * If the DB reports completed (with result_id) before SSE finishes,
+   * abort the stream early and recover the content from DB.
+   */
+  const subscribeToTaskRealtime = useCallback((taskId: string, ctx: {
+    organizationId?: string | null;
+    topic?: string | null;
+  }) => {
+    cleanupRealtime();
+    const channel = supabase
+      .channel(`gen-task-${taskId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'generation_tasks', filter: `id=eq.${taskId}` },
+        async (payload: any) => {
+          const row = payload?.new;
+          if (!row) return;
+          // Push prep-phase progress into UI if SSE hasn't reported newer
+          if (typeof row.progress === 'number' && row.current_step) {
+            setProgress((prev) => {
+              const prevP = prev?.progress ?? 0;
+              if (row.progress < prevP) return prev;
+              return {
+                type: 'progress',
+                step: row.current_step,
+                progress: row.progress,
+                message: row.progress_message || prev?.message,
+              };
+            });
+          }
+          if ((row.status === 'completed' || row.status === 'cancelled' || row.status === 'failed') && !taskCompletedViaDbRef.current) {
+            taskCompletedViaDbRef.current = true;
+            console.log(`[streaming] Realtime detected task ${row.status}, closing stream early`);
+            // Trigger abort so the fetch loop unwinds and recovery runs
+            abortReasonRef.current = 'realtime_done';
+            if (abortControllerRef.current) {
+              try { abortControllerRef.current.abort(); } catch {}
+            }
+            cleanupRealtime();
+          }
+        }
+      )
+      .subscribe();
+    realtimeChannelRef.current = channel;
+  }, [cleanupRealtime]);
+
+  /**
+   * Polling fallback: every POLLING_INTERVAL_MS check task status if stream
+   * has been silent for > POLLING_SILENCE_THRESHOLD_MS. Stops on terminal status.
+   */
+  const startPollingFallback = useCallback((taskId: string) => {
+    if (pollingTimerRef.current) return;
+    pollingTimerRef.current = setInterval(async () => {
+      const silenceMs = Date.now() - lastEventTimeRef.current;
+      if (silenceMs < POLLING_SILENCE_THRESHOLD_MS) return;
+      try {
+        const { data } = await supabase
+          .from('generation_tasks')
+          .select('status, progress, current_step, progress_message, result_id, error_message')
+          .eq('id', taskId)
+          .maybeSingle();
+        if (!data) return;
+        if (typeof data.progress === 'number' && data.current_step) {
+          setProgress((prev) => {
+            const prevP = prev?.progress ?? 0;
+            if (data.progress < prevP) return prev;
+            return {
+              type: 'progress',
+              step: data.current_step ?? prev?.step,
+              progress: data.progress,
+              message: data.progress_message || prev?.message,
+            };
+          });
+        }
+        if ((data.status === 'completed' || data.status === 'cancelled' || data.status === 'failed') && !taskCompletedViaDbRef.current) {
+          taskCompletedViaDbRef.current = true;
+          console.log(`[streaming] Polling detected task ${data.status}, closing stream early`);
+          abortReasonRef.current = 'realtime_done';
+          if (abortControllerRef.current) {
+            try { abortControllerRef.current.abort(); } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('[streaming] polling fallback error', err);
+      }
+    }, POLLING_INTERVAL_MS);
   }, []);
 
   const generate = useCallback(async (formData: any): Promise<any> => {
-    // Synchronous guard - block immediately if already generating
     if (generatingRef.current) {
       console.log('[streaming] Blocked: generation already in progress (ref guard)');
       return null;
     }
     generatingRef.current = true;
+    taskCompletedViaDbRef.current = false;
 
-    // Cancel any existing generation (mark as "replaced" - no error toast)
     if (abortControllerRef.current) {
       abortReasonRef.current = 'replaced';
       abortControllerRef.current.abort();
     }
     cleanupTimers();
+    cleanupRealtime();
 
     abortControllerRef.current = new AbortController();
-    abortReasonRef.current = null; // Reset abort reason for new request
+    abortReasonRef.current = null;
     lastEventTimeRef.current = Date.now();
     setIsGenerating(true);
-    streamingTextsRef.current = {}; // Reset streaming texts
+    streamingTextsRef.current = {};
     setChannelUpdateSignal({ channel: '', version: 0 });
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
     let taskId: string | null = null;
 
     try {
-      // Get current user's access token for authentication
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       userIdRef.current = session?.user?.id ?? null;
@@ -162,7 +261,6 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
       }
 
-      // Create a background task for tracking
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: task, error: taskError } = await (supabase as any)
@@ -181,6 +279,12 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         if (!taskError && task?.id) {
           taskId = task.id;
           setCurrentTaskId(taskId);
+          // Wire up Realtime + polling fallback right after task is created
+          subscribeToTaskRealtime(taskId, {
+            organizationId: formData.organization_id,
+            topic: formData.topic,
+          });
+          startPollingFallback(taskId);
         }
       } catch (err) {
         console.warn('[streaming] Failed to create task:', err);
@@ -202,13 +306,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = 'Lỗi khi tạo nội dung';
-        
         if (response.status === 429) {
           errorMessage = 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.';
         } else if (response.status === 402) {
           errorMessage = 'Cần nạp thêm credits để tiếp tục sử dụng.';
         }
-        
         throw new Error(errorMessage);
       }
 
@@ -217,15 +319,16 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         throw new Error('Không thể đọc response stream');
       }
 
-      // Track if we've received the first byte
       let receivedFirstByte = false;
-      
-      // Sliding-window watchdog: reset timer on each chunk received
+
       const resetWatchdog = (isFirstByte = false) => {
-        cleanupTimers();
+        if (watchdogTimerRef.current) {
+          clearTimeout(watchdogTimerRef.current);
+          watchdogTimerRef.current = null;
+        }
         const timeout = isFirstByte ? WATCHDOG_TIMEOUT_MS : (receivedFirstByte ? WATCHDOG_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
         watchdogTimerRef.current = setTimeout(() => {
-          const errorMsg = receivedFirstByte 
+          const errorMsg = receivedFirstByte
             ? 'Kết nối streaming bị ngắt quá lâu. Vui lòng thử lại.'
             : 'Không nhận được dữ liệu từ máy chủ. Kiểm tra mạng và thử lại.';
           console.warn(`[streaming] Watchdog triggered: no events for ${timeout}ms, aborting...`);
@@ -234,14 +337,14 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             abortControllerRef.current.abort();
           }
           cleanupTimers();
+          cleanupRealtime();
           generatingRef.current = false;
           setIsGenerating(false);
           setProgress({ type: 'error', message: errorMsg });
           options.onError?.(errorMsg);
         }, timeout);
       };
-      
-      // Start initial watchdog (waiting for first byte)
+
       resetWatchdog();
 
       const decoder = new TextDecoder();
@@ -253,8 +356,6 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Update last event time and reset watchdog on any data received
         lastEventTimeRef.current = Date.now();
         if (!receivedFirstByte) {
           receivedFirstByte = true;
@@ -262,17 +363,16 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         }
         resetWatchdog(true);
 
-        // Parse SSE events line by line
         const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const jsonStr = line.slice(6).trim();
             if (jsonStr === '[DONE]') {
-              // Server signaled end, cancel reader and exit
               console.log('[streaming] Received [DONE] marker, closing stream');
               cleanupTimers();
+              cleanupRealtime();
               generatingRef.current = false;
               await reader.cancel();
               setIsGenerating(false);
@@ -281,15 +381,13 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               return result;
             }
 
-              try {
+            try {
               const event = JSON.parse(jsonStr) as ProgressEvent;
 
-              // Lift batchInfo from event.data → top-level for easy consumption
               if (!event.batchInfo && event.data?.batchInfo) {
                 event.batchInfo = event.data.batchInfo as BatchInfo;
               }
-              
-              // Handle streaming text chunks - accumulate for typewriter effect
+
               if (event.type === 'streaming_text' && event.streamingChunk) {
                 const { channel, text, isComplete } = event.streamingChunk;
                 console.log(`[streaming_text] ${channel}: +${text.length} chars, complete: ${isComplete}`);
@@ -299,16 +397,16 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 };
                 setChannelUpdateSignal({ channel, version: Date.now() });
               }
-              
+
               setProgress(event);
               options.onProgress?.(event);
 
               if (event.type === 'result') {
                 result = event.data;
                 options.onComplete?.(event.data);
-                // Immediately cancel reader and resolve - don't wait for stream to close
                 console.log('[streaming] Received result event, closing stream');
                 cleanupTimers();
+                cleanupRealtime();
                 generatingRef.current = false;
                 await reader.cancel();
                 setIsGenerating(false);
@@ -319,14 +417,12 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 throw new Error(event.message || 'Lỗi không xác định');
               }
             } catch (parseError) {
-              // Ignore parse errors for incomplete JSON
               console.debug('SSE parse skip:', jsonStr);
             }
           }
         }
       }
 
-      // Stream ended without explicit result - check buffer for any remaining data
       if (buffer.trim()) {
         const lines = buffer.split('\n');
         for (const line of lines) {
@@ -345,26 +441,28 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         }
       }
 
-      // Clear watchdog timer
       cleanupTimers();
+      cleanupRealtime();
       generatingRef.current = false;
 
       setIsGenerating(false);
       setCurrentTaskId(null);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
-      
+
       return result;
     } catch (error) {
-      // Clear watchdog timer on error
       cleanupTimers();
       generatingRef.current = false;
+
+      // Realtime/polling detected terminal status → always attempt recovery
+      const isRealtimeDone = abortReasonRef.current === 'realtime_done';
 
       if (
         taskId &&
         error instanceof Error &&
         abortReasonRef.current !== 'user' &&
         abortReasonRef.current !== 'replaced' &&
-        (error.name === 'AbortError' || isRecoverableMultichannelError(error.message))
+        (isRealtimeDone || error.name === 'AbortError' || isRecoverableMultichannelError(error.message))
       ) {
         try {
           const recoveredResult = await recoverFromTask({
@@ -374,6 +472,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             topic: formData.topic,
             reason: error.message || 'Kết nối stream bị ngắt trước khi nhận kết quả',
           });
+          cleanupRealtime();
           setIsGenerating(false);
           setCurrentTaskId(null);
           generatingRef.current = false;
@@ -386,17 +485,17 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         }
       }
 
+      cleanupRealtime();
+
       if (error instanceof Error && error.name === 'AbortError') {
         const reason = abortReasonRef.current;
         console.log(`[streaming] Generation aborted, reason: ${reason}`);
-        
-        // Only show error for watchdog timeout, not for user cancel or replaced requests
-        if (reason === 'watchdog') {
-          // Already handled in watchdog interval
-        }
-        // For 'user' and 'replaced' - silent abort, no toast
         setIsGenerating(false);
-        setProgress(null);
+        if (reason === 'user') {
+          setProgress({ type: 'progress', step: 'cancelled', progress: 0, message: 'Đã hủy.' });
+        } else {
+          setProgress(null);
+        }
         return null;
       }
 
@@ -406,30 +505,39 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       setIsGenerating(false);
       throw error;
     }
-  }, [options, cleanupTimers]);
+  }, [options, cleanupTimers, cleanupRealtime, subscribeToTaskRealtime, startPollingFallback, recoverFromTask]);
 
-  const cancel = useCallback(() => {
+  const cancel = useCallback(async () => {
     abortReasonRef.current = 'user';
     cleanupTimers();
+    cleanupRealtime();
     generatingRef.current = false;
+    const taskIdToCancel = currentTaskId;
     userIdRef.current = null;
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      try { abortControllerRef.current.abort(); } catch {}
       setIsGenerating(false);
-      setProgress(null);
+      setProgress({ type: 'progress', step: 'cancelled', progress: 0, message: 'Đã hủy.' });
       streamingTextsRef.current = {};
       setChannelUpdateSignal({ channel: '', version: 0 });
       setCurrentTaskId(null);
     }
-  }, [cleanupTimers]);
+    // Mark task as cancelled in DB so backend can stop work on next checkpoint
+    if (taskIdToCancel) {
+      try {
+        await supabase
+          .from('generation_tasks')
+          .update({ status: 'cancelled', error_message: 'User cancelled' })
+          .eq('id', taskIdToCancel);
+      } catch (err) {
+        console.warn('[streaming] Failed to mark task cancelled:', err);
+      }
+    }
+  }, [cleanupTimers, cleanupRealtime, currentTaskId]);
 
-  // Expose getChannelText for per-channel subscription (avoids full object re-render)
   const getChannelText = useCallback((ch: string) => streamingTextsRef.current[ch] || '', []);
-
-  // Stable snapshot for consumers that need the full object
   const streamingTexts = streamingTextsRef.current;
 
-  // Cleanup on unmount: abort any active generation and reset state
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -437,20 +545,21 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         abortControllerRef.current.abort();
       }
       cleanupTimers();
+      cleanupRealtime();
       generatingRef.current = false;
       userIdRef.current = null;
       streamingTextsRef.current = {};
     };
-  }, [cleanupTimers]);
+  }, [cleanupTimers, cleanupRealtime]);
 
   return {
     generate,
     cancel,
     progress,
     isGenerating,
-    streamingTexts, // Accumulated streaming text per channel (ref snapshot)
-    getChannelText, // Per-channel accessor (no re-render on other channels)
-    channelUpdateSignal, // Signal for per-channel re-render
-    currentTaskId, // Current task ID for background tracking
+    streamingTexts,
+    getChannelText,
+    channelUpdateSignal,
+    currentTaskId,
   };
 }
