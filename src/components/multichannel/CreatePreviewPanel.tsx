@@ -262,6 +262,7 @@ export function CreatePreviewPanel({
           completedChannels={completedChannels}
           totalChannels={totalChannels}
           currentChannel={currentChannel}
+          currentBatch={currentBatch}
           streamingTexts={streamingTexts}
         />
         {state === 'recovering' && (
