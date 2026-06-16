@@ -112,6 +112,7 @@ export default function MultiChannelCreate() {
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
   const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
   const [sseProgress, setSseProgress] = useState<ProgressEvent | null>(null);
+  const [currentBatch, setCurrentBatch] = useState<ProgressEvent['batchInfo'] | null>(null);
   const [generatedContentId, setGeneratedContentId] = useState<string | null>(null);
   const generationStartRef = useRef<number | null>(null);
 
@@ -119,6 +120,7 @@ export default function MultiChannelCreate() {
   useEffect(() => {
     setGenerationState('idle');
     setSseProgress(null);
+    setCurrentBatch(null);
     setGeneratedContentId(null);
     setGenerationElapsedMs(0);
     generationStartRef.current = null;
