@@ -528,6 +528,7 @@ export default function MultiChannelCreate() {
         channels={formData.channels || []}
         completedChannels={sseProgress?.completedChannels || []}
         currentChannel={sseProgress?.currentChannel}
+        currentBatch={currentBatch}
         onViewContent={handleViewContent}
         onCreateAnother={handleCreateAnother}
         onClose={() => setGenerationState('idle')}
