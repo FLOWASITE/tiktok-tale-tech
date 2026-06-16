@@ -2,7 +2,7 @@
 // UI Focus: Streaming text grid is primary, progress steps are collapsed by default
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Loader2, ChevronDown, Bot, Globe } from 'lucide-react';
+import { Check, Loader2, ChevronDown, Bot, Globe, ArrowDownAZ, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   calculateTotalDuration,
