@@ -3299,12 +3299,34 @@ Nội dung sẵn sàng đăng ngay.`;
             // PHASE 0: First-byte signal + heartbeat (within ~50ms of connect)
             // ═══════════════════════════════════════════════════════════════════
             emit({ type: 'progress', step: 'init', progress: 2, message: 'Đã kết nối, đang chuẩn bị...' });
-            heartbeatInterval = setInterval(() => {
+            let cancelCheckCounter = 0;
+            heartbeatInterval = setInterval(async () => {
               if (clientDisconnected) return;
               try {
                 controller.enqueue(encoder.encode(': keep-alive\n\n'));
               } catch {}
+              // Every ~30s (6 ticks of 5s), check if user cancelled via DB
+              cancelCheckCounter++;
+              if (cancelCheckCounter >= 6 && formData.taskId) {
+                cancelCheckCounter = 0;
+                try {
+                  const { data: t } = await supabase
+                    .from('generation_tasks')
+                    .select('status')
+                    .eq('id', formData.taskId)
+                    .maybeSingle();
+                  if (t?.status === 'cancelled') {
+                    console.log('[generate-multichannel] User cancelled via DB, closing stream');
+                    clientDisconnected = true;
+                    try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Đã hủy bởi người dùng' })}\n\n`)); } catch {}
+                    try { controller.enqueue(encoder.encode('data: [DONE]\n\n')); } catch {}
+                    try { controller.close(); } catch {}
+                    if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+                  }
+                } catch {}
+              }
             }, 5000);
+
             
             // ═══════════════════════════════════════════════════════════════════
             // PHASE 1: Heavy prep — moved INSIDE start() so client sees progress
