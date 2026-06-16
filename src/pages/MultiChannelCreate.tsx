@@ -503,6 +503,7 @@ export default function MultiChannelCreate() {
                 totalChannels={sseProgress?.totalChannels}
                 currentChannel={sseProgress?.currentChannel}
                 currentBatch={currentBatch}
+                onCancel={isGenerating ? cancelGeneration : undefined}
                 onViewContent={handleViewContent}
                 onCreateAnother={handleCreateAnother}
                 // Auto Image Pipeline props
