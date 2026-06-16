@@ -34,6 +34,7 @@ interface MobileGenerationSheetProps {
   onViewContent: () => void;
   onCreateAnother: () => void;
   onClose?: () => void;
+  onCancel?: () => void;
   // Auto Image Pipeline props
   imagePhase?: PipelinePhase;
   imageProgress?: Record<Channel, ImageGenerationStatus>;
