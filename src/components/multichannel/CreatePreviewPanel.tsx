@@ -60,6 +60,7 @@ export function CreatePreviewPanel({
   completedChannels,
   totalChannels,
   currentChannel,
+  currentBatch,
   onViewContent,
   onCreateAnother,
   // Auto Image Pipeline
