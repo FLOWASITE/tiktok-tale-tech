@@ -3223,11 +3223,22 @@ Nội dung sẵn sàng đăng ngay.`;
     if (formData.stream === true) {
       console.log("[streaming-mode] Streaming mode enabled, starting SSE response...");
       
-      // NEW: Task tracking - mark as generating at start
-      const taskId = formData.taskId;
-      if (taskId) {
-        await updateTaskProgress(supabase, taskId, 5, 'Khởi tạo...', 'init', 'generating');
-      }
+      // RESTRUCTURED: Hoist disconnect state + return SSE Response IMMEDIATELY.
+      // All heavy prep (AI config, smart context, KG, SEO, prompt build) now runs
+      // INSIDE start() so the client receives bytes within ~50ms instead of waiting
+      // 30-60s for prep to finish. This fixes "stuck at init" timeouts on heavy
+      // requests (many long-form channels).
+      let clientDisconnected = false;
+      let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+      req.signal.addEventListener('abort', () => {
+        console.log('[streaming-mode] Client disconnected');
+        clientDisconnected = true;
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+      });
+      
       
       // Get AI config for models
       const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
