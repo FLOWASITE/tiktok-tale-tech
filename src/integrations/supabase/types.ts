@@ -5786,6 +5786,7 @@ export type Database = {
           expires_at: string | null
           id: string
           input_params: Json
+          last_heartbeat_at: string | null
           organization_id: string | null
           progress: number | null
           progress_message: string | null
@@ -5807,6 +5808,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           input_params?: Json
+          last_heartbeat_at?: string | null
           organization_id?: string | null
           progress?: number | null
           progress_message?: string | null
@@ -5828,6 +5830,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           input_params?: Json
+          last_heartbeat_at?: string | null
           organization_id?: string | null
           progress?: number | null
           progress_message?: string | null
