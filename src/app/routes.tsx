@@ -45,6 +45,8 @@ import AdminVouchers from "@/pages/AdminVouchers";
 import AdminEdgeFunctions from "@/pages/AdminEdgeFunctions";
 import AdminPlans from "@/pages/AdminPlans";
 import AdminCronMonitor from "@/pages/AdminCronMonitor";
+import AdminMultichannelObservability from "@/pages/AdminMultichannelObservability";
+
 const AdminStorageMemory = lazy(() => import("@/pages/AdminStorageMemory"));
 const AdminSeoHub = lazy(() => import("@/pages/AdminSeoHub"));
 const SeoHub = lazy(() => import("@/pages/SeoHub"));
@@ -237,6 +239,8 @@ export function AppRoutes() {
       <Route path="/admin/seo-pages" element={<Navigate to="/admin/seo" replace />} />
       <Route path="/admin/seo-keywords" element={<Navigate to="/admin/seo" replace />} />
       <Route path="/admin/cron-monitor" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminCronMonitor /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/multichannel-observability" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminMultichannelObservability /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+
       <Route path="/admin/storage" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminStorageMemory /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/telegram-auth-check" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminTelegramAuthCheck /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
 

@@ -26,7 +26,9 @@ import {
   Brain,
   Server,
   HardDrive,
-  Search
+  Search,
+  Activity
+
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -784,6 +786,13 @@ export default function AdminDashboard() {
                 Cron Monitor
               </Button>
             </Link>
+            <Link to="/admin/multichannel-observability">
+              <Button variant="outline" size="sm">
+                <Activity className="h-4 w-4 mr-2" />
+                Multichannel Observability
+              </Button>
+            </Link>
+
             <Link to="/admin/storage">
               <Button variant="outline" size="sm">
                 <HardDrive className="h-4 w-4 mr-2" />

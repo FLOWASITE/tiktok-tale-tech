@@ -106,6 +106,9 @@ import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { useCompliancePrecheck } from '@/hooks/useCompliancePrecheck';
 import { useCoreContents } from '@/hooks/useCoreContents';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getMaxChannelsForTier, formatTierLimit } from '@/lib/multichannelTierLimits';
+
 import { useStreamingCoreContent } from '@/hooks/useStreamingCoreContent';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
@@ -321,6 +324,10 @@ export function MultiChannelFormWizard({
 }: MultiChannelFormWizardProps) {
   const navigate = useNavigate();
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
+  const { subscription } = useSubscription();
+  const tierPlan = (subscription?.plan_type ?? 'free') as 'free' | 'starter' | 'pro' | 'enterprise';
+  const maxChannelsPerRun = getMaxChannelsForTier(tierPlan);
+
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -939,6 +946,19 @@ export function MultiChannelFormWizard({
       toast.error('Vui lòng nhập chủ đề và chọn ít nhất 1 kênh');
       return;
     }
+
+    // P4: Tier limit hard-block
+    if (formData.channels.length > maxChannelsPerRun) {
+      toast.error(
+        `Gói ${tierPlan.toUpperCase()} chỉ cho phép tối đa ${formatTierLimit(tierPlan)} mỗi lần tạo`,
+        {
+          description: `Bạn đang chọn ${formData.channels.length} kênh. Vui lòng bỏ bớt hoặc nâng cấp gói.`,
+          duration: 6000,
+        }
+      );
+      return;
+    }
+
 
     // Check if Core Content is ready
     const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
@@ -2368,7 +2388,20 @@ export function MultiChannelFormWizard({
                 }
                 return null;
               })()}
+
+              {/* P4: Tier limit warning */}
+              {Number.isFinite(maxChannelsPerRun) && formData.channels.length > maxChannelsPerRun && (
+                <div className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-lg p-2.5">
+                  <Timer className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Gói <strong className="uppercase">{tierPlan}</strong> giới hạn tối đa <strong>{formatTierLimit(tierPlan)}</strong> mỗi lần tạo.
+                    Bạn đang chọn <strong>{formData.channels.length} kênh</strong>. Vui lòng bỏ bớt hoặc{' '}
+                    <Link to="/settings/plans" className="underline font-medium">nâng cấp gói</Link>.
+                  </span>
+                </div>
+              )}
             </div>
+
           )}
         </div>
 
@@ -2629,7 +2662,7 @@ export function MultiChannelFormWizard({
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
+                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0 || formData.channels.length > maxChannelsPerRun}
                 className={cn(
                   "gap-2 gradient-primary min-w-[140px]",
                   !isGenerating && !pendingMultiChannelGeneration && "glow-primary"

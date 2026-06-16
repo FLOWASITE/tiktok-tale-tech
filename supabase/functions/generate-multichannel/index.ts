@@ -2071,6 +2071,33 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     console.log("Using organization_id:", organizationId, "(from request:", !!requestedOrganizationId, ")");
 
     // ============================================
+    // P4: TIER LIMIT — hard-block khi vượt số channel/run
+    // Free 3 / Starter 6 / Pro 12 / Enterprise ∞
+    // ============================================
+    if (formData.action !== 'regenerate' && formData.action !== 'expand') {
+      const { checkMultichannelTierLimit } = await import("../_shared/multichannel-tier-limits.ts");
+      const requestedCount = Array.isArray(formData.channels) ? formData.channels.length : 0;
+      if (requestedCount > 0) {
+        const tierCheck = await checkMultichannelTierLimit(supabase, organizationId, requestedCount);
+        if (!tierCheck.allowed) {
+          console.warn(`[tier-limit] Blocked: ${tierCheck.message}`);
+          return new Response(
+            JSON.stringify({
+              error: tierCheck.message,
+              code: "TIER_LIMIT_EXCEEDED",
+              tier: tierCheck.tier,
+              limit: tierCheck.limit,
+              requested: tierCheck.requested,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
+
+
+    // ============================================
     // CORE CONTENT MODE
     // Fetch source material if coreContentId provided
     // Transform from approved Core Content instead of topic-only generation
