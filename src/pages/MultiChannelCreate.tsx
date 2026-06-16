@@ -534,6 +534,7 @@ export default function MultiChannelCreate() {
         onViewContent={handleViewContent}
         onCreateAnother={handleCreateAnother}
         onClose={() => setGenerationState('idle')}
+        onCancel={isGenerating ? cancelGeneration : undefined}
         // Auto Image Pipeline props
         imagePhase={imagePipeline.phase}
         imageProgress={imagePipeline.imageProgress}
