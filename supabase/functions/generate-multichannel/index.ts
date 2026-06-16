@@ -3295,6 +3295,436 @@ Nội dung sẵn sàng đăng ngay.`;
           };
           
           try {
+            // ═══════════════════════════════════════════════════════════════════
+            // PHASE 0: First-byte signal + heartbeat (within ~50ms of connect)
+            // ═══════════════════════════════════════════════════════════════════
+            emit({ type: 'progress', step: 'init', progress: 2, message: 'Đã kết nối, đang chuẩn bị...' });
+            heartbeatInterval = setInterval(() => {
+              if (clientDisconnected) return;
+              try {
+                controller.enqueue(encoder.encode(': keep-alive\n\n'));
+              } catch {}
+            }, 5000);
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // PHASE 1: Heavy prep — moved INSIDE start() so client sees progress
+            // ═══════════════════════════════════════════════════════════════════
+            const taskId = formData.taskId;
+            if (taskId) {
+              await updateTaskProgress(supabase, taskId, 5, 'Khởi tạo...', 'init', 'generating').catch(() => {});
+            }
+            
+            // Get AI config for models
+            emit({ type: 'progress', step: 'ai-config', progress: 5, message: 'Đang tải cấu hình AI...' });
+            const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
+            const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
+            if (taskId) {
+              await updateTaskProgress(supabase, taskId, 8, 'Đã tải cấu hình AI', 'ai-config', 'generating').catch(() => {});
+            }
+            emit({ type: 'progress', step: 'ai-config', progress: 8, message: 'Đã tải cấu hình AI ✓' });
+            
+            // Detect target audience for prompts
+            const targetAudience = await detectTargetAudience(industryArray, supabase);
+            
+            // Derive contentGoal
+            const contentGoal = resolvedContentGoal;
+            
+            // NEW: Build Smart Context for enhanced generation
+            emit({ type: 'progress', step: 'smart-context', progress: 10, message: 'Đang phân tích brand context...' });
+            const qualityMode = normalizeQualityMode(formData.qualityMode);
+            let smartContext: SmartContextResult | null = null;
+
+            if (qualityMode !== 'fast') {
+              try {
+                smartContext = await buildSmartContext(supabase, {
+                  qualityMode,
+                  brandTemplateId: formData.brandTemplateId,
+                  organizationId: organizationId || undefined,
+                  targetPersonaId: formData.targetPersonaId,
+                  includeHookPatterns: true,
+                  includeCTAPatterns: true,
+                  includeLearning: true,
+                });
+                console.log(`[streaming-mode] Smart context built, richness: ${smartContext.contextRichnessScore}/100`);
+              } catch (err) {
+                console.warn('[streaming-mode] Failed to build smart context:', err);
+              }
+            }
+            if (taskId) {
+              await updateTaskProgress(supabase, taskId, 12, 'Đã tải brand context', 'smart-context', 'generating').catch(() => {});
+            }
+            emit({ type: 'progress', step: 'smart-context', progress: 12, message: 'Đã tải brand context ✓' });
+            
+            // NEW: Knowledge Graph Context - Phase 6
+            emit({ type: 'progress', step: 'knowledge-graph', progress: 13, message: 'Đang tải knowledge graph...' });
+            let knowledgeGraphContext: KnowledgeGraphContext | null = null;
+            let knowledgeGraphPromptSection = '';
+            
+            if (qualityMode !== 'fast' && industryTemplateId) {
+              try {
+                knowledgeGraphContext = await fetchKnowledgeGraphContext(supabase, {
+                  topic: formData.topic,
+                  industryTemplateId,
+                  organizationId: organizationId || undefined,
+                  limit: 10,
+                });
+                
+                if (knowledgeGraphContext.regulations.length > 0 || knowledgeGraphContext.relevantTerms.length > 0) {
+                  knowledgeGraphPromptSection = buildKnowledgeGraphPromptSection(knowledgeGraphContext);
+                  console.log(`[streaming-mode] Knowledge Graph loaded: ${knowledgeGraphContext.regulations.length} regulations, ${knowledgeGraphContext.relevantTerms.length} terms`);
+                }
+              } catch (err) {
+                console.warn('[streaming-mode] Failed to fetch Knowledge Graph context:', err);
+              }
+            }
+            if (taskId) {
+              await updateTaskProgress(supabase, taskId, 15, 'Đã tải knowledge graph', 'knowledge-graph', 'generating').catch(() => {});
+            }
+            emit({ type: 'progress', step: 'knowledge-graph', progress: 15, message: 'Đã tải knowledge graph ✓' });
+            
+            // Build system prompt with all context
+            const systemPrompt = getSystemPrompt(
+              brandName,
+              brandGuideline,
+              primaryColor,
+              contentGoal,
+              formData.contentAngle,
+              formData.channels,
+              targetAudience,
+              brandVoice,
+              channelOverrides,
+              mergedRules,
+              industryMemory,
+              extendedBrandContext,
+              channelOptimizations,
+              smartContext,
+              qualityMode,
+              formData.contentRole // NEW: Content role for orchestration flow
+            );
+            
+            // Inject strategy conflict adjustments if any
+            const fullSystemPrompt = strategyValidation.promptAdjustments 
+              ? systemPrompt + strategyValidation.promptAdjustments 
+              : systemPrompt;
+            
+            // ============================================
+            // TARGETED PRODUCT/PERSONA CONTEXT (Streaming mode)
+            // ============================================
+            emit({ type: 'progress', step: 'product-persona', progress: 16, message: 'Đang tải product/persona...' });
+            let targetedProductContext = '';
+            let targetedPersonaContext = '';
+            
+            if (formData.targetProductId && formData.brandTemplateId) {
+              const { data: targetProduct } = await supabase
+                .from('brand_products')
+                .select('*')
+                .eq('id', formData.targetProductId)
+                .eq('brand_template_id', formData.brandTemplateId)
+                .single();
+              
+              if (targetProduct) {
+                targetedProductContext = `
+## 🎯 SẢN PHẨM/DỊCH VỤ MỤC TIÊU
+**Tên**: ${targetProduct.name}
+${targetProduct.category ? `**Danh mục**: ${targetProduct.category}` : ''}
+${targetProduct.description ? `**Mô tả**: ${targetProduct.description}` : ''}
+${targetProduct.unique_selling_points?.length ? `**USP**: ${targetProduct.unique_selling_points.join(', ')}` : ''}
+${targetProduct.benefits?.length ? `**Lợi ích**: ${targetProduct.benefits.join(', ')}` : ''}
+${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${targetProduct.pain_points_solved.join(', ')}` : ''}
+
+⚡ NỘI DUNG PHẢI TẬP TRUNG vào sản phẩm này, nhấn mạnh USP và cách giải quyết pain points.
+`;
+                console.log("[streaming-mode] Targeted product loaded:", targetProduct.name);
+              }
+            }
+
+            // Multi-product consistency block (explicit selection from UI)
+            if (Array.isArray(formData.product_profile_ids) && formData.product_profile_ids.length > 0) {
+              try {
+                const products = await fetchProductRows(supabase, formData.product_profile_ids);
+                if (products.length > 0) {
+                  targetedProductContext += `\n\n${buildProductBlockVI(products)}\n`;
+                  console.log("[streaming-mode] Multi-product block injected:", products.length);
+                }
+              } catch (e) { console.warn("[streaming-mode] product block fetch failed", e); }
+            }
+            
+            // Store persona data for Persona Fit Scoring
+            let targetPersonaData: PersonaData | null = null;
+            
+            if (formData.targetPersonaId && formData.brandTemplateId) {
+              const { data: targetPersona } = await supabase
+                .from('customer_personas')
+                .select('*')
+                .eq('id', formData.targetPersonaId)
+                .eq('brand_template_id', formData.brandTemplateId)
+                .single();
+              
+              if (targetPersona) {
+                // Store for Persona Fit Scoring
+                targetPersonaData = {
+                  id: targetPersona.id,
+                  name: targetPersona.name,
+                  occupation: targetPersona.occupation,
+                  ageRange: targetPersona.age_range,
+                  gender: targetPersona.gender,
+                  painPoints: targetPersona.pain_points || [],
+                  desires: targetPersona.desires || [],
+                  objections: targetPersona.objections || [],
+                  buyingTriggers: targetPersona.buying_triggers || [],
+                  communicationStyle: targetPersona.communication_style,
+                  preferredChannels: targetPersona.preferred_channels || [],
+                  techSavviness: targetPersona.tech_savviness,
+                  buyingMotivation: targetPersona.buying_motivation || [],
+                };
+                
+                targetedPersonaContext = `
+## 👤 PERSONA MỤC TIÊU
+**Tên**: ${targetPersona.name} ${targetPersona.avatar_emoji || ''}
+${targetPersona.occupation ? `**Nghề nghiệp**: ${targetPersona.occupation}` : ''}
+${targetPersona.age_range ? `**Độ tuổi**: ${targetPersona.age_range}` : ''}
+${targetPersona.pain_points?.length ? `**Pain points**: ${targetPersona.pain_points.join(', ')}` : ''}
+${targetPersona.desires?.length ? `**Mong muốn**: ${targetPersona.desires.join(', ')}` : ''}
+${targetPersona.buying_triggers?.length ? `**Trigger mua hàng**: ${targetPersona.buying_triggers.join(', ')}` : ''}
+${targetPersona.objections?.length ? `**Objections thường gặp**: ${targetPersona.objections.join(', ')}` : ''}
+${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPersona.communication_style}` : ''}
+
+${buildPersonaFitBoostPrompt(targetPersonaData)}
+
+⚡ NỘI DUNG PHẢI VIẾT CHO PERSONA NÀY:
+- Tone phù hợp với phong cách giao tiếp của họ
+- Giải quyết đúng pain points của họ
+- Trigger buying motivation
+- Phản bác objections nếu phù hợp
+`;
+                console.log("[streaming-mode] Targeted persona loaded:", targetPersona.name);
+              }
+            }
+
+            // ============================================
+            // SEO PILLAR CLUSTER CONTEXT (Streaming mode)
+            // Inject pillar + target keywords vào prompt để AI tối ưu on-page SEO.
+            // BUG FIX: trước đây chỉ normal-mode build block này, streaming mode bỏ qua
+            // → keyword được lưu DB nhưng AI không hề biết để dùng.
+            // ============================================
+            let seoClusterContext = '';
+            if (formData.clusterId || (formData.targetKeywordIds && formData.targetKeywordIds.length > 0)) {
+              try {
+                let clusterRow: any = null;
+                if (formData.clusterId) {
+                  const { data } = await supabase
+                    .from('seo_clusters')
+                    .select('id,name,description,pillar_keyword_id')
+                    .eq('id', formData.clusterId)
+                    .maybeSingle();
+                  clusterRow = data;
+                }
+                let pillarKeyword: string | null = null;
+                if (clusterRow?.pillar_keyword_id) {
+                  const { data: pk } = await supabase
+                    .from('seo_keywords')
+                    .select('keyword')
+                    .eq('id', clusterRow.pillar_keyword_id)
+                    .maybeSingle();
+                  pillarKeyword = (pk as any)?.keyword || null;
+                }
+                let kwRows: any[] = [];
+                let kwSource: 'user' | 'fallback' = 'user';
+                if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
+                  const { data } = await supabase
+                    .from('seo_keywords')
+                    .select('keyword,search_intent,search_volume,is_pillar')
+                    .in('id', formData.targetKeywordIds);
+                  kwRows = data || [];
+                } else if (formData.clusterId) {
+                  // Fallback: pillar chosen but no keywords selected → auto load top 5
+                  const { data } = await supabase
+                    .from('seo_keywords')
+                    .select('id,keyword,search_intent,search_volume,is_pillar')
+                    .eq('cluster_id', formData.clusterId)
+                    .order('priority_score', { ascending: false, nullsFirst: false })
+                    .limit(5);
+                  kwRows = data || [];
+                  if (kwRows.length > 0) {
+                    formData.targetKeywordIds = kwRows.map((k: any) => k.id);
+                    kwSource = 'fallback';
+                  }
+                }
+                if (clusterRow || kwRows.length) {
+                  const kwLines = kwRows.slice(0, 12).map((k: any) =>
+                    `- ${k.keyword}${k.is_pillar ? ' (PILLAR)' : ''}${k.search_intent ? ` · intent: ${k.search_intent}` : ''}${k.search_volume ? ` · vol: ${k.search_volume}` : ''}`
+                  ).join('\n');
+                  seoClusterContext = `
+## 🎯 SEO PILLAR CLUSTER (BẮT BUỘC ÁP DỤNG)
+${clusterRow?.name ? `**Pillar**: ${clusterRow.name}` : ''}
+${clusterRow?.description ? `**Mô tả pillar**: ${clusterRow.description}` : ''}
+${pillarKeyword ? `**Pillar keyword (chính)**: "${pillarKeyword}" — phải xuất hiện tự nhiên trong tiêu đề + đoạn mở bài.` : ''}
+
+**Keyword mục tiêu của bài (ưu tiên cao → thấp):**
+${kwLines || '- (không có keyword cụ thể)'}
+
+QUY TẮC SEO ON-PAGE:
+1. Bài thuộc silo "${clusterRow?.name || 'pillar'}" — giọng và góc nhìn phải nhất quán với pillar.
+2. Lồng pillar keyword + 2-3 keyword phụ tự nhiên (KHÔNG nhồi nhét), mật độ ~0.8-1.5%.
+3. Với kênh long-form (website/blogger/wordpress): dùng keyword làm H2/H3, có internal-link gợi ý đến pillar/sister content.
+4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
+5. Tuyệt đối không bịa số liệu để nhồi keyword.
+`;
+                  console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" cluster_id=${formData.clusterId || 'n/a'} keywords=${kwRows.length} source=${kwSource}`);
+                }
+              } catch (err) {
+                console.warn('[streaming-mode] Failed to load SEO cluster context:', err);
+              }
+            }
+            emit({ type: 'progress', step: 'seo-context', progress: 17, message: 'Đã tải SEO context ✓' });
+
+            // Build hook overview for all channels
+            const hookOverview = buildHookOverview(formData.selectedHooks, formData.globalHook);
+            
+            // Build base user prompt
+            let userPrompt = `Tạo nội dung đa kênh cho chủ đề:
+"${formData.topic}"
+
+${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
+${targetedProductContext}
+${targetedPersonaContext}
+${seoClusterContext}
+${hookOverview}
+
+Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
+
+Hãy tạo nội dung RIÊNG BIỆT, PHÙ HỢP cho từng kênh theo đúng quy ước đã cho.`;
+
+            // ============================================
+            // CORE CONTENT MODE - SOURCE MATERIAL INJECTION
+            // When coreContentId is provided, inject as source material for transformation
+            // ============================================
+            if (coreContent) {
+              const wordCount = coreContent.word_count || coreContent.content?.split(/\s+/).length || 0;
+              const keyMessages = coreContent.key_messages || [];
+              
+              let keyMessagesSection = '';
+              if (keyMessages.length > 0) {
+                const formattedMessages = keyMessages.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n');
+                keyMessagesSection = `### Key Messages cần giữ nguyên:
+${formattedMessages}`;
+              }
+              
+              userPrompt += `
+
+## 📄 SOURCE MATERIAL (Core Content - Single Source of Truth)
+
+Đây là nội dung gốc đã được approve. Nhiệm vụ của bạn là **TRANSFORM** nội dung này sang format phù hợp với từng platform, **KHÔNG viết lại từ đầu**.
+
+### Nội dung gốc (${wordCount} từ):
+${coreContent.content}
+
+${keyMessagesSection}
+
+### Yêu cầu Transform:
+- **GIỮ NGUYÊN** thông điệp chính từ Core Content
+- **ADAPT** format phù hợp platform (độ dài, tone, hashtag, emoji...)
+- **KHÔNG thêm** thông tin mới không có trong Core Content
+- **CÓ THỂ lược bỏ** chi tiết để phù hợp giới hạn platform
+- Với social media: trích xuất key points, tạo hook hấp dẫn từ nội dung gốc
+- Với email/website: có thể giữ nhiều chi tiết hơn`;
+              
+              console.log(`[streaming-mode][core-content] Injected source material: "${coreContent.title}" (${wordCount} words, ${keyMessages.length} key messages)`);
+            }
+
+            // ============================================
+            // EDITED PREVIEWS LEARNING (Streaming mode)
+            // ============================================
+            if (formData.editedPreviews && Object.keys(formData.editedPreviews).length > 0) {
+              const editedChannels = Object.entries(formData.editedPreviews)
+                .filter(([_, preview]) => preview.original !== preview.edited)
+                .map(([channel, preview]) => ({ channel, ...preview }));
+
+              if (editedChannels.length > 0) {
+                userPrompt += `\n\n## VÍ DỤ ĐƯỢC NGƯỜI DÙNG CHỈNH SỬA (HỌC THEO PHONG CÁCH NÀY)
+Người dùng đã chỉnh sửa một số preview. Hãy HỌC THEO phong cách, cách diễn đạt, và tone của nội dung đã chỉnh sửa.
+Áp dụng học hỏi này cho TẤT CẢ các kênh, không chỉ những kênh được chỉnh sửa.
+
+`;
+                editedChannels.forEach(({ channel, original, edited }) => {
+                  userPrompt += `### Kênh ${channel.toUpperCase()}:
+**Nội dung gốc từ AI:**
+${original.substring(0, 500)}${original.length > 500 ? '...' : ''}
+
+**Nội dung sau khi người dùng chỉnh sửa (HỌC THEO):**
+${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
+
+`;
+                });
+
+                userPrompt += `**QUAN TRỌNG**: Phân tích sự khác biệt và áp dụng phong cách chỉnh sửa của người dùng cho tất cả các kênh.
+Ưu tiên: cách dùng từ, độ dài câu, tone of voice, và cách trình bày mà người dùng thích hơn.`;
+                
+                console.log(`[streaming-mode] User provided ${editedChannels.length} edited preview(s) as examples`);
+              }
+            }
+            
+            // Prepare streaming context
+            const footerInfo = extendedBrandContext?.footerInfo as FooterInfo | null;
+            const brandAllowEmoji = brandVoice?.allow_emoji !== false;
+            const companyName = extendedBrandContext?.brandName || footerInfo?.company_name || null;
+            const tagline = (extendedBrandContext as any)?.tagline || null;
+            
+            const streamingContext: StreamingContext = {
+              organizationId,
+              userId,
+              channels: formData.channels,
+              topic: formData.topic,
+              contentGoal,
+              qualityMode: formData.qualityMode || 'balanced', // NEW: Pass quality mode for dynamic tokens
+              brandTemplateId: formData.brandTemplateId,
+              brandName,
+              footerInfo,
+              channelOverrides: channelOverrides as Record<string, any> | null,
+              brandAllowEmoji,
+              companyName,
+              tagline,
+              includeFooterInfo: formData.includeFooterInfo !== false, // Default: true
+              channelModelConfigs: new Map(
+                formData.channels.map(ch => {
+                  const cfg = channelModelConfigs.get(ch);
+                  const channelOpt = channelOptimizations[ch];
+                  const model = cfg?.model || aiConfig.model;
+                  // Apply cost priority to maxTokens
+                  const channelSettings = mergeChannelSettings(ch, channelOverrides);
+                  const dynamicMaxTokens = calculateChannelMaxTokens(ch, {
+                    contentGoal,
+                    qualityMode: formData.qualityMode || 'balanced',
+                    channelMaxLength: channelSettings.max_length,
+                    lengthUnit: channelSettings.length_unit === 'chars' ? 'chars' : 'words',
+                  });
+                  const baseMaxTokens = cfg?.maxTokens ?? dynamicMaxTokens;
+                  const optimizedMaxTokens = baseMaxTokens && channelOpt
+                    ? applyTokenOptimization(baseMaxTokens, channelOpt)
+                    : baseMaxTokens;
+                  return [ch, {
+                    model,
+                    temperature: cfg?.temperature ?? aiConfig.temperature,
+                    maxTokens: clampMaxTokensForModel(model, applyLongformTokenFloor(ch, optimizedMaxTokens)),
+                  }];
+                })
+              ),
+              defaultModel: aiConfig.model,
+              defaultTemperature: aiConfig.temperature,
+              // Critique context
+              brandVoice,
+              mergedRules,
+              // NEW: Per-channel optimizations for quality mode
+              channelOptimizations,
+            };
+            emit({ type: 'progress', step: 'prep-done', progress: 18, message: 'Đã chuẩn bị xong context ✓' });
+            if (taskId) {
+              await updateTaskProgress(supabase, taskId, 18, 'Đã chuẩn bị xong context', 'prep-done', 'generating').catch(() => {});
+            }
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // PHASE 2: Channel prioritization + generation kickoff
+            // ═══════════════════════════════════════════════════════════════════
             // Task 13: Multichannel Prioritization — sort primary channels first
             let primaryChannels: string[] = [];
             if (formData.brandTemplateId) {
@@ -3325,17 +3755,9 @@ Nội dung sẵn sàng đăng ngay.`;
             
             const streamStartTime = Date.now();
             
-            emit({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
-            await streamDelay(100);
-            emit({ type: 'progress', step: 'context', progress: 15, message: 'Đã tải context ✓' });
+            emit({ type: 'progress', step: 'context', progress: 19, message: 'Đã tải context ✓' });
             
-            // Start heartbeat
-            heartbeatInterval = setInterval(() => {
-              if (clientDisconnected) return;
-              try {
-                controller.enqueue(encoder.encode(': keep-alive\n\n'));
-              } catch {}
-            }, 5000);
+
             
             emit({
               type: 'progress',
