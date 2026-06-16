@@ -3300,11 +3300,22 @@ Nội dung sẵn sàng đăng ngay.`;
             // ═══════════════════════════════════════════════════════════════════
             emit({ type: 'progress', step: 'init', progress: 2, message: 'Đã kết nối, đang chuẩn bị...' });
             let cancelCheckCounter = 0;
+            let heartbeatWriteCounter = 0;
             heartbeatInterval = setInterval(async () => {
               if (clientDisconnected) return;
               try {
                 controller.enqueue(encoder.encode(': keep-alive\n\n'));
               } catch {}
+              // Every ~10s (2 ticks), write last_heartbeat_at so client can detect stalls
+              heartbeatWriteCounter++;
+              if (heartbeatWriteCounter >= 2 && formData.taskId) {
+                heartbeatWriteCounter = 0;
+                supabase
+                  .from('generation_tasks')
+                  .update({ last_heartbeat_at: new Date().toISOString() })
+                  .eq('id', formData.taskId)
+                  .then(() => {}, () => {});
+              }
               // Every ~30s (6 ticks of 5s), check if user cancelled via DB
               cancelCheckCounter++;
               if (cancelCheckCounter >= 6 && formData.taskId) {

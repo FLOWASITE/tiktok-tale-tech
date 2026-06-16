@@ -1,0 +1,2 @@
+ALTER TABLE public.generation_tasks ADD COLUMN IF NOT EXISTS last_heartbeat_at timestamptz;
+CREATE INDEX IF NOT EXISTS idx_generation_tasks_heartbeat ON public.generation_tasks (status, last_heartbeat_at) WHERE status = 'generating';
