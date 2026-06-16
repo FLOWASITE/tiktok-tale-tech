@@ -20,6 +20,7 @@ import {
   getChannelLabel,
   type ChannelStreamData 
 } from './streaming';
+import type { BatchInfo } from '@/hooks/useStreamingGeneration';
 
 interface AIGenerationProgressProps {
   isLoading: boolean;
@@ -32,6 +33,7 @@ interface AIGenerationProgressProps {
   completedChannels?: string[];
   totalChannels?: string[];
   currentChannel?: string;
+  currentBatch?: BatchInfo | null;
   channelContents?: {
     channel: string;
     preview: string;
