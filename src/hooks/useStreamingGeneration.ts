@@ -16,6 +16,15 @@ export interface StreamingTextChunk {
   isComplete: boolean;
 }
 
+export interface BatchInfo {
+  kind: 'long_form' | 'short_form';
+  index: number;
+  total: number;
+  channels: string[];
+  kindIndex: number;
+  kindTotal: number;
+}
+
 export interface ProgressEvent {
   type: 'progress' | 'result' | 'error' | 'streaming_text';
   step?: string;
@@ -33,6 +42,8 @@ export interface ProgressEvent {
   // Streaming text for typewriter effect
   streamingChunk?: StreamingTextChunk;
   recoverySource?: 'background_task' | 'recent_content';
+  // Batch info (emitted on step='batch_start' / 'batch_complete')
+  batchInfo?: BatchInfo;
 }
 
 interface UseStreamingGenerationOptions {
