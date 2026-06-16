@@ -58,6 +58,7 @@ export function MobileGenerationSheet({
   onViewContent,
   onCreateAnother,
   onClose,
+  onCancel,
   imagePhase,
   imageProgress,
   imageProgressTimes,
