@@ -202,6 +202,7 @@ export function MobileGenerationSheet({
                 currentChannel={currentChannel}
                 currentBatch={currentBatch}
                 streamingTexts={streamingTexts}
+                onCancel={onCancel}
               />
             </div>
           )}
