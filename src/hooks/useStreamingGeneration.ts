@@ -282,6 +282,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
               try {
               const event = JSON.parse(jsonStr) as ProgressEvent;
+
+              // Lift batchInfo from event.data → top-level for easy consumption
+              if (!event.batchInfo && event.data?.batchInfo) {
+                event.batchInfo = event.data.batchInfo as BatchInfo;
+              }
               
               // Handle streaming text chunks - accumulate for typewriter effect
               if (event.type === 'streaming_text' && event.streamingChunk) {
