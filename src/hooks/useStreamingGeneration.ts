@@ -114,10 +114,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   }, [options]);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
-  // Increased to 150s to handle slow AI models and buffering without false positives
-  const WATCHDOG_TIMEOUT_MS = 150000; // 150 seconds
-  // Grace period for first byte - shorter timeout for initial connection
-  const FIRST_BYTE_TIMEOUT_MS = 30000; // 30 seconds
+  // Increased to 180s to handle slow AI models and buffering without false positives
+  const WATCHDOG_TIMEOUT_MS = 180000; // 180 seconds
+  // Grace period for first byte - generous to allow heavy backend prep (smart context,
+  // knowledge graph, SEO cluster fetch) to complete before streaming begins.
+  const FIRST_BYTE_TIMEOUT_MS = 90000; // 90 seconds
 
   const cleanupTimers = useCallback(() => {
     if (watchdogTimerRef.current) {

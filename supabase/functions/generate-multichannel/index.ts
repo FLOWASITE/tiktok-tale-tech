@@ -3232,6 +3232,9 @@ Nội dung sẵn sàng đăng ngay.`;
       // Get AI config for models
       const aiConfig = await getAIConfig('generate-multichannel', organizationId || undefined);
       const channelModelConfigs = await getChannelModelConfigs(organizationId || undefined);
+      if (taskId) {
+        await updateTaskProgress(supabase, taskId, 8, 'Đã tải cấu hình AI', 'ai-config', 'generating').catch(() => {});
+      }
       
       // Detect target audience for prompts
       const targetAudience = await detectTargetAudience(industryArray, supabase);
@@ -3259,6 +3262,9 @@ Nội dung sẵn sàng đăng ngay.`;
           console.warn('[streaming-mode] Failed to build smart context:', err);
         }
       }
+      if (taskId) {
+        await updateTaskProgress(supabase, taskId, 12, 'Đã tải brand context', 'smart-context', 'generating').catch(() => {});
+      }
       
       // NEW: Knowledge Graph Context - Phase 6
       let knowledgeGraphContext: KnowledgeGraphContext | null = null;
@@ -3280,6 +3286,9 @@ Nội dung sẵn sàng đăng ngay.`;
         } catch (err) {
           console.warn('[streaming-mode] Failed to fetch Knowledge Graph context:', err);
         }
+      }
+      if (taskId) {
+        await updateTaskProgress(supabase, taskId, 15, 'Đã tải knowledge graph', 'knowledge-graph', 'generating').catch(() => {});
       }
       
       // Build system prompt with all context
