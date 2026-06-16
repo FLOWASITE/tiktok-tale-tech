@@ -198,6 +198,7 @@ export function MobileGenerationSheet({
                 completedChannels={completedChannels}
                 totalChannels={channels}
                 currentChannel={currentChannel}
+                currentBatch={currentBatch}
                 streamingTexts={streamingTexts}
               />
             </div>
