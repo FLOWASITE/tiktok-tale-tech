@@ -1,51 +1,80 @@
-## Kết quả kiểm tra
+# Hoàn thiện luồng Multichannel Generation (P1 + P2 + P3)
 
-Nguyên nhân khả dĩ nhất: luồng `generate-multichannel` đang bị kẹt/timeout trước khi UI nhận được tiến độ thực sự.
+Mục tiêu: sau khi đã restructure SSE mở ngay, fix nốt 3 lỗ hổng còn lại để user không còn gặp "stuck at init", không mất kết quả khi mạng chập chờn, và thấy rõ tiến trình.
 
-Dấu hiệu từ backend:
-- Các task multichannel gần nhất bị đánh dấu failed do stale background task sau hơn 10 phút.
-- Task dừng ở `progress=5`, `current_step=init`, tức là đã tạo task và mới vào bước khởi tạo, nhưng không tiến tới batch/channel generation.
-- Các request lỗi thường chọn rất nhiều kênh cùng lúc, gồm nhiều long-form nặng: `website`, `blogger`, `wordpress`, `medium`, `shopify`, `wix` + nhiều social.
-- Một task cũ có lỗi rõ: `wix chưa tạo được nội dung riêng...`, cho thấy long-form guard đang chặn lưu khi một long-form trả rỗng/quá ngắn.
+---
 
-Vấn đề trong code hiện tại:
-- `generate-multichannel` làm nhiều bước nặng trước khi tạo/return SSE stream: AI config, smart context, knowledge graph, product/persona, SEO context, prompt lớn.
-- Vì SSE chưa được trả ngay, UI không có heartbeat/progress để biết backend còn chạy.
-- Với nhiều long-form, edge runtime dễ bị timeout hoặc stream bị ngắt; task sau đó bị recovery đánh dấu stale.
-- UI hiện có batch banner, nhưng backend chỉ emit batch sau khi đã qua khối khởi tạo nặng, nên người dùng vẫn thấy lỗi/treo ở đầu.
+## 1. Client Resilience — `useStreamingGeneration`
 
-## Kế hoạch sửa
+**Vấn đề:** Khi stream đứt (mạng yếu, browser sleep, edge runtime restart), client chỉ chờ watchdog 180s rồi mark fail, dù backend có thể đã `completed` trong DB.
 
-1. **Trả SSE sớm hơn**
-   - Đưa việc tạo `ReadableStream`/heartbeat lên ngay khi vào streaming mode.
-   - Emit `init/context` ngay lập tức trước khi chạy các bước context nặng.
-   - Cập nhật task progress theo từng bước context để tránh bị stale ở `init`.
+**Việc làm:**
+- Thêm **Realtime subscription** vào `generation_tasks` (filter theo `task_id` hiện tại) song song với SSE. Khi DB báo `status='completed'` → đóng stream sớm, gọi `recoverGeneratedMultichannel` để load kết quả, không chờ watchdog.
+- Thêm **polling fallback** mỗi 10s (chỉ bật khi đã >30s không có SSE chunk): `SELECT status, progress, current_step FROM generation_tasks WHERE id=?` → cập nhật UI; nếu `completed`/`failed` → terminate stream sớm.
+- Per-channel try/catch ở reducer: 1 kênh fail không reset toàn bộ state đã streamed của kênh khác.
+- Khi reload trang giữa chừng: rehydrate từ `generation_tasks` (đã có `result_id` nếu xong, hoặc `progress/current_step` nếu đang chạy) — pattern giống Carousel Background Resilience đã làm.
 
-2. **Tách tiến độ pre-flight rõ ràng**
-   - Emit các bước: tải cấu hình AI, brand context, SEO/persona/product context, chuẩn bị prompt.
-   - UI sẽ thấy tiến độ trước khi batch đầu tiên bắt đầu.
+**File động chạm:**
+- `src/hooks/useStreamingGeneration.ts` (thêm Realtime + polling fallback)
+- `src/lib/recoverGeneratedMultichannel.ts` (xác nhận có hàm load theo `result_id`, bổ sung nếu thiếu)
 
-3. **Giới hạn batch long-form an toàn hơn**
-   - Với long-form nặng (`website/blogger/wordpress/medium/shopify/wix`), chạy tuần tự hoặc batch nhỏ hơn khi số kênh lớn.
-   - Giữ social batch nhanh hơn sau long-form.
+---
 
-4. **Xử lý lỗi từng kênh rõ hơn**
-   - Nếu 1 long-form như Wix/Medium fail, emit lỗi channel cụ thể vào UI thay vì để cả task stale.
-   - Khi backend chặn lưu do nội dung rỗng/quá ngắn, hiển thị tên kênh lỗi và gợi ý retry.
+## 2. Backend Hardening — `generate-multichannel`
 
-5. **Dọn Telegram khỏi luồng multichannel UI liên quan**
-   - Vì yêu cầu trước là không còn hiển thị Telegram, loại Telegram khỏi mapping UI/form/image picker còn sót để tránh user chọn nhầm hoặc pipeline cũ gửi `telegram`.
-   - Không xoá schema/cột backend, chỉ ẩn khỏi UI và lọc payload frontend.
+**Vấn đề:** Function có thể vượt timeout Edge (400s), 1 kênh fail kéo cả batch fail, prep phase >5s không emit heartbeat → stale-recovery hiểu nhầm là chết.
 
-6. **Kiểm chứng sau sửa**
-   - Test case nhỏ: Facebook + Instagram + Website.
-   - Test case nặng: toàn bộ long-form + social, xác nhận UI nhận heartbeat, batch progress và không stale ở `init`.
-   - Kiểm tra task mới cập nhật progress vượt qua `init` và nếu fail thì có message cụ thể theo kênh.
+**Việc làm:**
+- Thêm `AbortController` tổng 240s; khi gần hết, gracefully gửi `event: timeout` + mark `failed` với message rõ ràng thay vì để runtime kill im lặng.
+- Bọc mỗi channel trong try/catch riêng: fail → emit `channel_error` cho client, tiếp tục các kênh còn lại; cuối cùng task `completed` nếu ≥1 kênh OK, `failed` nếu tất cả fail.
+- Trong prep phase (ai-config / smart-context / KG / SEO), nếu bước nào >5s → emit `prep-progress` mỗi 3s với message hiện tại để stale-recovery không hiểu nhầm.
+- Persist `progress + current_step + last_heartbeat_at` vào `generation_tasks` sau mỗi prep step (background, non-blocking với `EdgeRuntime.waitUntil` nếu có).
+- Log `ai_metrics` cho từng prep step (latency, model, cost) với `trace_id` xuyên suốt.
 
-## File dự kiến chỉnh
-
+**File động chạm:**
 - `supabase/functions/generate-multichannel/index.ts`
-- `supabase/functions/_shared/streaming-handler.ts`
-- `src/hooks/useStreamingGeneration.ts`
-- `src/pages/MultiChannelCreate.tsx`
-- Các component multichannel còn reference Telegram trong UI/form picker nếu cần
+- `supabase/functions/_shared/task-tracking.ts` (nếu cần thêm trường `last_heartbeat_at`)
+- Migration mới (nếu thêm cột): `last_heartbeat_at timestamptz` trên `generation_tasks`
+
+---
+
+## 3. UX Banner — `AIGenerationProgress`
+
+**Vấn đề:** User chỉ thấy % và "init" generic, không biết đang nạp ngữ cảnh hay đã treo. Không có nút Hủy.
+
+**Việc làm:**
+- Hiển thị **stepper prep phase** rõ ràng (5 bước nhỏ với icon + label tiếng Việt):
+  - "Đang nạp cấu hình AI" (ai-config, 8%)
+  - "Phân tích thương hiệu & persona" (smart-context, 12%)
+  - "Nạp tri thức ngành" (knowledge-graph, 15%)
+  - "Nạp ngữ cảnh SEO" (seo-context, 17%)
+  - "Bắt đầu tạo nội dung" (prep-done, 18%)
+- Step đang chạy: spinner + text bold; step xong: tick xanh; step chưa tới: mờ.
+- Sau 18% chuyển sang view "channel grid" như hiện tại.
+- Thêm **nút "Hủy" (Stop)** ở góc banner: gọi `AbortController.abort()` ở client + PATCH `generation_tasks` set `status='cancelled'` → backend phát hiện ở vòng tiếp theo cũng dừng. Đảm bảo partial results đã streamed vẫn được persist (giống pattern AI SDK abort).
+- Nếu user chọn >4 long-form → hiện inline warning "Có thể mất 60-90s do khối lượng lớn" ngay khi submit (không block).
+
+**File động chạm:**
+- `src/components/multichannel/AIGenerationProgress.tsx`
+- `src/hooks/useStreamingGeneration.ts` (expose `abort()` function)
+- Component bước submit (chỗ chọn channel) — thêm warning text khi long-form >4
+
+---
+
+## Technical notes
+
+- **Realtime channel naming:** dùng `gen-task-${taskId}` để mỗi task có channel riêng, unsubscribe khi unmount.
+- **Polling guard:** chỉ poll khi `Date.now() - lastChunkAt > 30_000` để tránh thừa request khi stream khỏe.
+- **Cancel semantics:** `status='cancelled'` ≠ `failed`. UI hiện badge "Đã hủy" màu trung tính, không đỏ.
+- **Migration cần xác nhận:** `generation_tasks` đã có cột `current_step`, `progress`, `result_id`, `error_message` chưa? Nếu thiếu `last_heartbeat_at` hoặc enum `cancelled` cho `status` thì cần migration additive.
+
+## Ngoài phạm vi (để sprint sau)
+- Hard-limit theo tier (P4) — cần align với pricing.
+- Cron `recover-stale-multichannel-tasks` (P6) — chỉ cần sau khi P1+P2 chạy ổn.
+- Observability dashboard (P5) — tách riêng, không block sprint này.
+
+## Acceptance
+- Tắt mạng giữa chừng rồi bật lại trong 30s: UI vẫn hiển thị đúng kết quả khi backend xong (qua Realtime/polling).
+- 1 kênh AI fail (vd quota 402): các kênh còn lại vẫn hoàn tất, banner hiện đỏ riêng kênh fail.
+- Bấm Hủy giữa prep phase: stream đóng <1s, task `cancelled`, partial channel (nếu có) vẫn lưu.
+- Chọn 6 long-form: thấy stepper prep chạy mượt, không bao giờ stuck ở "init" >18s.

@@ -34,6 +34,7 @@ interface MobileGenerationSheetProps {
   onViewContent: () => void;
   onCreateAnother: () => void;
   onClose?: () => void;
+  onCancel?: () => void;
   // Auto Image Pipeline props
   imagePhase?: PipelinePhase;
   imageProgress?: Record<Channel, ImageGenerationStatus>;
@@ -57,6 +58,7 @@ export function MobileGenerationSheet({
   onViewContent,
   onCreateAnother,
   onClose,
+  onCancel,
   imagePhase,
   imageProgress,
   imageProgressTimes,
@@ -200,6 +202,7 @@ export function MobileGenerationSheet({
                 currentChannel={currentChannel}
                 currentBatch={currentBatch}
                 streamingTexts={streamingTexts}
+                onCancel={onCancel}
               />
             </div>
           )}

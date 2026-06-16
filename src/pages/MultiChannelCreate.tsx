@@ -147,6 +147,7 @@ export default function MultiChannelCreate() {
     isGenerating,
     streamingTexts,
     getChannelText,
+    cancel: cancelGeneration,
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
@@ -502,6 +503,7 @@ export default function MultiChannelCreate() {
                 totalChannels={sseProgress?.totalChannels}
                 currentChannel={sseProgress?.currentChannel}
                 currentBatch={currentBatch}
+                onCancel={isGenerating ? cancelGeneration : undefined}
                 onViewContent={handleViewContent}
                 onCreateAnother={handleCreateAnother}
                 // Auto Image Pipeline props
@@ -532,6 +534,7 @@ export default function MultiChannelCreate() {
         onViewContent={handleViewContent}
         onCreateAnother={handleCreateAnother}
         onClose={() => setGenerationState('idle')}
+        onCancel={isGenerating ? cancelGeneration : undefined}
         // Auto Image Pipeline props
         imagePhase={imagePipeline.phase}
         imageProgress={imagePipeline.imageProgress}

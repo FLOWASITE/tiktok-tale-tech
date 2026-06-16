@@ -2,7 +2,8 @@
 // UI Focus: Streaming text grid is primary, progress steps are collapsed by default
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Loader2, ChevronDown, Bot, Globe, ArrowDownAZ, Activity } from 'lucide-react';
+import { Check, Loader2, ChevronDown, Bot, Globe, ArrowDownAZ, Activity, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { 
   calculateTotalDuration,
@@ -45,6 +46,7 @@ interface AIGenerationProgressProps {
   errorChannels?: { channel: string; message: string }[];
   onRetryChannel?: (channel: string) => void;
   retryingChannel?: string;
+  onCancel?: () => void;
 }
 
 export function AIGenerationProgress({ 
@@ -63,6 +65,7 @@ export function AIGenerationProgress({
   errorChannels = [],
   onRetryChannel,
   retryingChannel,
+  onCancel,
 }: AIGenerationProgressProps) {
   // Ensure arrays are always arrays
   const completedChannels = completedChannelsProp ?? [];
@@ -218,6 +221,21 @@ export function AIGenerationProgress({
             <span className="text-[10px] text-muted-foreground">+{totalChannels.length - 5}</span>
           )}
         </div>
+
+        {/* Cancel button */}
+        {onCancel && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive flex-shrink-0"
+            onClick={onCancel}
+            title="Hủy việc tạo nội dung"
+          >
+            <X className="w-3.5 h-3.5 mr-1" />
+            Hủy
+          </Button>
+        )}
       </div>
 
       {/* Progress Bar */}
@@ -234,6 +252,55 @@ export function AIGenerationProgress({
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         />
       </div>
+
+      {/* Prep-phase stepper: shown only while preparing context (<= 18%) */}
+      {(() => {
+        const PREP_STEPS = [
+          { id: 'ai-config', label: 'Cấu hình AI', threshold: 8 },
+          { id: 'smart-context', label: 'Brand & persona', threshold: 12 },
+          { id: 'knowledge-graph', label: 'Tri thức ngành', threshold: 15 },
+          { id: 'seo-context', label: 'Ngữ cảnh SEO', threshold: 17 },
+          { id: 'prep-done', label: 'Sẵn sàng tạo', threshold: 18 },
+        ];
+        const prepStepIds = new Set(['init', ...PREP_STEPS.map(s => s.id)]);
+        const inPrep = sseStep ? prepStepIds.has(sseStep) : progressPercent < 20;
+        if (!inPrep) return null;
+        const currentPrepIdx = PREP_STEPS.findIndex(s => s.id === sseStep);
+        return (
+          <div className="rounded-md border border-border bg-muted/30 px-2.5 py-2">
+            <div className="flex items-center gap-1 flex-wrap">
+              {PREP_STEPS.map((step, idx) => {
+                const isDone = sseStep === 'prep-done'
+                  ? true
+                  : (currentPrepIdx > idx) || (progressPercent >= step.threshold && sseStep !== step.id);
+                const isCurrent = sseStep === step.id || (!sseStep && !isDone && idx === Math.max(0, currentPrepIdx));
+                return (
+                  <div key={step.id} className="flex items-center gap-1">
+                    <div className={cn(
+                      'w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0',
+                      isDone && 'bg-green-500 text-white',
+                      isCurrent && !isDone && 'bg-primary/20 text-primary border border-primary',
+                      !isDone && !isCurrent && 'bg-muted text-muted-foreground'
+                    )}>
+                      {isDone ? <Check className="w-2.5 h-2.5" /> : isCurrent ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <span className="text-[9px]">{idx + 1}</span>}
+                    </div>
+                    <span className={cn(
+                      'text-[11px]',
+                      isCurrent && 'text-primary font-medium',
+                      isDone && 'text-foreground',
+                      !isCurrent && !isDone && 'text-muted-foreground/70'
+                    )}>{step.label}</span>
+                    {idx < PREP_STEPS.length - 1 && (
+                      <div className={cn('w-3 h-px mx-0.5', isDone ? 'bg-green-500' : 'bg-border')} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* Batch indicator: show which batch is currently being processed */}
       {currentBatch && (

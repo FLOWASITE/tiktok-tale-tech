@@ -39,6 +39,7 @@ interface CreatePreviewPanelProps {
   currentBatch?: ProgressEvent['batchInfo'] | null;
   onViewContent: () => void;
   onCreateAnother: () => void;
+  onCancel?: () => void;
   // Auto Image Pipeline props
   imagePhase?: PipelinePhase;
   imageProgress?: Record<Channel, ImageGenerationStatus>;
@@ -63,6 +64,7 @@ export function CreatePreviewPanel({
   currentBatch,
   onViewContent,
   onCreateAnother,
+  onCancel,
   // Auto Image Pipeline
   imagePhase,
   imageProgress,
@@ -264,6 +266,7 @@ export function CreatePreviewPanel({
           currentChannel={currentChannel}
           currentBatch={currentBatch}
           streamingTexts={streamingTexts}
+          onCancel={onCancel}
         />
         {state === 'recovering' && (
           <div className="mt-4 rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
