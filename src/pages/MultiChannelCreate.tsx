@@ -112,6 +112,7 @@ export default function MultiChannelCreate() {
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
   const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
   const [sseProgress, setSseProgress] = useState<ProgressEvent | null>(null);
+  const [currentBatch, setCurrentBatch] = useState<ProgressEvent['batchInfo'] | null>(null);
   const [generatedContentId, setGeneratedContentId] = useState<string | null>(null);
   const generationStartRef = useRef<number | null>(null);
 
@@ -119,6 +120,7 @@ export default function MultiChannelCreate() {
   useEffect(() => {
     setGenerationState('idle');
     setSseProgress(null);
+    setCurrentBatch(null);
     setGeneratedContentId(null);
     setGenerationElapsedMs(0);
     generationStartRef.current = null;
@@ -148,6 +150,9 @@ export default function MultiChannelCreate() {
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
+      if (event.batchInfo && event.step === 'batch_start') {
+        setCurrentBatch(event.batchInfo);
+      }
       if (event.step === 'recovering_background') {
         setGenerationState('recovering');
       } else if (event.step === 'recovered_complete') {
@@ -496,6 +501,7 @@ export default function MultiChannelCreate() {
                 completedChannels={sseProgress?.completedChannels}
                 totalChannels={sseProgress?.totalChannels}
                 currentChannel={sseProgress?.currentChannel}
+                currentBatch={currentBatch}
                 onViewContent={handleViewContent}
                 onCreateAnother={handleCreateAnother}
                 // Auto Image Pipeline props
@@ -522,6 +528,7 @@ export default function MultiChannelCreate() {
         channels={formData.channels || []}
         completedChannels={sseProgress?.completedChannels || []}
         currentChannel={sseProgress?.currentChannel}
+        currentBatch={currentBatch}
         onViewContent={handleViewContent}
         onCreateAnother={handleCreateAnother}
         onClose={() => setGenerationState('idle')}

@@ -30,6 +30,7 @@ interface MobileGenerationSheetProps {
   channels: string[];
   completedChannels: string[];
   currentChannel?: string;
+  currentBatch?: ProgressEvent['batchInfo'] | null;
   onViewContent: () => void;
   onCreateAnother: () => void;
   onClose?: () => void;
@@ -52,6 +53,7 @@ export function MobileGenerationSheet({
   channels,
   completedChannels,
   currentChannel,
+  currentBatch,
   onViewContent,
   onCreateAnother,
   onClose,
@@ -196,6 +198,7 @@ export function MobileGenerationSheet({
                 completedChannels={completedChannels}
                 totalChannels={channels}
                 currentChannel={currentChannel}
+                currentBatch={currentBatch}
                 streamingTexts={streamingTexts}
               />
             </div>

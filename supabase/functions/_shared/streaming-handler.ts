@@ -226,19 +226,65 @@ export async function generateChannelsParallel(params: {
   const longForm = channels.filter((c) => LONG_FORM_CHANNELS.has(c));
   const shortForm = channels.filter((c) => !LONG_FORM_CHANNELS.has(c));
 
-  const runChunked = async (list: string[], size: number) => {
-    if (list.length === 0) return;
-    const batchCount = Math.ceil(list.length / size);
-    for (let i = 0; i < batchCount; i++) {
-      const start = i * size;
-      const batch = list.slice(start, start + size);
+  // Plan batches up-front so we can emit total batch count for the UI
+  const planBatches = (list: string[], size: number) => {
+    const batches: string[][] = [];
+    for (let i = 0; i < list.length; i += size) batches.push(list.slice(i, i + size));
+    return batches;
+  };
+  const longBatches = planBatches(longForm, MAX_PARALLEL_LONG_FORM);
+  const shortBatches = planBatches(shortForm, MAX_PARALLEL_CHANNELS);
+  const totalBatches = longBatches.length + shortBatches.length;
+  let globalBatchIndex = 0;
+
+  const runBatches = async (batches: string[][], kind: 'long_form' | 'short_form') => {
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      globalBatchIndex += 1;
+      const baseProgress = Math.round((completedChannels.length / channels.length) * 80) + 20;
+      emit({
+        type: 'progress',
+        step: 'batch_start',
+        message: `Đang chạy batch ${globalBatchIndex}/${totalBatches} (${kind === 'long_form' ? 'long-form' : 'social'}): ${batch.map(getChannelDisplayName).join(', ')}`,
+        progress: baseProgress,
+        totalChannels: channels,
+        completedChannels: [...completedChannels],
+        data: {
+          batchInfo: {
+            kind,
+            index: globalBatchIndex,
+            total: totalBatches,
+            channels: batch,
+            kindIndex: i + 1,
+            kindTotal: batches.length,
+          },
+        },
+      });
       await processBatch(batch);
+      emit({
+        type: 'progress',
+        step: 'batch_complete',
+        message: `Hoàn thành batch ${globalBatchIndex}/${totalBatches}`,
+        progress: Math.round((completedChannels.length / channels.length) * 80) + 20,
+        totalChannels: channels,
+        completedChannels: [...completedChannels],
+        data: {
+          batchInfo: {
+            kind,
+            index: globalBatchIndex,
+            total: totalBatches,
+            channels: batch,
+            kindIndex: i + 1,
+            kindTotal: batches.length,
+          },
+        },
+      });
     }
   };
 
-  console.log(`[parallel-streaming] Chunking: ${longForm.length} long-form (batch=${MAX_PARALLEL_LONG_FORM}) + ${shortForm.length} short-form (batch=${MAX_PARALLEL_CHANNELS})`);
-  await runChunked(longForm, MAX_PARALLEL_LONG_FORM);
-  await runChunked(shortForm, MAX_PARALLEL_CHANNELS);
+  console.log(`[parallel-streaming] Chunking: ${longForm.length} long-form (batch=${MAX_PARALLEL_LONG_FORM}) + ${shortForm.length} short-form (batch=${MAX_PARALLEL_CHANNELS}) → ${totalBatches} batches`);
+  await runBatches(longBatches, 'long_form');
+  await runBatches(shortBatches, 'short_form');
   
   const totalDuration = Date.now() - startTime;
   

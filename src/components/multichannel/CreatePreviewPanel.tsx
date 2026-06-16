@@ -36,6 +36,7 @@ interface CreatePreviewPanelProps {
   completedChannels?: string[];
   totalChannels?: string[];
   currentChannel?: string;
+  currentBatch?: ProgressEvent['batchInfo'] | null;
   onViewContent: () => void;
   onCreateAnother: () => void;
   // Auto Image Pipeline props
@@ -59,6 +60,7 @@ export function CreatePreviewPanel({
   completedChannels,
   totalChannels,
   currentChannel,
+  currentBatch,
   onViewContent,
   onCreateAnother,
   // Auto Image Pipeline
@@ -260,6 +262,7 @@ export function CreatePreviewPanel({
           completedChannels={completedChannels}
           totalChannels={totalChannels}
           currentChannel={currentChannel}
+          currentBatch={currentBatch}
           streamingTexts={streamingTexts}
         />
         {state === 'recovering' && (
