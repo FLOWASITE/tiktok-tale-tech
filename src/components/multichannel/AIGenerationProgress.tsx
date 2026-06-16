@@ -2,7 +2,7 @@
 // UI Focus: Streaming text grid is primary, progress steps are collapsed by default
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Loader2, ChevronDown, Bot, Globe } from 'lucide-react';
+import { Check, Loader2, ChevronDown, Bot, Globe, ArrowDownAZ, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   calculateTotalDuration,
@@ -70,6 +70,22 @@ export function AIGenerationProgress({
   
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const elapsed = externalElapsedMs ?? internalElapsedMs;
+  const [batchSortMode, setBatchSortMode] = useState<'name' | 'progress'>('name');
+
+  const sortedBatchChannels = useMemo(() => {
+    if (!currentBatch) return [];
+    const channels = [...currentBatch.channels];
+    if (batchSortMode === 'name') {
+      channels.sort((a, b) => getChannelLabel(a).localeCompare(getChannelLabel(b), 'vi'));
+    } else {
+      channels.sort((a, b) => {
+        const aDone = completedChannels.includes(a) ? 1 : 0;
+        const bDone = completedChannels.includes(b) ? 1 : 0;
+        return aDone - bDone;
+      });
+    }
+    return channels;
+  }, [currentBatch, completedChannels, batchSortMode]);
 
   const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
   const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
@@ -247,8 +263,38 @@ export function AIGenerationProgress({
             </CollapsibleTrigger>
 
             <CollapsibleContent>
+              <div className="flex items-center justify-end gap-1 px-3 pt-1.5 pb-1">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setBatchSortMode('name'); }}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                    batchSortMode === 'name'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                  )}
+                  title="Sắp xếp theo tên"
+                >
+                  <ArrowDownAZ className="w-3 h-3" />
+                  Tên
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setBatchSortMode('progress'); }}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                    batchSortMode === 'progress'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                  )}
+                  title="Sắp xếp theo tiến độ"
+                >
+                  <Activity className="w-3 h-3" />
+                  Tiến độ
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
-                {currentBatch.channels.map((ch) => {
+                {sortedBatchChannels.map((ch) => {
                   const isDone = completedChannels.includes(ch);
                   return (
                     <span
