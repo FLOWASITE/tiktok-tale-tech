@@ -72,6 +72,21 @@ export function AIGenerationProgress({
   const elapsed = externalElapsedMs ?? internalElapsedMs;
   const [batchSortMode, setBatchSortMode] = useState<'name' | 'progress'>('name');
 
+  const sortedBatchChannels = useMemo(() => {
+    if (!currentBatch) return [];
+    const channels = [...currentBatch.channels];
+    if (batchSortMode === 'name') {
+      channels.sort((a, b) => getChannelLabel(a).localeCompare(getChannelLabel(b), 'vi'));
+    } else {
+      channels.sort((a, b) => {
+        const aDone = completedChannels.includes(a) ? 1 : 0;
+        const bDone = completedChannels.includes(b) ? 1 : 0;
+        return aDone - bDone;
+      });
+    }
+    return channels;
+  }, [currentBatch, completedChannels, batchSortMode]);
+
   const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
   const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
 
