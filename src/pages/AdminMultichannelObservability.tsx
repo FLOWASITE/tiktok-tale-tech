@@ -91,7 +91,7 @@ export default function AdminMultichannelObservability() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Thời lượng trung bình</CardTitle>
-            <CardDescription>Chỉ tính task completed (<30m)</CardDescription>
+            <CardDescription>Chỉ tính task completed (dưới 30 phút)</CardDescription>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{fmtMs(stats.avgMs)}</CardContent>
         </Card>
