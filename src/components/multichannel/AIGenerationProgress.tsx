@@ -225,38 +225,49 @@ export function AIGenerationProgress({
           key={`batch-${currentBatch.index}`}
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-primary/20 bg-primary/5"
+          className="rounded-lg border border-primary/20 bg-primary/5"
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-            Batch {currentBatch.index}/{currentBatch.total}
-          </span>
-          <span className={cn(
-            "text-[10px] px-1.5 py-0.5 rounded-md font-medium",
-            currentBatch.kind === 'long_form'
-              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-              : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
-          )}>
-            {currentBatch.kind === 'long_form' ? 'Long-form' : 'Social'} ({currentBatch.kindIndex}/{currentBatch.kindTotal})
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-            {currentBatch.channels.map((ch) => {
-              const isDone = completedChannels.includes(ch);
-              return (
-                <span
-                  key={ch}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border",
-                    isDone
-                      ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300'
-                      : 'bg-background border-border text-foreground'
-                  )}
-                >
-                  {isDone ? <Check className="w-3 h-3" /> : <Loader2 className="w-3 h-3 animate-spin" />}
-                  {getChannelLabel(ch)}
-                </span>
-              );
-            })}
-          </div>
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2 text-left group">
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 flex-shrink-0" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                Batch {currentBatch.index}/{currentBatch.total}
+              </span>
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-md font-medium",
+                currentBatch.kind === 'long_form'
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                  : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+              )}>
+                {currentBatch.kind === 'long_form' ? 'Long-form' : 'Social'} ({currentBatch.kindIndex}/{currentBatch.kindTotal})
+              </span>
+              <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">
+                {currentBatch.channels.filter(ch => completedChannels.includes(ch)).length}/{currentBatch.channels.length} done
+              </span>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
+                {currentBatch.channels.map((ch) => {
+                  const isDone = completedChannels.includes(ch);
+                  return (
+                    <span
+                      key={ch}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border",
+                        isDone
+                          ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300'
+                          : 'bg-background border-border text-foreground'
+                      )}
+                    >
+                      {isDone ? <Check className="w-3 h-3" /> : <Loader2 className="w-3 h-3 animate-spin" />}
+                      {getChannelLabel(ch)}
+                    </span>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </motion.div>
       )}
 
