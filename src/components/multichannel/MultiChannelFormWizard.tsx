@@ -2662,7 +2662,7 @@ export function MultiChannelFormWizard({
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
+                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0 || formData.channels.length > maxChannelsPerRun}
                 className={cn(
                   "gap-2 gradient-primary min-w-[140px]",
                   !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
