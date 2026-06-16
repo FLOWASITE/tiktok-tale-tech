@@ -46,6 +46,7 @@ interface AIGenerationProgressProps {
   errorChannels?: { channel: string; message: string }[];
   onRetryChannel?: (channel: string) => void;
   retryingChannel?: string;
+  onCancel?: () => void;
 }
 
 export function AIGenerationProgress({ 
