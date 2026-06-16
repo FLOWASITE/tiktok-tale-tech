@@ -150,6 +150,9 @@ export default function MultiChannelCreate() {
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
+      if (event.batchInfo && event.step === 'batch_start') {
+        setCurrentBatch(event.batchInfo);
+      }
       if (event.step === 'recovering_background') {
         setGenerationState('recovering');
       } else if (event.step === 'recovered_complete') {
