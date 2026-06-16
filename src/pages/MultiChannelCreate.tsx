@@ -147,6 +147,7 @@ export default function MultiChannelCreate() {
     isGenerating,
     streamingTexts,
     getChannelText,
+    cancel: cancelGeneration,
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
