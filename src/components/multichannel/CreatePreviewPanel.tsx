@@ -64,6 +64,7 @@ export function CreatePreviewPanel({
   currentBatch,
   onViewContent,
   onCreateAnother,
+  onCancel,
   // Auto Image Pipeline
   imagePhase,
   imageProgress,
