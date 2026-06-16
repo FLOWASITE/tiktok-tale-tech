@@ -30,6 +30,7 @@ interface MobileGenerationSheetProps {
   channels: string[];
   completedChannels: string[];
   currentChannel?: string;
+  currentBatch?: ProgressEvent['batchInfo'] | null;
   onViewContent: () => void;
   onCreateAnother: () => void;
   onClose?: () => void;
