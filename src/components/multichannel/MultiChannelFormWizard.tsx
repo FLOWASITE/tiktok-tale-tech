@@ -2388,7 +2388,20 @@ export function MultiChannelFormWizard({
                 }
                 return null;
               })()}
+
+              {/* P4: Tier limit warning */}
+              {Number.isFinite(maxChannelsPerRun) && formData.channels.length > maxChannelsPerRun && (
+                <div className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-lg p-2.5">
+                  <Timer className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Gói <strong className="uppercase">{tierPlan}</strong> giới hạn tối đa <strong>{formatTierLimit(tierPlan)}</strong> mỗi lần tạo.
+                    Bạn đang chọn <strong>{formData.channels.length} kênh</strong>. Vui lòng bỏ bớt hoặc{' '}
+                    <Link to="/settings/plans" className="underline font-medium">nâng cấp gói</Link>.
+                  </span>
+                </div>
+              )}
             </div>
+
           )}
         </div>
 
