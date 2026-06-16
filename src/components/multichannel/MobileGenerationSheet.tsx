@@ -53,6 +53,7 @@ export function MobileGenerationSheet({
   channels,
   completedChannels,
   currentChannel,
+  currentBatch,
   onViewContent,
   onCreateAnother,
   onClose,
