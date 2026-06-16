@@ -20,11 +20,9 @@ Deno.serve(async (req) => {
   );
 
   const cutoff = new Date(Date.now() - STALE_THRESHOLD_MINUTES * 60_000).toISOString();
+  const hardCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
 
   try {
-    // Find stale generating tasks (no heartbeat trong 5 phút HOẶC created >10 phút mà chưa heartbeat lần nào).
-    const hardCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
-
     const { data: stale, error: selErr } = await supabase
       .from("generation_tasks")
       .select("id, organization_id, last_heartbeat_at, created_at")
@@ -46,7 +44,7 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }, { count: "exact" })
         .in("id", ids)
-        .eq("status", "generating"); // double-guard
+        .eq("status", "generating");
 
       if (updErr) throw updErr;
       updated = count ?? ids.length;
@@ -55,12 +53,13 @@ Deno.serve(async (req) => {
     const durationMs = Date.now() - startedAt;
     console.log(`[recover-stale-multichannel-tasks] scanned=${ids.length} updated=${updated} duration=${durationMs}ms`);
 
-    // Log to cron_run_logs
     await supabase.from("cron_run_logs").insert({
       job_name: "recover-stale-multichannel-tasks",
       status: "success",
+      triggered_by: "cron",
       duration_ms: durationMs,
-      metadata: { scanned: ids.length, recovered: updated, threshold_minutes: STALE_THRESHOLD_MINUTES },
+      completed_at: new Date().toISOString(),
+      summary: { scanned: ids.length, recovered: updated, threshold_minutes: STALE_THRESHOLD_MINUTES },
     });
 
     return new Response(
@@ -71,9 +70,11 @@ Deno.serve(async (req) => {
     console.error("[recover-stale-multichannel-tasks] Error:", error);
     await supabase.from("cron_run_logs").insert({
       job_name: "recover-stale-multichannel-tasks",
-      status: "error",
+      status: "failed",
+      triggered_by: "cron",
       duration_ms: Date.now() - startedAt,
-      metadata: { error: (error as Error).message },
+      completed_at: new Date().toISOString(),
+      errors: [{ message: (error as Error).message }],
     }).catch(() => {});
 
     return new Response(
