@@ -70,6 +70,7 @@ export function AIGenerationProgress({
   
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const elapsed = externalElapsedMs ?? internalElapsedMs;
+  const [batchSortMode, setBatchSortMode] = useState<'name' | 'progress'>('name');
 
   const steps = useMemo(() => calculateStepDurations(channelCount), [channelCount]);
   const totalDuration = useMemo(() => calculateTotalDuration(channelCount), [channelCount]);
