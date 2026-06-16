@@ -106,6 +106,9 @@ import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { useCompliancePrecheck } from '@/hooks/useCompliancePrecheck';
 import { useCoreContents } from '@/hooks/useCoreContents';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getMaxChannelsForTier, formatTierLimit } from '@/lib/multichannelTierLimits';
+
 import { useStreamingCoreContent } from '@/hooks/useStreamingCoreContent';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
