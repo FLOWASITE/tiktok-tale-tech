@@ -263,8 +263,38 @@ export function AIGenerationProgress({
             </CollapsibleTrigger>
 
             <CollapsibleContent>
+              <div className="flex items-center justify-end gap-1 px-3 pt-1.5 pb-1">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setBatchSortMode('name'); }}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                    batchSortMode === 'name'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                  )}
+                  title="Sắp xếp theo tên"
+                >
+                  <ArrowDownAZ className="w-3 h-3" />
+                  Tên
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setBatchSortMode('progress'); }}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-colors",
+                    batchSortMode === 'progress'
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                  )}
+                  title="Sắp xếp theo tiến độ"
+                >
+                  <Activity className="w-3 h-3" />
+                  Tiến độ
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
-                {currentBatch.channels.map((ch) => {
+                {sortedBatchChannels.map((ch) => {
                   const isDone = completedChannels.includes(ch);
                   return (
                     <span
