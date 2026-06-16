@@ -947,6 +947,19 @@ export function MultiChannelFormWizard({
       return;
     }
 
+    // P4: Tier limit hard-block
+    if (formData.channels.length > maxChannelsPerRun) {
+      toast.error(
+        `Gói ${tierPlan.toUpperCase()} chỉ cho phép tối đa ${formatTierLimit(tierPlan)} mỗi lần tạo`,
+        {
+          description: `Bạn đang chọn ${formData.channels.length} kênh. Vui lòng bỏ bớt hoặc nâng cấp gói.`,
+          duration: 6000,
+        }
+      );
+      return;
+    }
+
+
     // Check if Core Content is ready
     const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
 
