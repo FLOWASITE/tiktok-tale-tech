@@ -65,6 +65,7 @@ export function AIGenerationProgress({
   errorChannels = [],
   onRetryChannel,
   retryingChannel,
+  onCancel,
 }: AIGenerationProgressProps) {
   // Ensure arrays are always arrays
   const completedChannels = completedChannelsProp ?? [];
