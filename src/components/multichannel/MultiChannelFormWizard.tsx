@@ -2350,6 +2350,24 @@ export function MultiChannelFormWizard({
                   </span>
                 </div>
               )}
+
+              {/* Long-form heavy warning */}
+              {(() => {
+                const longformCount = formData.channels.filter(
+                  ch => CHANNELS.find(c => c.value === ch)?.category === 'longform'
+                ).length;
+                if (longformCount > 4) {
+                  return (
+                    <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-2.5">
+                      <Timer className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        Bạn đang chọn <strong>{longformCount} kênh long-form</strong>. Quá trình tạo có thể mất <strong>60-90 giây</strong> do khối lượng nội dung lớn. Có thể bấm "Hủy" trong banner nếu cần dừng.
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           )}
         </div>
