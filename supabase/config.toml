@@ -513,3 +513,6 @@ verify_jwt = false
 
 [functions.suggest-internal-links]
 verify_jwt = false
+
+[functions.recover-stale-multichannel-tasks]
+verify_jwt = false
