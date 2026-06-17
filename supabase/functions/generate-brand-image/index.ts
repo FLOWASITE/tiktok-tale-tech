@@ -292,6 +292,17 @@ const DEFAULT_IMAGE_MODELS = {
   fallback: "google/gemini-2.5-flash-image",
 } as const;
 
+// F5: Lovable AI fallback model — overridable via env so admin can swap without code change.
+// Used when an external provider (PoYo / GeminiGen / 9Router) fails and we fall back to Lovable Gateway.
+function getLovableFallbackModels(): { primary: string; fallback: string } {
+  const envPrimary = Deno.env.get('IMAGE_LOVABLE_FALLBACK_MODEL')?.trim();
+  const envFallback = Deno.env.get('IMAGE_LOVABLE_FALLBACK_MODEL_SECONDARY')?.trim();
+  return {
+    primary: envPrimary || DEFAULT_IMAGE_MODELS.primary,
+    fallback: envFallback || DEFAULT_IMAGE_MODELS.fallback,
+  };
+}
+
 // Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
 // 150s. Keep provider polling well below that and use fast fallback paths.
 const EXTERNAL_PROVIDER_POLL_BUDGET = {
@@ -1041,8 +1052,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'POYO_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'POYO_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -1070,7 +1081,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         // PoYo failed — try alternate PoYo model
         const altModel = primaryModel.includes('nano-banana-2') ? 'poyo/nano-banana-pro' : 'poyo/nano-banana-2-new';
         if (altModel !== primaryModel && POYO_API_KEY) {
-          console.log(`[generate-brand-image] PoYo failed, trying alternate PoYo model: ${altModel}...`);
+          console.log(`[generate-brand-image] PoYo failed, waiting 1.5s before alternate model: ${altModel}...`);
+          await new Promise((r) => setTimeout(r, 1500)); // F3: backoff before alt-model retry
           try {
             imageUrlFromPoyo = await generateImageViaPoyo({
               prompt: enhancedPrompt,
@@ -1078,6 +1090,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
               aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
             }, POYO_API_KEY);
             modelUsed = `${altModel} (fallback from ${primaryModel})`;
+            cbRecordSuccess(altModel).catch(() => {});
           } catch (altErr) {
             console.error(`[generate-brand-image] Alternate PoYo also failed:`, altErr instanceof Error ? altErr.message : altErr);
             return new Response(
@@ -1097,8 +1110,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'GEMINIGEN_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'GEMINIGEN_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -1165,7 +1178,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           providerDebug.fallbackProvider = POYO_KEY ? 'poyo→lovable-ai' : 'lovable-ai';
           console.log('[generate-brand-image] PoYo unavailable/failed, falling back to Lovable AI Gateway...');
           try {
-            const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+            const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, getLovableFallbackModels(), 0);
             imageData = result.imageData;
             modelUsed = `${result.model} (fallback from ${primaryModel})`;
             totalAttempts = result.attempts;
@@ -1199,8 +1212,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'KIE_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'KIE_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -1263,8 +1276,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const NR_KEY = Deno.env.get('NINE_ROUTER_API_KEY');
       if (!NR_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'NINE_ROUTER_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'NINE_ROUTER_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       console.log(`[generate-brand-image] Routing to 9Router: ${primaryModel}`);
@@ -1291,7 +1304,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         providerDebug.fallbackTried = true;
         providerDebug.fallbackProvider = 'lovable-ai';
         try {
-          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, getLovableFallbackModels(), 0);
           imageData = result.imageData;
           modelUsed = `${result.model} (fallback from ${primaryModel})`;
           totalAttempts = result.attempts;
