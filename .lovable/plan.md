@@ -1,45 +1,38 @@
-## Vì sao "đã đổi model" mà vẫn lỗi
+# Kết quả kiểm tra nội dung đa kênh sau fix
 
-Dữ liệu trong DB cho thấy có **3 vấn đề khác nhau** chồng lên nhau, đổi model chỉ giải quyết được 1 phần:
+## ✅ Tin tốt — Multichannel đã chạy lại bình thường
 
-### 1. Cấu hình `deepseek-v4-pro` cho agent `strategy` KHÔNG được dùng
-- DB: `ai_agent_model_configs.strategy.model_override = deepseek-v4-pro` (global, `organization_id = NULL`).
-- Nhưng log `ai_metrics` 24h gần nhất của `generate-campaign-strategy` **luôn chạy `google/gemini-3-flash-preview` rồi fallback `qwen-plus`** — không thấy `deepseek-v4-pro` lần nào.
-- Lý do: code `generate-campaign-strategy/index.ts` line 262-268 query `ai_agent_model_configs` với `.eq("organization_id", organization_id)` — chỉ khớp config có đúng org đó. Config global (org=NULL) bị bỏ qua, nên rơi về default hard-code `google/gemini-3-flash-preview`.
-- Đây là job cron/agent chạy mỗi giờ → bùng lỗi liên tục dù user không bấm gì.
+**Task gần nhất (`ce89213b`, 04:22 hôm nay):**
+- status = `completed`, progress = 100%
+- `organization_id` = `bccfec38-...` (đã được gắn đúng, không còn NULL)
 
-### 2. Task `generate-multichannel` chết ở `prep-done` 18%
-- Task mới nhất `49615573...` có `organization_id = NULL`, dừng ở `prep-done` rồi mất heartbeat 5 phút → bị `recover-stale` đánh `failed`.
-- Frontend `useStreamingGeneration` insert task lấy `formData.organization_id`, nhưng `MultiChannelCreate` **không gắn** `organization_id` vào `formData` trước khi gọi `streamGenerate()` → task org=NULL.
-- Edge function nhận org=NULL → tier check + dedup + persona fit + cache đều fallback, nhưng chính ra task không chết vì lỗi AI mà vì **edge function timeout ở pha song song 15 kênh không kịp heartbeat**.
+**Content đã lưu (`46081c5e`, 04:27):**
+- title = "So sánh 3 cách triển khai content marketing 2026..."
+- status = `approved`
+- **15/15 kênh** generated: blogger, bluesky, facebook, google_maps, instagram, linkedin, medium, pinterest, shopify, threads, twitter, website, wix, wordpress, zalo_oa
 
-### 3. Fallback chain hỏng
-- `ai_provider.ts` khi Lovable Gateway 402 sẽ rơi về `qwen-plus`, nhưng tài khoản DashScope đang trả `400` (key sai hoặc model không hợp lệ với DashScope intl endpoint).
-- Khi `fallback_model` rỗng trong `ai_agent_model_configs`, code ép `qwen-plus` mặc định → vô tác dụng.
+**AI metrics:**
+- `models_used` = toàn bộ `deepseek-v4-pro` (long-form) + `deepseek-v4-flash` (social)
+- `had_error = false`, `used_fallback = false`
+- → Fix `MultiChannelCreate` + `useStreamingGeneration` đính `organization_id` đã work
 
-## Kế hoạch sửa
+## ⚠️ Vấn đề còn lại — `generate-campaign-strategy` vẫn lỗi theo giờ
 
-**A. `generate-campaign-strategy` — đọc đúng config**
-- Đổi query: thử `organization_id = orgId` trước, nếu rỗng thì lấy global `organization_id IS NULL` (theo pattern hiện có ở các function khác như `getAIConfig`).
-- Bỏ ép `qwen-plus` mặc định khi `fallback_model` rỗng → để `ai-provider.ts` tự fallback Lovable gemini-2.5-flash (đã có sẵn last-resort).
+Mỗi đầu giờ (03:00, 04:01...) có agent pipeline gọi `generate-campaign-strategy` cho 2 org và vẫn fail cùng pattern cũ:
+- `gemini-3-flash-preview` → 402 Payment required
+- → fallback `qwen-plus` → DashScope 400
 
-**B. `MultiChannelCreate` + `useStreamingGeneration` — bắt buộc organization_id**
-- `MultiChannelCreate.handleGenerate`: gắn `organization_id: currentOrganization?.id` vào `fullData`; nếu chưa có workspace thì block + toast.
-- `useStreamingGeneration`: đọc cả `organization_id` và `organizationId` từ formData khi insert `generation_tasks` + khi gửi body cho edge function.
+**Lý do:** Lần gọi cuối là 04:01, trước khi fix được deploy xong. Cron next tick (05:00) sẽ là test thật. Config `ai_agent_model_configs.strategy` global = `deepseek-v4-pro` đã đúng, code đã `.or(org.eq, org.is.null)` đúng — chỉ chờ verify.
 
-**C. `generate-multichannel` — fail sớm + heartbeat trong pha song song**
-- Trong vòng lặp `generateChannelsParallel`, nếu phát hiện AI trả 402/credit-exhausted hoặc tất cả channel lỗi → `failTask` ngay với message tiếng Việt rõ ràng, đóng SSE thay vì chờ 5 phút.
-- Bật heartbeat tick mỗi 20s trong pha pha song song (hiện chỉ có heartbeat ở pha prep), để cron `recover-stale` không nhầm là zombie.
+**KHÔNG ảnh hưởng** đến luồng tạo nội dung đa kênh thủ công (cái user vừa test) — chỉ ảnh hưởng agent pipeline tự động.
 
-**D. Kiểm tra sau sửa**
-- Bấm tạo đa kênh thật, query `generation_tasks` xác nhận task mới có `organization_id`, status đi qua `prep-done → ai → finalize → completed`.
-- Query `ai_metrics` của `generate-campaign-strategy` xác nhận `models_used = {default: deepseek-v4-pro}` thay vì `google/gemini-3-flash-preview`.
-- Nếu vẫn lỗi DashScope 400 thì là vấn đề `DASHSCOPE_API_KEY` cần rotate (báo riêng để user thay key).
+## Đề xuất bước tiếp theo
 
-## Phạm vi code thay đổi
-- `supabase/functions/generate-campaign-strategy/index.ts` (query agent config + bỏ ép qwen-plus)
-- `supabase/functions/generate-multichannel/index.ts` (heartbeat + fail sớm trong pha song song)
-- `src/pages/MultiChannelCreate.tsx` (gắn organization_id)
-- `src/hooks/useStreamingGeneration.ts` (đọc cả 2 dạng key + gửi xuống backend)
+1. **Chờ tick 05:00 UTC** rồi query lại `ai_metrics` cho `generate-campaign-strategy` — nếu thấy `models_used = {default: "deepseek-v4-pro"}` thì xong.
+2. **Nếu vẫn lỗi sau 05:00:** edit `generate-campaign-strategy/index.ts` đổi default `strategyModel` từ `google/gemini-3-flash-preview` sang `deepseek-v4-pro` (hardcode an toàn cho trường hợp query agent config fail).
+3. **Cleanup `qwen-plus`:** không action gì thêm — code đã không auto-fallback qwen-plus nữa, chỉ chạy khi có config tường minh.
 
-Không động vào schema DB, không động vào `_shared/ai-provider.ts` (giữ nguyên fallback chain).
+## Tóm tắt cho user
+
+- Luồng "Tạo nội dung đa kênh" trên UI: **đã chuẩn** ✅
+- Luồng "Agent pipeline tự động": chờ verify lúc 05:00, có plan B nếu cần
