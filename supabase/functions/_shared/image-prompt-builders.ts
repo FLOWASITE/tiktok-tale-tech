@@ -15,6 +15,7 @@ import {
   HOOK_TYPE_VISUALS,
   COUNTRY_CHARACTER_DIRECTIVES,
 } from './image-prompt-data.ts';
+import { getPromptLang, getLayoutStrings } from './image-prompt-i18n.ts';
 
 // ============================================
 // 1. Creative Mode (prefix) — sets the framing for each mode
