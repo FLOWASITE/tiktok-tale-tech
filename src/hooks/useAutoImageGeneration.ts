@@ -72,6 +72,8 @@ export interface AutoGenerateOptions {
   logoOpacity?: number; // 30-100%
   aspectRatio?: AspectRatioOption;
   imageStylePreset?: ImageStylePreset;
+  /** Per-channel style override — falls back to imageStylePreset when missing */
+  imageStylePresetPerChannel?: Record<Channel, ImageStylePreset>;
   negativePrompt?: string;
   // Strategic content context for more relevant images
   contentRole?: 'seed' | 'sprout' | 'harvest';
