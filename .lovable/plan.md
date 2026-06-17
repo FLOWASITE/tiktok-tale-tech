@@ -1,80 +1,45 @@
-# Hoàn thiện luồng Multichannel Generation (P1 + P2 + P3)
+## Vì sao "đã đổi model" mà vẫn lỗi
 
-Mục tiêu: sau khi đã restructure SSE mở ngay, fix nốt 3 lỗ hổng còn lại để user không còn gặp "stuck at init", không mất kết quả khi mạng chập chờn, và thấy rõ tiến trình.
+Dữ liệu trong DB cho thấy có **3 vấn đề khác nhau** chồng lên nhau, đổi model chỉ giải quyết được 1 phần:
 
----
+### 1. Cấu hình `deepseek-v4-pro` cho agent `strategy` KHÔNG được dùng
+- DB: `ai_agent_model_configs.strategy.model_override = deepseek-v4-pro` (global, `organization_id = NULL`).
+- Nhưng log `ai_metrics` 24h gần nhất của `generate-campaign-strategy` **luôn chạy `google/gemini-3-flash-preview` rồi fallback `qwen-plus`** — không thấy `deepseek-v4-pro` lần nào.
+- Lý do: code `generate-campaign-strategy/index.ts` line 262-268 query `ai_agent_model_configs` với `.eq("organization_id", organization_id)` — chỉ khớp config có đúng org đó. Config global (org=NULL) bị bỏ qua, nên rơi về default hard-code `google/gemini-3-flash-preview`.
+- Đây là job cron/agent chạy mỗi giờ → bùng lỗi liên tục dù user không bấm gì.
 
-## 1. Client Resilience — `useStreamingGeneration`
+### 2. Task `generate-multichannel` chết ở `prep-done` 18%
+- Task mới nhất `49615573...` có `organization_id = NULL`, dừng ở `prep-done` rồi mất heartbeat 5 phút → bị `recover-stale` đánh `failed`.
+- Frontend `useStreamingGeneration` insert task lấy `formData.organization_id`, nhưng `MultiChannelCreate` **không gắn** `organization_id` vào `formData` trước khi gọi `streamGenerate()` → task org=NULL.
+- Edge function nhận org=NULL → tier check + dedup + persona fit + cache đều fallback, nhưng chính ra task không chết vì lỗi AI mà vì **edge function timeout ở pha song song 15 kênh không kịp heartbeat**.
 
-**Vấn đề:** Khi stream đứt (mạng yếu, browser sleep, edge runtime restart), client chỉ chờ watchdog 180s rồi mark fail, dù backend có thể đã `completed` trong DB.
+### 3. Fallback chain hỏng
+- `ai_provider.ts` khi Lovable Gateway 402 sẽ rơi về `qwen-plus`, nhưng tài khoản DashScope đang trả `400` (key sai hoặc model không hợp lệ với DashScope intl endpoint).
+- Khi `fallback_model` rỗng trong `ai_agent_model_configs`, code ép `qwen-plus` mặc định → vô tác dụng.
 
-**Việc làm:**
-- Thêm **Realtime subscription** vào `generation_tasks` (filter theo `task_id` hiện tại) song song với SSE. Khi DB báo `status='completed'` → đóng stream sớm, gọi `recoverGeneratedMultichannel` để load kết quả, không chờ watchdog.
-- Thêm **polling fallback** mỗi 10s (chỉ bật khi đã >30s không có SSE chunk): `SELECT status, progress, current_step FROM generation_tasks WHERE id=?` → cập nhật UI; nếu `completed`/`failed` → terminate stream sớm.
-- Per-channel try/catch ở reducer: 1 kênh fail không reset toàn bộ state đã streamed của kênh khác.
-- Khi reload trang giữa chừng: rehydrate từ `generation_tasks` (đã có `result_id` nếu xong, hoặc `progress/current_step` nếu đang chạy) — pattern giống Carousel Background Resilience đã làm.
+## Kế hoạch sửa
 
-**File động chạm:**
-- `src/hooks/useStreamingGeneration.ts` (thêm Realtime + polling fallback)
-- `src/lib/recoverGeneratedMultichannel.ts` (xác nhận có hàm load theo `result_id`, bổ sung nếu thiếu)
+**A. `generate-campaign-strategy` — đọc đúng config**
+- Đổi query: thử `organization_id = orgId` trước, nếu rỗng thì lấy global `organization_id IS NULL` (theo pattern hiện có ở các function khác như `getAIConfig`).
+- Bỏ ép `qwen-plus` mặc định khi `fallback_model` rỗng → để `ai-provider.ts` tự fallback Lovable gemini-2.5-flash (đã có sẵn last-resort).
 
----
+**B. `MultiChannelCreate` + `useStreamingGeneration` — bắt buộc organization_id**
+- `MultiChannelCreate.handleGenerate`: gắn `organization_id: currentOrganization?.id` vào `fullData`; nếu chưa có workspace thì block + toast.
+- `useStreamingGeneration`: đọc cả `organization_id` và `organizationId` từ formData khi insert `generation_tasks` + khi gửi body cho edge function.
 
-## 2. Backend Hardening — `generate-multichannel`
+**C. `generate-multichannel` — fail sớm + heartbeat trong pha song song**
+- Trong vòng lặp `generateChannelsParallel`, nếu phát hiện AI trả 402/credit-exhausted hoặc tất cả channel lỗi → `failTask` ngay với message tiếng Việt rõ ràng, đóng SSE thay vì chờ 5 phút.
+- Bật heartbeat tick mỗi 20s trong pha pha song song (hiện chỉ có heartbeat ở pha prep), để cron `recover-stale` không nhầm là zombie.
 
-**Vấn đề:** Function có thể vượt timeout Edge (400s), 1 kênh fail kéo cả batch fail, prep phase >5s không emit heartbeat → stale-recovery hiểu nhầm là chết.
+**D. Kiểm tra sau sửa**
+- Bấm tạo đa kênh thật, query `generation_tasks` xác nhận task mới có `organization_id`, status đi qua `prep-done → ai → finalize → completed`.
+- Query `ai_metrics` của `generate-campaign-strategy` xác nhận `models_used = {default: deepseek-v4-pro}` thay vì `google/gemini-3-flash-preview`.
+- Nếu vẫn lỗi DashScope 400 thì là vấn đề `DASHSCOPE_API_KEY` cần rotate (báo riêng để user thay key).
 
-**Việc làm:**
-- Thêm `AbortController` tổng 240s; khi gần hết, gracefully gửi `event: timeout` + mark `failed` với message rõ ràng thay vì để runtime kill im lặng.
-- Bọc mỗi channel trong try/catch riêng: fail → emit `channel_error` cho client, tiếp tục các kênh còn lại; cuối cùng task `completed` nếu ≥1 kênh OK, `failed` nếu tất cả fail.
-- Trong prep phase (ai-config / smart-context / KG / SEO), nếu bước nào >5s → emit `prep-progress` mỗi 3s với message hiện tại để stale-recovery không hiểu nhầm.
-- Persist `progress + current_step + last_heartbeat_at` vào `generation_tasks` sau mỗi prep step (background, non-blocking với `EdgeRuntime.waitUntil` nếu có).
-- Log `ai_metrics` cho từng prep step (latency, model, cost) với `trace_id` xuyên suốt.
+## Phạm vi code thay đổi
+- `supabase/functions/generate-campaign-strategy/index.ts` (query agent config + bỏ ép qwen-plus)
+- `supabase/functions/generate-multichannel/index.ts` (heartbeat + fail sớm trong pha song song)
+- `src/pages/MultiChannelCreate.tsx` (gắn organization_id)
+- `src/hooks/useStreamingGeneration.ts` (đọc cả 2 dạng key + gửi xuống backend)
 
-**File động chạm:**
-- `supabase/functions/generate-multichannel/index.ts`
-- `supabase/functions/_shared/task-tracking.ts` (nếu cần thêm trường `last_heartbeat_at`)
-- Migration mới (nếu thêm cột): `last_heartbeat_at timestamptz` trên `generation_tasks`
-
----
-
-## 3. UX Banner — `AIGenerationProgress`
-
-**Vấn đề:** User chỉ thấy % và "init" generic, không biết đang nạp ngữ cảnh hay đã treo. Không có nút Hủy.
-
-**Việc làm:**
-- Hiển thị **stepper prep phase** rõ ràng (5 bước nhỏ với icon + label tiếng Việt):
-  - "Đang nạp cấu hình AI" (ai-config, 8%)
-  - "Phân tích thương hiệu & persona" (smart-context, 12%)
-  - "Nạp tri thức ngành" (knowledge-graph, 15%)
-  - "Nạp ngữ cảnh SEO" (seo-context, 17%)
-  - "Bắt đầu tạo nội dung" (prep-done, 18%)
-- Step đang chạy: spinner + text bold; step xong: tick xanh; step chưa tới: mờ.
-- Sau 18% chuyển sang view "channel grid" như hiện tại.
-- Thêm **nút "Hủy" (Stop)** ở góc banner: gọi `AbortController.abort()` ở client + PATCH `generation_tasks` set `status='cancelled'` → backend phát hiện ở vòng tiếp theo cũng dừng. Đảm bảo partial results đã streamed vẫn được persist (giống pattern AI SDK abort).
-- Nếu user chọn >4 long-form → hiện inline warning "Có thể mất 60-90s do khối lượng lớn" ngay khi submit (không block).
-
-**File động chạm:**
-- `src/components/multichannel/AIGenerationProgress.tsx`
-- `src/hooks/useStreamingGeneration.ts` (expose `abort()` function)
-- Component bước submit (chỗ chọn channel) — thêm warning text khi long-form >4
-
----
-
-## Technical notes
-
-- **Realtime channel naming:** dùng `gen-task-${taskId}` để mỗi task có channel riêng, unsubscribe khi unmount.
-- **Polling guard:** chỉ poll khi `Date.now() - lastChunkAt > 30_000` để tránh thừa request khi stream khỏe.
-- **Cancel semantics:** `status='cancelled'` ≠ `failed`. UI hiện badge "Đã hủy" màu trung tính, không đỏ.
-- **Migration cần xác nhận:** `generation_tasks` đã có cột `current_step`, `progress`, `result_id`, `error_message` chưa? Nếu thiếu `last_heartbeat_at` hoặc enum `cancelled` cho `status` thì cần migration additive.
-
-## Ngoài phạm vi (để sprint sau)
-- Hard-limit theo tier (P4) — cần align với pricing.
-- Cron `recover-stale-multichannel-tasks` (P6) — chỉ cần sau khi P1+P2 chạy ổn.
-- Observability dashboard (P5) — tách riêng, không block sprint này.
-
-## Acceptance
-- Tắt mạng giữa chừng rồi bật lại trong 30s: UI vẫn hiển thị đúng kết quả khi backend xong (qua Realtime/polling).
-- 1 kênh AI fail (vd quota 402): các kênh còn lại vẫn hoàn tất, banner hiện đỏ riêng kênh fail.
-- Bấm Hủy giữa prep phase: stream đóng <1s, task `cancelled`, partial channel (nếu có) vẫn lưu.
-- Chọn 6 long-form: thấy stepper prep chạy mượt, không bao giờ stuck ở "init" >18s.
+Không động vào schema DB, không động vào `_shared/ai-provider.ts` (giữ nguyên fallback chain).
