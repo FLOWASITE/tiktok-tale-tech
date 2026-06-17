@@ -1092,7 +1092,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           );
         }
       }
-    } else if (isGeminiGenModel(primaryModel)) {
+    } else if (!cbOpenForPrimary && isGeminiGenModel(primaryModel)) {
       providerDebug.provider = 'geminigen';
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
@@ -1111,10 +1111,12 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           maxAttempts: geminiGenMaxAttempts,
         }, GEMINIGEN_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (geminiGenErr) {
         const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
         const isTimeout = errMsg.toLowerCase().includes('timeout');
+        if (!isProviderCreditOrAuthError(errMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
         providerDebug.providerTimeout = isTimeout;
         providerDebug.fallbackTried = true;
         providerDebug.errorCode = 'PROVIDER_ERROR';
