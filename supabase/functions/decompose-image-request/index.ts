@@ -440,12 +440,12 @@ Secondary color: ${secondaryColor}`;
 
     let parsed: any;
     try {
-      parsed = JSON.parse(toolCall.function.arguments);
+      parsed = JSON.parse(rawArguments);
     } catch (parseErr) {
       // Attempt to salvage truncated JSON from LLM output
-      console.warn('[decompose-image-request] JSON parse failed, attempting recovery. Raw length:', toolCall.function.arguments.length);
+      console.warn('[decompose-image-request] JSON parse failed, attempting recovery. Raw length:', rawArguments.length);
       try {
-        let raw = toolCall.function.arguments;
+        let raw = rawArguments;
         // Strip markdown fences if present
         raw = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
         // Remove control characters
