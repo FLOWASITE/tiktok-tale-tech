@@ -1070,7 +1070,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         // PoYo failed — try alternate PoYo model
         const altModel = primaryModel.includes('nano-banana-2') ? 'poyo/nano-banana-pro' : 'poyo/nano-banana-2-new';
         if (altModel !== primaryModel && POYO_API_KEY) {
-          console.log(`[generate-brand-image] PoYo failed, trying alternate PoYo model: ${altModel}...`);
+          console.log(`[generate-brand-image] PoYo failed, waiting 1.5s before alternate model: ${altModel}...`);
+          await new Promise((r) => setTimeout(r, 1500)); // F3: backoff before alt-model retry
           try {
             imageUrlFromPoyo = await generateImageViaPoyo({
               prompt: enhancedPrompt,
@@ -1078,6 +1079,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
               aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
             }, POYO_API_KEY);
             modelUsed = `${altModel} (fallback from ${primaryModel})`;
+            cbRecordSuccess(altModel).catch(() => {});
           } catch (altErr) {
             console.error(`[generate-brand-image] Alternate PoYo also failed:`, altErr instanceof Error ? altErr.message : altErr);
             return new Response(
