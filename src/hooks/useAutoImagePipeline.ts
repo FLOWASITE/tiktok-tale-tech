@@ -77,17 +77,25 @@ function toChannelKey(ch: Channel): ChannelKey {
   return ch as ChannelKey;
 }
 
-// Extract first meaningful sentence for image context
+// Extract a richer content summary: opening hook + middle context + closing CTA
 function extractContentSummary(channelContent: string): string {
   if (!channelContent) return '';
-  // Remove markdown formatting
   const cleaned = channelContent
     .replace(/#{1,6}\s?/g, '')
     .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  // Get first 2-3 sentences
-  const sentences = cleaned.split(/[.!?]\s+/).filter(s => s.trim().length > 10);
-  return sentences.slice(0, 3).join('. ').substring(0, 500);
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`[^`]+`/g, '')
+    .trim();
+
+  const sentences = cleaned.split(/[.!?]\s+/).map(s => s.trim()).filter(s => s.length > 10);
+  if (sentences.length === 0) return cleaned.substring(0, 600);
+  if (sentences.length <= 4) return sentences.join('. ').substring(0, 700);
+
+  // Take opening (2), middle (1), closing (1) — captures full narrative for long-form
+  const opening = sentences.slice(0, 2);
+  const middle = sentences[Math.floor(sentences.length / 2)];
+  const closing = sentences[sentences.length - 1];
+  return [...opening, middle, closing].join('. ').substring(0, 800);
 }
 
 export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
