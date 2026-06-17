@@ -6,6 +6,20 @@ export const IMAGE_OVERLAY_TEXT_LIMITS = {
   minChars: 4,
 } as const;
 
+// Visual-heavy channels prefer ultra-short overlay copy (image > text).
+const CHANNEL_OVERLAY_LIMITS: Partial<Record<Channel, { maxChars: number; maxWords: number }>> = {
+  instagram: { maxChars: 45, maxWords: 8 },
+  tiktok: { maxChars: 38, maxWords: 7 },
+  pinterest: { maxChars: 55, maxWords: 10 },
+};
+
+function getLimitsForChannel(channel?: Channel) {
+  return (channel && CHANNEL_OVERLAY_LIMITS[channel]) || {
+    maxChars: IMAGE_OVERLAY_TEXT_LIMITS.maxChars,
+    maxWords: IMAGE_OVERLAY_TEXT_LIMITS.maxWords,
+  };
+}
+
 export type OverlayTextSource = 'text_overlay' | 'opening_line' | 'trimmed_summary' | 'suppressed';
 export type OverlayTextDetectedLanguage = 'vi' | 'th' | 'en' | 'unknown';
 
@@ -97,24 +111,26 @@ export function doesOverlayTextMatchBrandLanguage(
   return detectedLanguage === normalizedBrandLanguage;
 }
 
-export function isValidOverlayText(input: string | null | undefined): boolean {
+export function isValidOverlayText(input: string | null | undefined, channel?: Channel): boolean {
   if (!input) return false;
   const text = normalizeOverlayCandidate(input);
+  const limits = getLimitsForChannel(channel);
   if (text.length < IMAGE_OVERLAY_TEXT_LIMITS.minChars) return false;
-  if (text.length > IMAGE_OVERLAY_TEXT_LIMITS.maxChars) return false;
-  if (countWords(text) > IMAGE_OVERLAY_TEXT_LIMITS.maxWords) return false;
+  if (text.length > limits.maxChars) return false;
+  if (countWords(text) > limits.maxWords) return false;
   return true;
 }
 
-function truncateOverlaySummary(input: string): string | null {
+function truncateOverlaySummary(input: string, channel?: Channel): string | null {
   const cleaned = normalizeOverlayCandidate(input);
   if (!cleaned) return null;
+  const limits = getLimitsForChannel(channel);
   const sentence = cleaned.split(/(?<=[.!?])\s+/u)[0] || cleaned;
-  const compact = sentence.slice(0, IMAGE_OVERLAY_TEXT_LIMITS.maxChars + 20).trim();
+  const compact = sentence.slice(0, limits.maxChars + 20).trim();
   const words = compact.split(/\s+/).filter(Boolean);
-  const limitedWords = words.slice(0, IMAGE_OVERLAY_TEXT_LIMITS.maxWords).join(' ');
-  const finalText = limitedWords.slice(0, IMAGE_OVERLAY_TEXT_LIMITS.maxChars).trim();
-  return isValidOverlayText(finalText) ? finalText : null;
+  const limitedWords = words.slice(0, limits.maxWords).join(' ');
+  const finalText = limitedWords.slice(0, limits.maxChars).trim();
+  return isValidOverlayText(finalText, channel) ? finalText : null;
 }
 
 export function resolveOverlayText(input: ResolveOverlayTextInput): OverlayTextResult {
