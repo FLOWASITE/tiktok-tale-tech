@@ -282,12 +282,20 @@ Deno.serve(withPerf({ functionName: 'publish-instagram' }, async (req) => {
       throw new Error('Instagram access token or user ID not found');
     }
 
-    // Decrypt access token
+    // Decrypt access token (fallback to raw if already plaintext)
+    const rawToken = accessToken;
     try {
       accessToken = await decryptCredential(accessToken);
     } catch (e) {
-      console.error('Failed to decrypt access token:', e);
-      throw new Error('Failed to decrypt access token');
+      console.warn('[publish-instagram] decryptCredential failed, assuming plaintext token:', (e as Error).message);
+      accessToken = rawToken;
+    }
+    // Meta tokens are ASCII (letters/digits/underscore/dash). If decrypted value
+    // contains anything else, the stored value was likely plaintext that happened
+    // to base64-decode — fall back to the raw stored value.
+    if (!/^[A-Za-z0-9_\-|.]+$/.test(accessToken)) {
+      console.warn('[publish-instagram] decrypted token has invalid charset, falling back to raw stored token');
+      accessToken = rawToken;
     }
 
     // Create publish attempt record
