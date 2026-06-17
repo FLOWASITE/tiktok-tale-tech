@@ -159,16 +159,28 @@ export const buildBrandColors: PromptBuilder = (ctx) => {
       parts.push(`- Brand colors should complement, not overpower the image`);
     }
   } else {
-    // full mode — STRONG dominant color directive
+    // full mode — strength of color directive depends on style preset
+    const style = (brand.imageStyle || '').toLowerCase();
+    const isPhotoreal = /photo|realistic|portrait|lifestyle|documentary|cinematic/.test(style);
     if (brand.brandColors?.primary) {
-      parts.push(`\n## ⚠️ COLOR PALETTE (MANDATORY — HIGHEST PRIORITY):`);
-      parts.push(`- PRIMARY COLOR: ${brand.brandColors.primary} — This MUST be the dominant color in the image (40-60% of visible color area). Use for backgrounds, gradients, large shapes, or tonal washes.`);
-      if (brand.brandColors.secondary && brand.brandColors.secondary.length > 0) {
-        parts.push(`- SECONDARY COLORS: ${brand.brandColors.secondary.join(', ')} — Use as complementary accents (20-30% of color area)`);
+      if (isPhotoreal) {
+        // Photorealistic: brand color as accent only — don't override natural color
+        parts.push(`\n## BRAND COLOR ACCENTS:`);
+        parts.push(`- Primary brand color: ${brand.brandColors.primary} — incorporate naturally via props, clothing, signage, lighting accents (10-25% of color area). Do NOT recolor skin, sky, or natural elements.`);
+        if (brand.brandColors.secondary && brand.brandColors.secondary.length > 0) {
+          parts.push(`- Secondary: ${brand.brandColors.secondary.join(', ')} — small supporting accents.`);
+        }
+        parts.push(`- Preserve realistic lighting and natural tones; brand color should feel intentional, not artificial.`);
+      } else {
+        // Graphic / illustration / editorial: strong palette enforcement
+        parts.push(`\n## ⚠️ COLOR PALETTE (MANDATORY — HIGHEST PRIORITY):`);
+        parts.push(`- PRIMARY COLOR: ${brand.brandColors.primary} — dominant color (35-55% of color area). Use for backgrounds, gradients, large shapes, or tonal washes.`);
+        if (brand.brandColors.secondary && brand.brandColors.secondary.length > 0) {
+          parts.push(`- SECONDARY COLORS: ${brand.brandColors.secondary.join(', ')} — complementary accents (15-25% of color area).`);
+        }
+        parts.push(`- Avoid generic corporate palettes (default royal blue, teal, navy, plain black/gray) unless they belong to the brand palette above.`);
+        parts.push(`- Brand colors must be clearly recognizable; ensure sufficient contrast for overlaid text.`);
       }
-      parts.push(`- FORBIDDEN: Do NOT use generic blue (#3B82F6), teal, dark navy, or corporate black/gray unless they match the brand palette above.`);
-      parts.push(`- The brand colors MUST be clearly recognizable in the final image — not hidden or muted.`);
-      parts.push(`- Ensure sufficient contrast for readability if text is overlaid`);
     }
   }
 
@@ -903,9 +915,15 @@ export const buildCreativeVariation: PromptBuilder = (ctx) => {
   const { promptMode = 'full' } = params;
   if (promptMode === 'raw') return null;
 
-  // Seed from content + timestamp so each call gets a different variation
-  // but same call within retries stays consistent enough
-  const seed = hashString((params.contentSummary || '') + (params.brand?.brandName || '')) + Date.now();
+  // Deterministic seed: content + brand + channel.
+  // Same input → same variation → retries reproduce composition (debuggable),
+  // different channels/content still get distinct layouts.
+  const channelKey = (params as any).channel || '';
+  const seed = hashString(
+    (params.contentSummary || '') +
+    '|' + (params.brand?.brandName || '') +
+    '|' + channelKey
+  );
 
   const composition = pickVariation(COMPOSITION_VARIATIONS, seed);
   const lighting = pickVariation(LIGHTING_VARIATIONS, seed >> 3);
@@ -922,9 +940,9 @@ export const buildCreativeVariation: PromptBuilder = (ctx) => {
   return { id: 'creative_variation', position: 'core', priority: 88, content: parts.join('\n') };
 };
 
-/** Rotate text position when caller didn't pin one — adds layout diversity for with_text mode */
+/** Rotate text position when caller didn't pin one — deterministic per seed string for reproducibility */
 export function rotateTextPosition(seed: string): TextPosition {
-  const h = Math.abs(hashString(seed) + Date.now());
+  const h = Math.abs(hashString(seed));
   return TEXT_POSITION_ROTATION[h % TEXT_POSITION_ROTATION.length];
 }
 

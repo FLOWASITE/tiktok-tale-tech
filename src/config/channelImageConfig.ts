@@ -460,8 +460,8 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
     },
   },
   google_maps: {
-    size: '720x720',
-    aspectRatio: '1:1',
+    size: '1200x900',
+    aspectRatio: '4:3',
     style: 'Local business, welcoming, authentic',
     tips: 'Show storefront, products, or team',
     mood: 'welcoming, authentic, local',
@@ -551,6 +551,6 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   email: '16:9',
   zalo_oa: '16:9',
   telegram: '1:1',
-  google_maps: '1:1',
+  google_maps: '4:3',
   bluesky: '1:1',
 };

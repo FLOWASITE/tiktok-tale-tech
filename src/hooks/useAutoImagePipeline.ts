@@ -77,17 +77,25 @@ function toChannelKey(ch: Channel): ChannelKey {
   return ch as ChannelKey;
 }
 
-// Extract first meaningful sentence for image context
+// Extract a richer content summary: opening hook + middle context + closing CTA
 function extractContentSummary(channelContent: string): string {
   if (!channelContent) return '';
-  // Remove markdown formatting
   const cleaned = channelContent
     .replace(/#{1,6}\s?/g, '')
     .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  // Get first 2-3 sentences
-  const sentences = cleaned.split(/[.!?]\s+/).filter(s => s.trim().length > 10);
-  return sentences.slice(0, 3).join('. ').substring(0, 500);
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`[^`]+`/g, '')
+    .trim();
+
+  const sentences = cleaned.split(/[.!?]\s+/).map(s => s.trim()).filter(s => s.length > 10);
+  if (sentences.length === 0) return cleaned.substring(0, 600);
+  if (sentences.length <= 4) return sentences.join('. ').substring(0, 700);
+
+  // Take opening (2), middle (1), closing (1) — captures full narrative for long-form
+  const opening = sentences.slice(0, 2);
+  const middle = sentences[Math.floor(sentences.length / 2)];
+  const closing = sentences[sentences.length - 1];
+  return [...opening, middle, closing].join('. ').substring(0, 800);
 }
 
 export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
@@ -161,29 +169,34 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
     try {
       const mode = contentMeta.promptMode || 'full';
       let imageStylePreset = 'photorealistic';
+      let imageStylePresetPerChannel: Record<Channel, string> | undefined;
 
-      // Step 1: V3 Suggestion Engine — only for 'full' mode
+      // Step 1: V3 Suggestion Engine — only for 'full' mode. Pick PER-CHANNEL so each channel keeps its identity.
       if (mode === 'full') {
-        const firstChannel = channels[0];
         const industry = (brandIndustry?.[0] || 'general') as Industry;
-        
-        const suggestions = suggestImageStylesV3({
-          contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
-          contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
-          contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
-          channel: toChannelKey(firstChannel),
-          industry,
-          contentSummary: channelTexts[firstChannel] || contentMeta.topic,
+        imageStylePresetPerChannel = {} as Record<Channel, string>;
+        const perChannelLog: Record<string, string> = {};
+
+        channels.forEach(ch => {
+          const suggestions = suggestImageStylesV3({
+            contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
+            contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
+            contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
+            channel: toChannelKey(ch),
+            industry,
+            contentSummary: channelTexts[ch] || contentMeta.topic,
+          });
+          const top = suggestions[0]?.style || 'photorealistic';
+          imageStylePresetPerChannel![ch] = top;
+          perChannelLog[ch] = `${top}(${suggestions[0]?.score || 0})`;
         });
 
-        const topSuggestion = suggestions[0];
-        imageStylePreset = topSuggestion?.style || 'photorealistic';
+        // Global fallback = most-common style across channels (used when per-channel map missing for a key)
+        const counts: Record<string, number> = {};
+        Object.values(imageStylePresetPerChannel).forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+        imageStylePreset = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'photorealistic';
 
-        console.log(`[AutoImagePipeline] ✓ V3 style selected: ${imageStylePreset}`, {
-          score: topSuggestion?.score || 0,
-          top3: suggestions.slice(0, 3).map(s => `${s.style}(${s.score})`),
-          industry,
-        });
+        console.log(`[AutoImagePipeline] ✓ V3 styles per channel:`, perChannelLog, `→ global fallback: ${imageStylePreset}`);
       } else {
         console.log(`[AutoImagePipeline] ⏭ V3 style skipped — mode: ${mode}`);
       }
@@ -255,6 +268,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         promptMode: mode,
         // Only send V3 auto-selected style in 'full' mode; other modes let user/brand decide
         imageStylePreset: mode === 'full' ? (imageStylePreset as any) : undefined,
+        imageStylePresetPerChannel: mode === 'full' ? (imageStylePresetPerChannel as any) : undefined,
         // Strategic context only for 'full' — other modes skip AI intervention
         contentRole: mode === 'full' ? ((contentMeta.contentRole || 'seed') as any) : undefined,
         contentAngle: mode === 'full' ? contentMeta.contentAngle : undefined,
