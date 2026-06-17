@@ -420,11 +420,20 @@ Secondary color: ${secondaryColor}`;
 
     const data = aiResult.data;
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
+    const messageContent = data?.choices?.[0]?.message?.content;
 
-    if (!toolCall?.function?.arguments) {
-      console.error("No tool call in response:", JSON.stringify(data));
-      return new Response(JSON.stringify({ error: "AI did not return structured data" }), {
-        status: 500,
+    // Fallback: some models (e.g. after model swap) return JSON in content instead of tool_calls
+    let rawArguments: string | undefined = toolCall?.function?.arguments;
+    if (!rawArguments && typeof messageContent === 'string' && messageContent.trim().length > 0) {
+      console.warn('[decompose-image-request] No tool_call returned, falling back to message.content parsing. Model:', usedModel);
+      rawArguments = messageContent;
+    }
+
+    if (!rawArguments) {
+      console.error("[decompose-image-request] No tool call or content in response. Model:", usedModel, "data:", JSON.stringify(data).slice(0, 500));
+      // Return 200 with fallback flag so client uses regex fallback gracefully (no 500 toast)
+      return new Response(JSON.stringify({ error: "AI did not return structured data", fallback: true, model: usedModel }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
