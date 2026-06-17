@@ -1054,9 +1054,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
         }, POYO_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (poyoErr) {
         const poyoErrMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
         console.error(`[generate-brand-image] PoYo.ai failed: ${poyoErrMsg}`);
+        if (!isProviderCreditOrAuthError(poyoErrMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
 
         if (poyoErrMsg.includes('POYO_AUTH_ERROR') || poyoErrMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_RATE_LIMIT')) {
           return new Response(
