@@ -1265,8 +1265,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const NR_KEY = Deno.env.get('NINE_ROUTER_API_KEY');
       if (!NR_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'NINE_ROUTER_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'NINE_ROUTER_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       console.log(`[generate-brand-image] Routing to 9Router: ${primaryModel}`);
