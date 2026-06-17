@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch agent model config for strategy stage
-    let strategyModel = "google/gemini-3-flash-preview"; // default
+    let strategyModel = "deepseek-v4-pro"; // safer default (Lovable Gateway gemini-3-flash hay 402)
     let strategyTemperature: number | undefined;
     let strategyFallbackModel: string | undefined;
     try {
