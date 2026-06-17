@@ -1027,8 +1027,16 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
     const geminiGenMaxAttempts = EXTERNAL_PROVIDER_POLL_BUDGET.geminigenAttempts;
 
+    // F1: Circuit breaker — skip external providers if circuit is OPEN, jump straight to Lovable AI
+    const cbOpenForPrimary = await cbIsOpen(primaryModel).catch(() => false);
+    if (cbOpenForPrimary) {
+      console.warn(`[generate-brand-image] Circuit OPEN for ${primaryModel} — bypassing external provider, using Lovable AI fallback`);
+      providerDebug.fallbackTried = true;
+      providerDebug.fallbackProvider = 'lovable-ai (circuit-breaker)';
+    }
+
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
-    if (isPoyoModel(primaryModel)) {
+    if (!cbOpenForPrimary && isPoyoModel(primaryModel)) {
       providerDebug.provider = 'poyo';
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
