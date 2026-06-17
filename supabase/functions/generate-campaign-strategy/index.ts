@@ -523,8 +523,8 @@ Deno.serve(async (req) => {
         primaryError.includes("402") ||
         primaryError.includes("Not enough credits");
 
-      const fallbackModel =
-        strategyFallbackModel || (activeStrategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+      // Only fall back to explicitly-configured model. ai-provider.ts has its own last-resort fallback.
+      const fallbackModel = strategyFallbackModel;
 
       if (isCreditsError && fallbackModel && fallbackModel !== activeStrategyModel) {
         console.warn(`[generate-campaign-strategy] Primary model credits exhausted, retrying with fallback model: ${fallbackModel}`);
