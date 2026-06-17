@@ -151,7 +151,7 @@ export function resolveOverlayText(input: ResolveOverlayTextInput): OverlayTextR
     const normalized = normalizeOverlayCandidate(candidate.value);
     const detectedLanguage = detectOverlayTextLanguage(normalized);
     const languageMatch = doesOverlayTextMatchBrandLanguage(normalized, brandLanguage);
-    if (isValidOverlayText(normalized)) {
+    if (isValidOverlayText(normalized, input.channel)) {
       if (brandLanguage && !languageMatch) {
         sawLanguageMismatch = true;
         continue;
@@ -168,12 +168,13 @@ export function resolveOverlayText(input: ResolveOverlayTextInput): OverlayTextR
       };
     }
 
-    if (normalized.length > IMAGE_OVERLAY_TEXT_LIMITS.maxChars || countWords(normalized) > IMAGE_OVERLAY_TEXT_LIMITS.maxWords) {
+    const limits = getLimitsForChannel(input.channel);
+    if (normalized.length > limits.maxChars || countWords(normalized) > limits.maxWords) {
       sawTooLong = true;
     }
   }
 
-  const trimmedSummary = truncateOverlaySummary(input.channelContent || '');
+  const trimmedSummary = truncateOverlaySummary(input.channelContent || '', input.channel);
   if (trimmedSummary) {
     const detectedLanguage = detectOverlayTextLanguage(trimmedSummary);
     const languageMatch = doesOverlayTextMatchBrandLanguage(trimmedSummary, brandLanguage);
