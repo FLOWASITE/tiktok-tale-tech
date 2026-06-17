@@ -169,29 +169,34 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
     try {
       const mode = contentMeta.promptMode || 'full';
       let imageStylePreset = 'photorealistic';
+      let imageStylePresetPerChannel: Record<Channel, string> | undefined;
 
-      // Step 1: V3 Suggestion Engine — only for 'full' mode
+      // Step 1: V3 Suggestion Engine — only for 'full' mode. Pick PER-CHANNEL so each channel keeps its identity.
       if (mode === 'full') {
-        const firstChannel = channels[0];
         const industry = (brandIndustry?.[0] || 'general') as Industry;
-        
-        const suggestions = suggestImageStylesV3({
-          contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
-          contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
-          contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
-          channel: toChannelKey(firstChannel),
-          industry,
-          contentSummary: channelTexts[firstChannel] || contentMeta.topic,
+        imageStylePresetPerChannel = {} as Record<Channel, string>;
+        const perChannelLog: Record<string, string> = {};
+
+        channels.forEach(ch => {
+          const suggestions = suggestImageStylesV3({
+            contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
+            contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
+            contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
+            channel: toChannelKey(ch),
+            industry,
+            contentSummary: channelTexts[ch] || contentMeta.topic,
+          });
+          const top = suggestions[0]?.style || 'photorealistic';
+          imageStylePresetPerChannel![ch] = top;
+          perChannelLog[ch] = `${top}(${suggestions[0]?.score || 0})`;
         });
 
-        const topSuggestion = suggestions[0];
-        imageStylePreset = topSuggestion?.style || 'photorealistic';
+        // Global fallback = most-common style across channels (used when per-channel map missing for a key)
+        const counts: Record<string, number> = {};
+        Object.values(imageStylePresetPerChannel).forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+        imageStylePreset = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'photorealistic';
 
-        console.log(`[AutoImagePipeline] ✓ V3 style selected: ${imageStylePreset}`, {
-          score: topSuggestion?.score || 0,
-          top3: suggestions.slice(0, 3).map(s => `${s.style}(${s.score})`),
-          industry,
-        });
+        console.log(`[AutoImagePipeline] ✓ V3 styles per channel:`, perChannelLog, `→ global fallback: ${imageStylePreset}`);
       } else {
         console.log(`[AutoImagePipeline] ⏭ V3 style skipped — mode: ${mode}`);
       }
