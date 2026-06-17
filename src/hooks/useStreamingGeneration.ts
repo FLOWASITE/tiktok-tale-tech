@@ -261,17 +261,22 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
       }
 
+      const orgId = formData.organization_id || formData.organizationId || null;
+      if (!orgId) {
+        throw new Error('Chưa chọn Workspace. Vui lòng chọn Workspace trước khi tạo nội dung.');
+      }
+
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: task, error: taskError } = await (supabase as any)
           .from('generation_tasks')
           .insert({
             user_id: session.user.id,
-            organization_id: formData.organization_id || null,
+            organization_id: orgId,
             task_type: 'multichannel',
             status: 'pending',
             progress: 0,
-            input_params: formData,
+            input_params: { ...formData, organization_id: orgId, organizationId: orgId },
           })
           .select()
           .single();
@@ -281,7 +286,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
           setCurrentTaskId(taskId);
           // Wire up Realtime + polling fallback right after task is created
           subscribeToTaskRealtime(taskId, {
-            organizationId: formData.organization_id,
+            organizationId: orgId,
             topic: formData.topic,
           });
           startPollingFallback(taskId);
@@ -298,7 +303,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ ...formData, stream: true, taskId }),
+          body: JSON.stringify({ ...formData, organization_id: orgId, organizationId: orgId, stream: true, taskId }),
           signal: abortControllerRef.current.signal,
         }
       );

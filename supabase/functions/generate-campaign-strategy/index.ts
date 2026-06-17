@@ -259,16 +259,22 @@ Deno.serve(async (req) => {
     let strategyTemperature: number | undefined;
     let strategyFallbackModel: string | undefined;
     try {
-      const { data: agentConfig } = await supabase
+      // Try org-specific config first, then fall back to global (organization_id IS NULL)
+      const { data: agentConfigs } = await supabase
         .from("ai_agent_model_configs")
-        .select("model_override, temperature, fallback_model, is_enabled")
-        .eq("organization_id", organization_id)
+        .select("model_override, temperature, fallback_model, is_enabled, organization_id")
         .eq("agent_name", "strategy")
         .eq("is_enabled", true)
-        .maybeSingle();
+        .or(`organization_id.eq.${organization_id},organization_id.is.null`);
+      // Prefer org-specific row over global
+      const agentConfig = (agentConfigs || []).sort((a: any, b: any) => {
+        if (a.organization_id && !b.organization_id) return -1;
+        if (!a.organization_id && b.organization_id) return 1;
+        return 0;
+      })[0];
       if (agentConfig?.model_override) {
         strategyModel = agentConfig.model_override;
-        console.log(`[generate-campaign-strategy] Using agent config model: ${strategyModel}`);
+        console.log(`[generate-campaign-strategy] Using agent config model: ${strategyModel} (org=${agentConfig.organization_id ?? 'GLOBAL'})`);
       }
       if (agentConfig?.temperature) {
         strategyTemperature = agentConfig.temperature;
@@ -413,8 +419,9 @@ Deno.serve(async (req) => {
     let activeStrategyModel = strategyModel;
     try {
       const strategyProvider = getProviderFromModel(strategyModel);
-      const fallbackCandidate =
-        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+      // Only use qwen-plus as automatic fallback if explicitly configured.
+      // DashScope key currently 400s — avoid blind fallback to it.
+      const fallbackCandidate = strategyFallbackModel;
       if (
         (strategyProvider === "lovable" || strategyProvider === "openrouter") &&
         fallbackCandidate &&
@@ -516,8 +523,8 @@ Deno.serve(async (req) => {
         primaryError.includes("402") ||
         primaryError.includes("Not enough credits");
 
-      const fallbackModel =
-        strategyFallbackModel || (activeStrategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+      // Only fall back to explicitly-configured model. ai-provider.ts has its own last-resort fallback.
+      const fallbackModel = strategyFallbackModel;
 
       if (isCreditsError && fallbackModel && fallbackModel !== activeStrategyModel) {
         console.warn(`[generate-campaign-strategy] Primary model credits exhausted, retrying with fallback model: ${fallbackModel}`);
