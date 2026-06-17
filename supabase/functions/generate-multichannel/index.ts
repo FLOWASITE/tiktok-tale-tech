@@ -5390,8 +5390,9 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           channelMaxLength: chSettings.max_length,
           lengthUnit: chSettings.length_unit === 'chars' ? 'chars' : 'words',
         });
-        const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
-        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${chSettings.max_length} ${chSettings.length_unit})`);
+        const baseMaxTokens = channelConfig?.maxTokens ?? dynamicTokens;
+        const maxTokens = clampMaxTokensForModel(model, applyLongformTokenFloor(channel, baseMaxTokens));
+        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, floor-applied=${maxTokens !== baseMaxTokens}, max_length=${chSettings.max_length} ${chSettings.length_unit})`);
         channelModelMap.set(channel, { model, temperature, maxTokens });
       }
       
