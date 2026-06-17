@@ -292,6 +292,17 @@ const DEFAULT_IMAGE_MODELS = {
   fallback: "google/gemini-2.5-flash-image",
 } as const;
 
+// F5: Lovable AI fallback model — overridable via env so admin can swap without code change.
+// Used when an external provider (PoYo / GeminiGen / 9Router) fails and we fall back to Lovable Gateway.
+function getLovableFallbackModels(): { primary: string; fallback: string } {
+  const envPrimary = Deno.env.get('IMAGE_LOVABLE_FALLBACK_MODEL')?.trim();
+  const envFallback = Deno.env.get('IMAGE_LOVABLE_FALLBACK_MODEL_SECONDARY')?.trim();
+  return {
+    primary: envPrimary || DEFAULT_IMAGE_MODELS.primary,
+    fallback: envFallback || DEFAULT_IMAGE_MODELS.fallback,
+  };
+}
+
 // Lovable Cloud returns 504 IDLE_TIMEOUT if a function does not respond within
 // 150s. Keep provider polling well below that and use fast fallback paths.
 const EXTERNAL_PROVIDER_POLL_BUDGET = {
