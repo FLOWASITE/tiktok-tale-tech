@@ -197,37 +197,119 @@ export const buildStylePreset: PromptBuilder = (ctx) => {
 // ============================================
 // 6. Text Layout (core) — text-in-image + structured layout
 // ============================================
-// Channel-specific text layouts — replaces generic 3-part layout for supported channels
-const CHANNEL_TEXT_LAYOUTS: Partial<Record<Channel, string>> = {
-  tiktok: `Vertical storytelling layout:
+// Channel-specific text layouts — comprehensive coverage for all supported channels.
+// Use string keys to accept channels not yet in the shared Channel type (pinterest, bluesky, medium, etc.)
+const CHANNEL_TEXT_LAYOUTS: Record<string, string> = {
+  tiktok: `Vertical storytelling layout (9:16):
 - Bold text top 20% — large, attention-grabbing headline
 - Face/product center 60% — main visual focus
 - Subtle CTA bottom 20% — but leave space clear for platform captions
 - IMPORTANT: Leave bottom 15-20% relatively clear for TikTok's built-in caption overlay zone`,
 
-  instagram: `Visual-first layout:
-- Minimal text overlay — 2-3 words maximum
+  instagram: `Visual-first layout (4:5):
+- Concise text overlay — keep under 8 words / 25 chars when possible
 - Image is the star, text is an accent element
 - Clean, uncluttered composition — let the visual tell the story
-- If text is included, use bold typography with high contrast`,
+- Bold typography with high contrast; avoid corner placement (gets cropped on Reels)`,
 
-  youtube: `Thumbnail-optimized layout:
+  youtube: `Thumbnail-optimized layout (16:9):
 - Expressive face or key visual on left 40%
 - Bold 3-5 word text on right 60% — maximum readability at small sizes
 - HIGH CONTRAST is critical — thumbnails are viewed at very small sizes
 - Use dramatic, attention-grabbing composition`,
 
-  linkedin: `Professional layout:
+  linkedin: `Professional layout (16:9):
 - Insight-driven headline at top — thought leadership style
 - Clean, professional visual center — business context
 - Subtle branding bottom — understated and credible
 - Maintain corporate professionalism throughout`,
 
-  email: `Hero banner layout:
+  email: `Hero banner layout (16:9):
 - Single centered message — clear and direct
 - Clean background with focused subject
 - CTA-friendly composition — leave space for button below
 - Optimized for email client rendering — simple, high-impact`,
+
+  facebook: `Feed-optimized layout (16:9):
+- Strong hook text top 25% — must work as standalone preview
+- Main visual center — clear focal subject, face/product/scene
+- Optional CTA or brand mark bottom 15%
+- Avoid tiny text — feed thumbnail size requires bold legible type`,
+
+  threads: `Conversation-card layout (1:1):
+- Single bold statement or quote — text dominates 40-60% of frame
+- Minimal background imagery — clean, blog-card feel
+- High contrast typography, generous margins (12% all sides)
+- Avoid busy patterns; Threads is text-first`,
+
+  twitter: `Timeline-card layout (16:9):
+- Top-left or center headline — readable in compressed timeline preview
+- Single clear focal subject — no clutter
+- Avoid right-edge text (gets cropped on some clients)
+- High contrast, bold sans-serif`,
+
+  pinterest: `Vertical pin layout (2:3):
+- Strong text-on-image headline top 30% — Pinterest is search-driven, text drives clicks
+- Lifestyle/product visual middle 50%
+- Brand mark or URL hint bottom 20%
+- Vertical composition optimized for mobile pin grid`,
+
+  bluesky: `Open-graph card layout (16:9):
+- Editorial headline left or top — works as link preview
+- Clean photographic or illustrative subject
+- Generous whitespace; understated branding
+- Avoid heavy decorative elements — feels like a magazine card`,
+
+  zalo_oa: `OA broadcast banner (16:9):
+- Bold Vietnamese headline top 25% — must be legible on mobile
+- Clear product/service visual center
+- Contact/CTA bottom — phone, hotline, or short call-to-action
+- High contrast, trustworthy tone (Zalo skews business/utility)`,
+
+  telegram: `Channel post (1:1):
+- Single focal subject with short headline overlay
+- Clean composition — Telegram previews are small, avoid clutter
+- High contrast text; minimal decorative elements`,
+
+  google_maps: `GBP post banner (16:9):
+- Location-aware visual — storefront, product, or service scene
+- Short promotional headline top 25%
+- Hours/promo/CTA bottom — clear and trustworthy
+- Avoid heavily edited stock-photo look — Google favors authentic imagery`,
+
+  // Long-form / blog channels — editorial hero
+  website: `Editorial hero layout (16:9):
+- Magazine-style hero image — works with text overlay added by CMS
+- Clear focal subject, strong composition
+- Lower 25% kept visually calm for caption/CTA overlay
+- No heavy text baked-in — text is added by the article layout`,
+
+  blogger: `Editorial hero layout (16:9):
+- Blog header hero — clean photographic or illustrative subject
+- Centered or rule-of-thirds composition
+- Lower third visually calm for title overlay rendered by Blogger theme`,
+
+  wordpress: `Editorial hero layout (16:9):
+- Featured image hero — premium publication feel
+- Strong focal subject, balanced composition
+- Calm lower 25% so WordPress theme can overlay post title cleanly`,
+
+  shopify: `Product hero layout (16:9):
+- Product or lifestyle scene as focal element
+- Clean background, premium retail feel
+- Calm composition so storefront UI/title overlays work
+- Brand-aligned colors, no aggressive sale badges baked-in`,
+
+  wix: `Editorial hero layout (16:9):
+- Polished marketing hero — works with Wix section overlays
+- Strong focal subject, clean composition
+- Calm lower zone for headline/CTA overlay rendered by Wix`,
+
+  medium: `Editorial hero layout (16:9):
+- Minimal, Medium-style cover image
+- Single clear subject, generous negative space
+- No baked-in text — Medium renders article title separately
+- Calm, editorial color palette`,
 };
 
 export const buildTextLayout: PromptBuilder = (ctx) => {
@@ -242,12 +324,12 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
   // Structured layout (full mode only)
   if (params.promptMode === 'full' || !params.promptMode) {
     // Check for channel-specific layout first
-    const channelLayout = CHANNEL_TEXT_LAYOUTS[params.channel];
+    const channelLayout = CHANNEL_TEXT_LAYOUTS[params.channel as string];
     if (channelLayout) {
-      parts.push(`\n## CHANNEL-OPTIMIZED TEXT LAYOUT (${params.channel.toUpperCase()}):\n${channelLayout}`);
+      parts.push(`\n## CHANNEL-OPTIMIZED TEXT LAYOUT (${(params.channel as string).toUpperCase()}):\n${channelLayout}`);
     } else {
       // Fallback to generic structured 3-part layout for channels without specific layout
-      parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors));
+      parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors, params.countryCode));
     }
   }
 
