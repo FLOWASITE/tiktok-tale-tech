@@ -419,8 +419,9 @@ Deno.serve(async (req) => {
     let activeStrategyModel = strategyModel;
     try {
       const strategyProvider = getProviderFromModel(strategyModel);
-      const fallbackCandidate =
-        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+      // Only use qwen-plus as automatic fallback if explicitly configured.
+      // DashScope key currently 400s — avoid blind fallback to it.
+      const fallbackCandidate = strategyFallbackModel;
       if (
         (strategyProvider === "lovable" || strategyProvider === "openrouter") &&
         fallbackCandidate &&
