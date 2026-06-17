@@ -268,6 +268,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         promptMode: mode,
         // Only send V3 auto-selected style in 'full' mode; other modes let user/brand decide
         imageStylePreset: mode === 'full' ? (imageStylePreset as any) : undefined,
+        imageStylePresetPerChannel: mode === 'full' ? (imageStylePresetPerChannel as any) : undefined,
         // Strategic context only for 'full' — other modes skip AI intervention
         contentRole: mode === 'full' ? ((contentMeta.contentRole || 'seed') as any) : undefined,
         contentAngle: mode === 'full' ? contentMeta.contentAngle : undefined,
