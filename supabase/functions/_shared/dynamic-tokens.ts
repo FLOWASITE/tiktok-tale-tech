@@ -38,6 +38,21 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     maxTokens: 9000,
     bufferMultiplier: 1.3, // 1200-2200 từ in-depth + headings/FAQ
   },
+  medium: {
+    minTokens: 6500,
+    maxTokens: 9000,
+    bufferMultiplier: 1.3, // 1000-1800 từ Markdown story
+  },
+  shopify: {
+    minTokens: 5000,
+    maxTokens: 7500,
+    bufferMultiplier: 1.3, // 800-1500 từ HTML blog
+  },
+  wix: {
+    minTokens: 5000,
+    maxTokens: 7500,
+    bufferMultiplier: 1.3, // 800-1500 từ HTML blog
+  },
   
   // Medium-form content
   linkedin: {
