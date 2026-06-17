@@ -1041,8 +1041,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
-          JSON.stringify({ success: false, error: 'POYO_API_KEY not configured. Please add it in project secrets.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'POYO_API_KEY not configured. Please add it in project secrets.', errorCode: 'PROVIDER_CONFIG_MISSING' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
