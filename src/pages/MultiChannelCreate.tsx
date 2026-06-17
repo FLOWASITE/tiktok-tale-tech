@@ -216,17 +216,28 @@ export default function MultiChannelCreate() {
   // Handle generate
   const handleGenerate = async (data: MultiChannelFormData) => {
     if (isGenerating) return;
-    
+
+    if (!currentOrganization?.id) {
+      toast({
+        title: 'Chưa chọn Workspace',
+        description: 'Vui lòng chọn Workspace ở góc trên trước khi tạo nội dung đa kênh.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setGenerationState('generating');
     setGenerationElapsedMs(0);
     generationStartRef.current = Date.now();
-    
+
     const fullData = {
       ...data,
+      organization_id: currentOrganization.id,
+      organizationId: currentOrganization.id,
       brandTemplateId: selectedBrandId,
       brandVoiceVariantId: selectedVoiceVariantId,
     };
-    
+
     const result = await streamGenerate(fullData);
     
     if (result) {
