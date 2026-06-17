@@ -1194,7 +1194,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           }
         }
       }
-    } else if (isKieModel(primaryModel)) {
+    } else if (!cbOpenForPrimary && isKieModel(primaryModel)) {
       providerDebug.provider = 'kie';
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
@@ -1213,9 +1213,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           outputFormat: 'jpeg',
         }, KIE_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (kieErr) {
         const kieErrMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
         console.error(`[generate-brand-image] KIE.ai failed: ${kieErrMsg}`);
+        if (!isProviderCreditOrAuthError(kieErrMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
 
         if (kieErrMsg.includes('KIE_AUTH_ERROR') || kieErrMsg.includes('KIE_CREDITS_EXHAUSTED') || kieErrMsg.includes('KIE_RATE_LIMIT')) {
           return new Response(
