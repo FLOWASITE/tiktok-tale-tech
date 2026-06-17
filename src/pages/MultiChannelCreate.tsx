@@ -218,10 +218,8 @@ export default function MultiChannelCreate() {
     if (isGenerating) return;
 
     if (!currentOrganization?.id) {
-      toast({
-        title: 'Chưa chọn Workspace',
+      toast.error('Chưa chọn Workspace', {
         description: 'Vui lòng chọn Workspace ở góc trên trước khi tạo nội dung đa kênh.',
-        variant: 'destructive',
       });
       return;
     }
