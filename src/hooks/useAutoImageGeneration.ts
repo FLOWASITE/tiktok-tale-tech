@@ -294,6 +294,9 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
+        // Per-channel style override → fallback global → undefined
+        const imageStylePreset = imageStylePresetPerChannel?.[channel] ?? imageStylePresetGlobal;
+
         // Determine rendering mode — default to ai_render (AI renders text directly)
         const overlayMode = options.overlayMode || 'ai_render';
         const isAiRenderMode = overlayMode === 'ai_render';
@@ -316,12 +319,18 @@ export function useAutoImageGeneration() {
           hasStructuredTemplate: !!options.structuredTemplate,
         });
 
-        // OPTIMIZATION: Early timeout warning — notify user if AI is slow
+        // OPTIMIZATION: Early timeout warning — only show once per pipeline (not per channel) to avoid spam
+        const showSlowToast = !(window as any).__autoImageSlowToastShown;
         const slowWarningTimer = setTimeout(() => {
-          toast.info(`${channel}: AI đang xử lý lâu hơn bình thường...`, {
-            description: 'Vui lòng đợi thêm, không cần tải lại trang',
-            duration: 15000,
-          });
+          if (showSlowToast) {
+            (window as any).__autoImageSlowToastShown = true;
+            toast.info(`AI đang xử lý lâu hơn bình thường...`, {
+              description: 'Vui lòng đợi thêm, không cần tải lại trang',
+              duration: 15000,
+            });
+            // Reset flag after 2 minutes so future batches can warn again
+            setTimeout(() => { (window as any).__autoImageSlowToastShown = false; }, 120_000);
+          }
         }, 60_000);
 
         const taskId = await createImageGenerationTask({
