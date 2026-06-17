@@ -278,7 +278,7 @@ export function useAutoImageGeneration() {
     const overlayTextLength = rawChannelText?.trim().length || 0;
     const detectedLanguage = detectOverlayTextLanguage(rawChannelText);
     const languageMatch = !!rawChannelText && doesOverlayTextMatchBrandLanguage(rawChannelText, brandLanguage);
-    const textSuppressedBecauseTooLong = !!rawChannelText && !isValidOverlayText(rawChannelText);
+    const textSuppressedBecauseTooLong = !!rawChannelText && !isValidOverlayText(rawChannelText, channel);
     const textSuppressedBecauseLanguageMismatch = !!rawChannelText && !languageMatch;
     const channelText = textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? undefined : rawChannelText;
     let lastDebugSteps: RenderDebugStep[] = [];
