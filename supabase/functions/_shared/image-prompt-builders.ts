@@ -454,6 +454,7 @@ ${safeZone.note}
 function buildStructuredLayoutContent(
   footerInfo?: { company_name?: string; phone?: string; email?: string; website?: string; address?: string },
   brandColors?: { primary: string; secondary?: string[] },
+  countryCode?: string,
 ): string {
   const contactLines: string[] = [];
   if (footerInfo?.address) contactLines.push(`📍 ${footerInfo.address}`);
@@ -462,54 +463,27 @@ function buildStructuredLayoutContent(
   if (footerInfo?.website) contactLines.push(`🌐 ${footerInfo.website}`);
 
   const hasContactInfo = contactLines.length > 0;
+  const lang = getPromptLang(countryCode);
+  const s = getLayoutStrings(lang);
 
-  let section = `
+  // CTA color: derive from brand secondary; only fall back to yellow when brand has no secondary
+  const ctaColor = brandColors?.secondary?.[0]
+    || (brandColors?.primary ? `${brandColors.primary} (use a complementary high-contrast accent)` : '#FFD700');
+  const primaryColorHint = brandColors?.primary ? ` (${brandColors.primary})` : '';
 
-## BỐ CỤC ẢNH SOCIAL GRAPHIC (BẮT BUỘC):
+  const midZoneSize = hasContactInfo ? '50-60' : '60-70';
+  const renderRules = (rules: string[]) => rules.map(r => `- ${r}`).join('\n');
 
-### VÙNG TRÊN (20% trên cùng):
-- TIÊU ĐỀ: Chữ lớn, đậm (Bold), nổi bật, gây tò mò
-- Font: Sans-serif đậm, PHẢI hỗ trợ tiếng Việt có dấu đầy đủ
-- Màu: Trắng hoặc màu sáng trên nền tối, hoặc màu đậm trên nền sáng
-- Tiêu đề lấy từ nội dung chính hoặc hook message
-
-### VÙNG GIỮA (${hasContactInfo ? '50-60' : '60-70'}%):
-- Hình ảnh chính / visual concept minh họa cho nội dung
-- Để trống không gian thở, không chèn quá nhiều element
-- Visual phải liên quan trực tiếp đến chủ đề bài viết`;
+  let section = `\n\n${s.layoutHeader}\n\n${s.topZone.title}\n${renderRules(s.topZone.rules)}\n\n### ${s.midZone.title.replace(/^### /, '')} (${midZoneSize}%):\n${renderRules(s.midZone.rules)}`;
 
   if (hasContactInfo) {
-    section += `
-
-### VÙNG DƯỚI (20-30% dưới cùng):
-- THÔNG TIN LIÊN HỆ với emojis tương ứng:
-${contactLines.map(l => `  ${l}`).join('\n')}
-- Màu chữ: Trắng hoặc sáng, dễ đọc trên nền tối
-- Font size nhỏ hơn tiêu đề nhưng vẫn rõ ràng
-
-### CTA (Call-to-Action):
-- Đặt ngay dưới hoặc bên cạnh thông tin liên hệ
-- Màu nổi bật: Vàng (#FFD700) hoặc Cam (#FF8C00) — tạo contrast mạnh
-- Dạng button hoặc banner nổi bật
-- Ví dụ: "Liên hệ ngay để được tư vấn miễn phí!" hoặc CTA phù hợp nội dung`;
+    section += `\n\n${s.bottomZoneWithContact.title}\n${contactLines.map(l => `  ${l}`).join('\n')}\n${renderRules(s.bottomZoneWithContact.rules)}`;
+    section += `\n\n${s.ctaSection.title}\n${renderRules(s.ctaSection.rules)}\n- CTA color: ${ctaColor}\n- ${s.ctaSection.example}`;
   } else {
-    section += `
-
-### VÙNG DƯỚI (20% dưới cùng):
-- CTA (Call-to-Action) nổi bật
-- Màu nổi bật: Vàng (#FFD700) hoặc Cam (#FF8C00)
-- Dạng button hoặc banner
-- CTA phù hợp với nội dung bài viết`;
+    section += `\n\n${s.bottomZoneNoContact.title}\n${renderRules(s.bottomZoneNoContact.rules)}\n- CTA color: ${ctaColor}`;
   }
 
-  section += `
-
-### QUY TẮC MÀU SẮC VÀ FONT CHỮ:
-- Tone chủ đạo: Sử dụng brand primary color${brandColors?.primary ? ` (${brandColors.primary})` : ''}
-- CTA: Màu vàng hoặc cam để tạo điểm nhấn mạnh
-- Thông tin liên hệ: Màu trắng hoặc sáng trên nền tối
-- Font chữ: PHẢI hỗ trợ tiếng Việt có dấu (ă, â, đ, ê, ô, ơ, ư)
-- Phân biệt rõ ràng giữa tiêu đề (lớn, đậm), nội dung, và CTA (nổi bật)`;
+  section += `\n\n${s.colorFontRules.title}\n- Primary tone: brand primary${primaryColorHint}\n- CTA color: ${ctaColor}\n${renderRules(s.colorFontRules.rules)}\n- Font: ${s.fontMustSupport}`;
 
   return section;
 }
