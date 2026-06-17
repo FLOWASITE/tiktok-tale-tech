@@ -236,7 +236,7 @@ export function useAutoImageGeneration() {
     const { 
       contentId, brandTemplateId, contentSummaries, brandCountryCode, includeLogo, logoPosition, logoUrl,
       logoStyle = 'shadow', logoSizePercent = 15, logoOpacity = 100,
-      aspectRatio = '16:9', imageStylePreset, negativePrompt,
+      aspectRatio = '16:9', imageStylePreset: imageStylePresetGlobal, imageStylePresetPerChannel, negativePrompt,
       // Strategic context for more relevant images
       contentRole, contentAngle, hookMessages,
       // Social Graphics (text-in-image) params
