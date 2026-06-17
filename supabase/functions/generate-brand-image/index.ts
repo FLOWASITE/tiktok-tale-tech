@@ -1178,7 +1178,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           providerDebug.fallbackProvider = POYO_KEY ? 'poyo→lovable-ai' : 'lovable-ai';
           console.log('[generate-brand-image] PoYo unavailable/failed, falling back to Lovable AI Gateway...');
           try {
-            const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+            const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, getLovableFallbackModels(), 0);
             imageData = result.imageData;
             modelUsed = `${result.model} (fallback from ${primaryModel})`;
             totalAttempts = result.attempts;
@@ -1304,7 +1304,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         providerDebug.fallbackTried = true;
         providerDebug.fallbackProvider = 'lovable-ai';
         try {
-          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, getLovableFallbackModels(), 0);
           imageData = result.imageData;
           modelUsed = `${result.model} (fallback from ${primaryModel})`;
           totalAttempts = result.attempts;
