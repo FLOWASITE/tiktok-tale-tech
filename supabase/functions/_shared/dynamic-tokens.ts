@@ -93,8 +93,8 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     bufferMultiplier: 1.5,
   },
   threads: {
-    minTokens: 100,
-    maxTokens: 300,
+    minTokens: 300,
+    maxTokens: 600,
     bufferMultiplier: 1.4,
   },
   twitter: {
@@ -102,12 +102,22 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     maxTokens: 1200,
     bufferMultiplier: 1.3, // Thread format 5-7 tweets
   },
-  
+  pinterest: {
+    minTokens: 400,
+    maxTokens: 1000,
+    bufferMultiplier: 1.3, // pin title + 500-char description
+  },
+  bluesky: {
+    minTokens: 300,
+    maxTokens: 600,
+    bufferMultiplier: 1.4, // ≤300 graphemes plain text
+  },
+
   // Special channels
   google_maps: {
-    minTokens: 200,
-    maxTokens: 500,
-    bufferMultiplier: 1.2, // Plain text
+    minTokens: 300,
+    maxTokens: 700,
+    bufferMultiplier: 1.3, // Plain text 80-150 từ
   },
   zalo_oa: {
     minTokens: 300,
