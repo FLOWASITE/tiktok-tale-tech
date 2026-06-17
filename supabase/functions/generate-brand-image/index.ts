@@ -4,6 +4,7 @@ import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { generateImageViaNineRouter, isNineRouterImageModel } from "../_shared/ninerouter-image-generator.ts";
+import { isCircuitOpen as cbIsOpen, recordSuccess as cbRecordSuccess, recordFailure as cbRecordFailure } from "../_shared/circuit-breaker.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateImageCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
@@ -1026,8 +1027,16 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
     const geminiGenMaxAttempts = EXTERNAL_PROVIDER_POLL_BUDGET.geminigenAttempts;
 
+    // F1: Circuit breaker — skip external providers if circuit is OPEN, jump straight to Lovable AI
+    const cbOpenForPrimary = await cbIsOpen(primaryModel).catch(() => false);
+    if (cbOpenForPrimary) {
+      console.warn(`[generate-brand-image] Circuit OPEN for ${primaryModel} — bypassing external provider, using Lovable AI fallback`);
+      providerDebug.fallbackTried = true;
+      providerDebug.fallbackProvider = 'lovable-ai (circuit-breaker)';
+    }
+
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
-    if (isPoyoModel(primaryModel)) {
+    if (!cbOpenForPrimary && isPoyoModel(primaryModel)) {
       providerDebug.provider = 'poyo';
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
@@ -1045,9 +1054,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
         }, POYO_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (poyoErr) {
         const poyoErrMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
         console.error(`[generate-brand-image] PoYo.ai failed: ${poyoErrMsg}`);
+        if (!isProviderCreditOrAuthError(poyoErrMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
 
         if (poyoErrMsg.includes('POYO_AUTH_ERROR') || poyoErrMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_RATE_LIMIT')) {
           return new Response(
@@ -1081,7 +1092,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           );
         }
       }
-    } else if (isGeminiGenModel(primaryModel)) {
+    } else if (!cbOpenForPrimary && isGeminiGenModel(primaryModel)) {
       providerDebug.provider = 'geminigen';
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
@@ -1100,10 +1111,12 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           maxAttempts: geminiGenMaxAttempts,
         }, GEMINIGEN_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (geminiGenErr) {
         const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
         const isTimeout = errMsg.toLowerCase().includes('timeout');
+        if (!isProviderCreditOrAuthError(errMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
         providerDebug.providerTimeout = isTimeout;
         providerDebug.fallbackTried = true;
         providerDebug.errorCode = 'PROVIDER_ERROR';
@@ -1181,7 +1194,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           }
         }
       }
-    } else if (isKieModel(primaryModel)) {
+    } else if (!cbOpenForPrimary && isKieModel(primaryModel)) {
       providerDebug.provider = 'kie';
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
@@ -1200,9 +1213,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           outputFormat: 'jpeg',
         }, KIE_API_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (kieErr) {
         const kieErrMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
         console.error(`[generate-brand-image] KIE.ai failed: ${kieErrMsg}`);
+        if (!isProviderCreditOrAuthError(kieErrMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
 
         if (kieErrMsg.includes('KIE_AUTH_ERROR') || kieErrMsg.includes('KIE_CREDITS_EXHAUSTED') || kieErrMsg.includes('KIE_RATE_LIMIT')) {
           return new Response(
@@ -1243,7 +1258,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           );
         }
       }
-    } else if (isNineRouterImageModel(primaryModel)) {
+    } else if (!cbOpenForPrimary && isNineRouterImageModel(primaryModel)) {
       providerDebug.provider = 'ninerouter';
       const NR_KEY = Deno.env.get('NINE_ROUTER_API_KEY');
       if (!NR_KEY) {
@@ -1260,9 +1275,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           aspectRatio: finalAspectRatio,
         }, NR_KEY);
         modelUsed = primaryModel;
+        cbRecordSuccess(primaryModel).catch(() => {});
       } catch (nrErr) {
         const nrMsg = nrErr instanceof Error ? nrErr.message : String(nrErr);
         console.error(`[generate-brand-image] 9Router failed: ${nrMsg}`);
+        if (!isProviderCreditOrAuthError(nrMsg)) cbRecordFailure(primaryModel, undefined, supabase).catch(() => {});
         if (nrMsg.includes('NINEROUTER_AUTH_ERROR') || nrMsg.includes('NINEROUTER_CREDITS_EXHAUSTED') || nrMsg.includes('NINEROUTER_RATE_LIMIT')) {
           return new Response(
             JSON.stringify({ success: false, error: nrMsg, errorCode: 'CREDITS_EXHAUSTED' }),
