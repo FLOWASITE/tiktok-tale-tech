@@ -1269,12 +1269,29 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Fallback to Lovable AI
+        // Fallback to Lovable AI — wrap so any failure surfaces as structured response (not 500)
         console.log('[generate-brand-image] 9Router failed, falling back to Lovable AI Gateway...');
-        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
-        imageData = result.imageData;
-        modelUsed = `${result.model} (fallback from ${primaryModel})`;
-        totalAttempts = result.attempts;
+        providerDebug.fallbackTried = true;
+        providerDebug.fallbackProvider = 'lovable-ai';
+        try {
+          const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, DEFAULT_IMAGE_MODELS, 0);
+          imageData = result.imageData;
+          modelUsed = `${result.model} (fallback from ${primaryModel})`;
+          totalAttempts = result.attempts;
+        } catch (lovableErr) {
+          const lovableMsg = lovableErr instanceof Error ? lovableErr.message : String(lovableErr);
+          console.error('[generate-brand-image] 9Router→Lovable fallback also failed:', lovableMsg);
+          const allCredits = isProviderCreditOrAuthError(nrMsg) && isProviderCreditOrAuthError(lovableMsg);
+          return buildProviderFailureResponse({
+            error: allCredits
+              ? 'Tất cả provider tạo ảnh đều hết credits/quota. Vui lòng nạp thêm credits hoặc đổi model trong Admin.'
+              : `9Router fail (${nrMsg}); Lovable AI fallback fail: ${lovableMsg}`,
+            errorCode: allCredits ? 'CREDITS_EXHAUSTED' : 'ALL_PROVIDERS_DOWN',
+            provider: 'ninerouter',
+            fallbackTried: true,
+            fallbackProvider: 'lovable-ai',
+          });
+        }
       }
     } else {
       // Lovable AI flow (existing)
