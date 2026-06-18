@@ -104,7 +104,7 @@ export default function MultiChannel() {
   useEffect(() => {
     if (prefillData?.prefillTopic || prefillData?.prefillGoal || prefillData?.contentPurpose) {
       navigate('/multichannel/new', { state: prefillData });
-      window.history.replaceState({}, document.title);
+      window.history.replaceState({}, '', window.location.href);
     }
   }, [prefillData, navigate]);
 
