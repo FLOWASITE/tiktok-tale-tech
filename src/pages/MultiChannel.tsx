@@ -120,7 +120,7 @@ export default function MultiChannel() {
           setAutoOpenImageGen(true);
         }
         // Clear state to prevent re-opening on refresh
-        window.history.replaceState({}, document.title);
+        window.history.replaceState({}, '', window.location.href);
       }
     }
   }, [prefillData?.viewContentId, contents, loading]);
