@@ -44,7 +44,8 @@ function isNonRetryableImageError(errorCode?: string, message?: string): boolean
     errorCode === 'RATE_LIMIT' ||
     errorCode === 'ALL_PROVIDERS_DOWN' ||
     errorCode === 'IDLE_TIMEOUT' ||
-    /CREDITS_EXHAUSTED|RATE_LIMIT|ALL_PROVIDERS_DOWN|IDLE_TIMEOUT|idle timeout|504|402|429/i.test(message || '')
+    errorCode === 'PROVIDER_CONFIG_MISSING' ||
+    /CREDITS_EXHAUSTED|RATE_LIMIT|ALL_PROVIDERS_DOWN|IDLE_TIMEOUT|PROVIDER_CONFIG_MISSING|idle timeout|not configured|504|402|429/i.test(message || '')
   );
 }
 

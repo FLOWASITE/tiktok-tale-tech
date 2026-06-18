@@ -1,4 +1,4 @@
-export type EdgeFunctionErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'ALL_PROVIDERS_DOWN' | 'IDLE_TIMEOUT' | 'UNKNOWN';
+export type EdgeFunctionErrorCode = 'CREDITS_EXHAUSTED' | 'RATE_LIMIT' | 'ALL_PROVIDERS_DOWN' | 'IDLE_TIMEOUT' | 'PROVIDER_CONFIG_MISSING' | 'UNKNOWN';
 
 interface EdgeFunctionErrorPayload {
   error?: string;
@@ -46,6 +46,10 @@ export function parseEdgeFunctionError(
       }
       if (body.errorCode === 'IDLE_TIMEOUT' || body.code === 'IDLE_TIMEOUT') {
         code = 'IDLE_TIMEOUT';
+      }
+      if (body.errorCode === 'PROVIDER_CONFIG_MISSING') {
+        code = 'PROVIDER_CONFIG_MISSING';
+        message = 'Provider AI tạo ảnh chưa được cấu hình. Liên hệ admin để thêm API key.';
       }
     } catch {
       // Ignore non-JSON body
