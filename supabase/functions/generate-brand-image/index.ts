@@ -1361,7 +1361,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     let imageUrl: string;
 
     if (imageUrlFromProvider) {
-      // Also covers GeminiGen (reuses imageUrlFromProvider variable)
+      // Covers PoYo, GeminiGen, KIE alt, 9Router
       imageUrl = imageUrlFromProvider;
       console.log(`[generate-brand-image] Using external image URL: ${imageUrl.slice(0, 80)}...`);
     } else if (imageUrlFromKie) {
