@@ -1025,7 +1025,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     // Variables for result
     let imageData: string = '';
     let imageUrlFromKie: string | null = null;
-    let imageUrlFromPoyo: string | null = null;
+    let imageUrlFromProvider: string | null = null;
     let modelUsed: string = primaryModel;
     let totalAttempts: number = 1;
     const providerDebug: ProviderDebugPayload = {};
@@ -1059,7 +1059,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
       console.log(`[generate-brand-image] Routing to PoYo.ai: ${primaryModel}`);
       try {
-        imageUrlFromPoyo = await generateImageViaPoyo({
+        imageUrlFromProvider = await generateImageViaPoyo({
           prompt: enhancedPrompt,
           model: primaryModel,
           aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
@@ -1084,7 +1084,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           console.log(`[generate-brand-image] PoYo failed, waiting 1.5s before alternate model: ${altModel}...`);
           await new Promise((r) => setTimeout(r, 1500)); // F3: backoff before alt-model retry
           try {
-            imageUrlFromPoyo = await generateImageViaPoyo({
+            imageUrlFromProvider = await generateImageViaPoyo({
               prompt: enhancedPrompt,
               model: altModel,
               aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
@@ -1117,7 +1117,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
       console.log(`[generate-brand-image] Routing to GeminiGen.ai: ${primaryModel}`);
       try {
-        imageUrlFromPoyo = await generateImageViaGeminiGen({
+        imageUrlFromProvider = await generateImageViaGeminiGen({
           prompt: enhancedPrompt,
           model: primaryModel,
           aspectRatio: mapAspectRatioToGeminiGen(finalAspectRatio),
@@ -1249,7 +1249,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         }
         console.log('[generate-brand-image] KIE failed, falling back to PoYo (nano-banana-pro)...');
         try {
-          imageUrlFromPoyo = await generateImageViaPoyo({
+          imageUrlFromProvider = await generateImageViaPoyo({
             prompt: enhancedPrompt,
             model: 'poyo/nano-banana-pro',
             aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
@@ -1282,7 +1282,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       }
       console.log(`[generate-brand-image] Routing to 9Router: ${primaryModel}`);
       try {
-        imageUrlFromPoyo = await generateImageViaNineRouter({
+        imageUrlFromProvider = await generateImageViaNineRouter({
           prompt: enhancedPrompt,
           model: primaryModel,
           aspectRatio: finalAspectRatio,
@@ -1360,9 +1360,9 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     // Handle PoYo/KIE URL (already a public URL) vs Lovable AI (base64)
     let imageUrl: string;
 
-    if (imageUrlFromPoyo) {
-      // Also covers GeminiGen (reuses imageUrlFromPoyo variable)
-      imageUrl = imageUrlFromPoyo;
+    if (imageUrlFromProvider) {
+      // Covers PoYo, GeminiGen, KIE alt, 9Router
+      imageUrl = imageUrlFromProvider;
       console.log(`[generate-brand-image] Using external image URL: ${imageUrl.slice(0, 80)}...`);
     } else if (imageUrlFromKie) {
       imageUrl = imageUrlFromKie;
