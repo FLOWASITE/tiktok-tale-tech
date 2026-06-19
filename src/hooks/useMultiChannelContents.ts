@@ -168,7 +168,7 @@ export function useMultiChannelContents() {
     'shopify_post_url','shopify_post_id','wix_post_url','wix_post_id',
     'medium_post_url','medium_post_id','bluesky_post_url','bluesky_post_id',
     'channel_images','channel_statuses','tags','status','priority','deadline',
-    'campaign_id','user_id','organization_id',
+    'user_id','organization_id',
     'industry_template_version','core_content_id','content_role',
     'critique_score','was_refined','refinement_count',
     'target_keyword_ids','cluster_id',
