@@ -154,31 +154,27 @@ export function useMultiChannelContents() {
     }).catch(err => console.warn('[geo] Auto-score failed:', err));
   }, [currentOrganization?.id, queryClient]);
 
-  // Lightweight column set for list view — excludes heavy fields:
-  // content_embedding (vector), critique_details (~1MB total), *_seo_data (~450KB),
-  // hook_evaluations / global_hook / selected_hooks. These are loaded on-demand
+  // Lightweight column set for list view — excludes ALL heavy text fields:
+  // *_content (markdown bodies, ~5-15KB each), content_embedding (vector),
+  // critique_details, *_seo_data, hook_evaluations / global_hook / selected_hooks.
+  // List/Card/Filter views only need metadata. Full row is hydrated on demand
   // via fetchContentDetail when a user opens a single content item.
   const LIST_COLUMNS = [
     'id','title','topic','industry','content_goal','selected_channels',
     'brand_template_id','brand_name','brand_guideline','primary_color',
-    'website_content','blogger_content','wordpress_content','shopify_content',
-    'wix_content','medium_content',
-    'facebook_content','instagram_content','twitter_content','google_maps_content',
-    'linkedin_content','email_content','youtube_content','zalo_oa_content',
-    'telegram_content','tiktok_content','threads_content','pinterest_content',
-    'bluesky_content',
     'pinterest_title','pinterest_pin_type','pinterest_post_id','pinterest_post_url',
     'website_post_url','website_post_id','blogger_post_url','blogger_post_id',
     'wordpress_post_url','wordpress_post_id','flowa_blog_post_url','flowa_blog_post_id',
     'shopify_post_url','shopify_post_id','wix_post_url','wix_post_id',
     'medium_post_url','medium_post_id','bluesky_post_url','bluesky_post_id',
     'channel_images','channel_statuses','tags','status','priority','deadline',
-    'user_id','organization_id',
+    'campaign_id','user_id','organization_id',
     'industry_template_version','core_content_id','content_role',
     'critique_score','was_refined','refinement_count',
     'target_keyword_ids','cluster_id',
     'created_at','updated_at',
   ].join(',');
+
 
   const fetchContents = async () => {
     if (!user || !currentOrganization) {

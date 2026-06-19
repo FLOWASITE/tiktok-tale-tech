@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_mcc_org_created_at ON public.multi_channel_contents (organization_id, created_at DESC);
